@@ -2,8 +2,9 @@ The MGVInference.jl package is licensed under the MIT "Expat" License:
 
 > Copyright (c) 2020:
 >
->    Viktor Ananiev <viktor.ananiev@fys.uio.no>
->    Jakob Knollmüller <jakob@mpa-garching.mpg.de>
+>    Victor Ananyev <vindex10@gmail.com>,
+>    Gordian Edenhofer <gordian.edenhofer@gmail.com>,
+>    Jakob Knollmüller <jakob@mpa-garching.mpg.de>,
 >    Oliver Schulz <oschulz@mpp.mpg.de>
 > 
 > Permission is hereby granted, free of charge, to any person obtaining a copy
