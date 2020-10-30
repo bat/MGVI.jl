@@ -13,34 +13,24 @@ using Distributed
 using LinearAlgebra
 using Random
 using SparseArrays
-using Statistics
-
-using ArgCheck
-using ArraysOfArrays
+using Base.Iterators
 using BlockDiagonals
-using ChainRules
-using ChainRulesCore
-using DiffResults
 using Distributions
-using DistributionsAD
-using FFTW
-using FillArrays
-using FiniteDiff
-using ForwardDiff
-using NLSolversBase
+import ForwardDiff
+using LinearMaps
+using IterativeSolvers
 using Optim
-using Parameters
+using PDMats
 using PositiveFactorizations
-using ProgressMeter
-using Random123
-using SparseDiffTools
-using SparsityDetection
-using Statistics
-using StatsBase
+using SparseArrays
+using StaticArrays
 using ValueShapes
-using Zygote
-using ZygoteRules
+import Zygote
 
+include("shapes.jl")
+include("jacobian_maps.jl")
+include("information.jl")
+include("residual_samplers.jl")
 include("mgvi_impl.jl")
 
 end # module

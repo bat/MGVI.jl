@@ -3,6 +3,7 @@
 import Test
 Test.@testset "Package MGVI" begin
 
-include("test_mvgi.jl")
+include("test_mgvi_impl.jl")
+include("test_information.jl")
 
 end # testset

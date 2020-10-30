@@ -8,7 +8,6 @@ os:
   - windows
 
 julia:
-  - 1.3
   - 1.5
   - nightly
 
@@ -33,8 +32,8 @@ after_success:
   - julia -e 'import Pkg; Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
 
 jobs:
-  #allow_failures:
-  #  - julia: nightly
+  allow_failures:
+    - julia: nightly
   #fast_finish: true
   exclude:
     - os: osx
