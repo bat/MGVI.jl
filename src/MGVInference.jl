@@ -9,38 +9,42 @@ An implementation of the Metric Gaussian Variational Inference algorithm.
 """
 module MGVInference
 
-using Distributed
+# using Distributed
 using LinearAlgebra
 using Random
 using SparseArrays
-using Statistics
+# using Statistics
 
-using ArgCheck
-using ArraysOfArrays
-using BlockDiagonals
-using ChainRules
-using ChainRulesCore
-using DiffResults
+# using ArgCheck
+# using ArraysOfArrays
+# using BlockDiagonals
+# using ChainRules
+# using ChainRulesCore
+# using DiffResults
 using Distributions
-using DistributionsAD
-using FFTW
-using FillArrays
-using FiniteDiff
+# using DistributionsAD
+# using FFTW
+# using FillArrays
+# using FiniteDiff
 using ForwardDiff
-using NLSolversBase
+# using NLSolversBase
 using Optim
-using Parameters
-using PositiveFactorizations
-using ProgressMeter
-using Random123
-using SparseDiffTools
-using SparsityDetection
-using Statistics
-using StatsBase
+# using Parameters
+using PDMats
+# using PositiveFactorizations
+# using ProgressMeter
+# using Random123
+using SparseArrays
+# using SparseDiffTools
+# using SparsityDetection
+# using Statistics
+# using StatsBase
 using ValueShapes
-using Zygote
-using ZygoteRules
+# using Zygote
+# using ZygoteRules
 
+include("shapes.jl")
+include("information.jl")
 include("mgvi.jl")
 
 end # module
