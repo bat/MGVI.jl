@@ -8,6 +8,6 @@
 
 
 ## Documentation
-
+This is an implementation of the [Metric Gaussian Variational Inference](https://arxiv.org/abs/1901.11033) (MGVI) algorithm in julia.
 * [Documentation for stable version](https://bat.github.io/MGVInference.jl/stable)
 * [Documentation for development version](https://bat.github.io/MGVInference.jl/dev)
