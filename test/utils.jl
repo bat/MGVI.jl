@@ -3,14 +3,14 @@
 using Distributions
 using LinearAlgebra
 
-function sample_params(p::Any, nsamples::Int)
-    p_dist = MvNormal(p, I)
+function sample_params(p_size::Int, nsamples::Int)
+    p_dist = MvNormal(zeros(p_size), I)
     params = rand(p_dist, nsamples)
     params
 end
 
-function sample_data(f::Function, p::Any, nsamples::Int)
-    params = sample_params(p, nsamples)
+function sample_data(f::Function, p_size::Int, nsamples::Int)
+    params = sample_params(p_size, nsamples)
     data_samples = []
     for param in eachcol(params)
         model = f(param)
