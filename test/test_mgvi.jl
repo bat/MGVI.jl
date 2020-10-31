@@ -1,5 +1,6 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
+using Random
 using Distributions
 using ValueShapes
 
@@ -22,8 +23,8 @@ end
 
 @testset "test_mgvi_optimize_step" begin
 
-    data = sample_data(full_model, param_size, 1)
-    starting_point = sample_params(param_size, 1)
+    data = rand(full_model(zeros(param_size)), 100)
+    starting_point = randn(param_size)
 
     first_iteration = mgvi_kl_optimize_step(full_model, data, starting_point)
     next_iteration = first_iteration

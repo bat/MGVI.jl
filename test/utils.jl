@@ -9,8 +9,7 @@ function sample_params(p_size::Int, nsamples::Int)
     params
 end
 
-function sample_data(f::Function, p_size::Int, nsamples::Int)
-    params = sample_params(p_size, nsamples)
+function sample_data(f::Function, params::Array, nsamples::Int)
     data_samples = []
     for param in eachcol(params)
         model = f(param)
