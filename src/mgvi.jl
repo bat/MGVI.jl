@@ -8,7 +8,7 @@ function mgvi_kl(f::Function, data, residual_samples::Array, center_p)
     res = 0.
     for residual_sample in eachcol(residual_samples)
         p = center_p + residual_sample
-        res += -sum(map(d -> logpdf(f(p), d), data)) + sum(p .* p)/2
+        res += -logpdf(f(p), data) + dot(p, p)/2
     end
     res/size(residual_samples, 2)
 end
