@@ -1,5 +1,9 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
+function mgvi_kl_errors(f::Function, center_p)
+    inv(model_fisher_information(f, center_p) + I)
+end
+
 function mgvi_kl(f::Function, data, residual_samples::Array, center_p)
     res = 0.
     for residual_sample in eachcol(residual_samples)
@@ -10,7 +14,7 @@ function mgvi_kl(f::Function, data, residual_samples::Array, center_p)
 end
 
 function mgvi_kl_optimize_step(f::Function, data, center_p; num_residuals=15)
-    estimated_covariance = inv(model_fisher_information(f, center_p) + I)
+    estimated_covariance = mgvi_kl_errors(f, center_p)
     estimated_dist = MvNormal(zeros(Float64, size(center_p, 1)), estimated_covariance)
     residual_samples = rand(estimated_dist, num_residuals)
     residual_samples = hcat(residual_samples, -residual_samples)
@@ -20,4 +24,4 @@ function mgvi_kl_optimize_step(f::Function, data, center_p; num_residuals=15)
     updated_p
 end
 
-export mgvi_kl_optimize_step
+export mgvi_kl_optimize_step, mgvi_kl_errors

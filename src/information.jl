@@ -10,8 +10,8 @@ end
 function fisher_information(dist::Normal)
     μval, σval = params(dist)
     res = spzeros(Float64, 2, 2)
-    res[1, 1] = 1/σval
-    res[2, 2] = 1/2 * 1/σval^2
+    res[1, 1] = 1/σval^2
+    res[2, 2] = 1/2 * 1/σval^4
     res
 end
 

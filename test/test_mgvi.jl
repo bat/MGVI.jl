@@ -23,7 +23,8 @@ end
 
 @testset "test_mgvi_optimize_step" begin
 
-    data = rand(full_model(zeros(param_size)), 100)
+    true_params = randn(5)
+    data = rand(full_model(true_params), 10000)
     starting_point = randn(param_size)
 
     first_iteration = mgvi_kl_optimize_step(full_model, data, starting_point)
