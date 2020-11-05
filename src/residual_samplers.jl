@@ -16,9 +16,30 @@ function Distributions._rand!(rng::AbstractRNG, s::FullResidualSampler, x::Abstr
     rand!(rng, dist, x)
 end
 
-function mgvi_residual_sampler(f::Function, center_p::Vector)
-    fisher_map, jac_map = fisher_information_components(f, center_p)
-    FullResidualSampler(fisher_map, jac_map)
+struct ImplicitResidualSampler <: AbstractResidualSampler{Multivariate, Continuous}
+    λ_information_map::LinearMap
+    jac_dλ_dθ_map::LinearMap
 end
 
-export mgvi_residual_sampler
+Base.length(rs::ImplicitResidualSampler) = size(rs.jac_dλ_dθ_map, 2)
+
+function cholesky_sparse_L(lm::LinearMap)
+    convert(SparseMatrixCSC, lm) |> cholesky |> (fac -> fac.L) |> sparse |> LinearMap
+end
+
+function cholesky_sparse_L(bd::LinearMaps.BlockDiagonalMap)
+    mapreduce(cholesky_sparse_L, blockdiag, bd.maps)
+end
+
+function Distributions._rand!(rng::AbstractRNG, s::ImplicitResidualSampler, x::AbstractVector{T}) where T<:Real
+    num_λs = size(s.jac_dλ_dθ_map, 1)
+    num_θs = size(s.jac_dλ_dθ_map, 2)
+    root_Id = cholesky_sparse_L(s.λ_information_map)
+    sample_n = rand(rng, MvNormal(zeros(num_λs), I), 1)
+    sample_eta = rand(rng, MvNormal(zeros(num_θs), I), 1)
+    Δφ = Matrix(adjoint(s.jac_dλ_dθ_map) * sample_n) + sample_eta
+    invcov_estimate = assemble_fisher_information(s.λ_information_map, s.jac_dλ_dθ_map)
+    x[:] = cg(invcov_estimate, Δφ)  # Δξ
+end
+
+export ImplicitResidualSampler, FullResidualSampler

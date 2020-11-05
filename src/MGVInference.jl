@@ -29,6 +29,7 @@ using Distributions
 # using FiniteDiff
 using ForwardDiff
 using LinearMaps
+using IterativeSolvers
 # using NLSolversBase
 using Optim
 # using Parameters

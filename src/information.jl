@@ -54,7 +54,7 @@ end
 
 _dists_flat_params_getter(dist_generator) = par::Vector -> vcat((par |> dist_generator |> unshaped_params |> values)...)
 
-function fisher_information_components(f::Function, p::Vector,
+function fisher_information_components(f::Function, p::Vector;
                                        jacobian_func::Type{JF}=FwdDerJacobianFunc) where JF<:AbstractJacobianFunc
     flat_func = _dists_flat_params_getter(f)
     jac = jacobian_func(flat_func)(p)
