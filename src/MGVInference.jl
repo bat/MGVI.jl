@@ -48,6 +48,7 @@ using Zygote
 include("shapes.jl")
 include("jacobian_maps.jl")
 include("information.jl")
+include("residual_samplers.jl")
 include("mgvi.jl")
 
 end # module

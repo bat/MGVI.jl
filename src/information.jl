@@ -54,11 +54,15 @@ end
 
 _dists_flat_params_getter(dist_generator) = par::Vector -> vcat((par |> dist_generator |> unshaped_params |> values)...)
 
-function model_fisher_information(f::Function, p::Vector,
-                                  jacobian_func::Type{JF}=FwdDerJacobianFunc) where JF<:AbstractJacobianFunc
+function fisher_information_components(f::Function, p::Vector,
+                                       jacobian_func::Type{JF}=FwdDerJacobianFunc) where JF<:AbstractJacobianFunc
     flat_func = _dists_flat_params_getter(f)
     jac = jacobian_func(flat_func)(p)
-    adjoint(jac) * λ_fisher_information(f, p) * jac
+    λ_fisher_information(f, p), jac
 end
 
-export model_fisher_information
+function assemble_fisher_information(λ_fisher_map::LinearMap, jac_map::LinearMap)
+    adjoint(jac_map) * λ_fisher_map * jac_map
+end
+
+export assemble_fisher_information, fisher_information_components
