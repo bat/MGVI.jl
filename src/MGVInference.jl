@@ -9,10 +9,11 @@ An implementation of the Metric Gaussian Variational Inference algorithm.
 """
 module MGVInference
 
-# using Distributed
+using Distributed
 using LinearAlgebra
 using Random
 using SparseArrays
+using Base.Iterators
 # using Statistics
 
 # using ArgCheck
@@ -27,6 +28,7 @@ using Distributions
 # using FillArrays
 # using FiniteDiff
 using ForwardDiff
+using LinearMaps
 # using NLSolversBase
 using Optim
 # using Parameters
@@ -40,10 +42,11 @@ using SparseArrays
 # using Statistics
 # using StatsBase
 using ValueShapes
-# using Zygote
+using Zygote
 # using ZygoteRules
 
 include("shapes.jl")
+include("jacobian_maps.jl")
 include("information.jl")
 include("mgvi.jl")
 

@@ -1,18 +1,11 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
-function jac_dλ_dθ(f::Function, θ)
-    dists = f(θ)
-    λs = par -> vcat((values ∘ unshaped_params ∘ f)(par)...)
-    jac = ForwardDiff.jacobian(λs, θ)
-    jac
-end
-
 function fisher_information(dist::Normal)
     μval, σval = params(dist)
     res = spzeros(Float64, 2, 2)
     res[1, 1] = 1/σval^2
     res[2, 2] = 1/2 * 1/σval^4
-    res
+    LinearMap(res)
 end
 
 function fisher_information(dist::MvNormal)
@@ -37,14 +30,14 @@ function fisher_information(dist::MvNormal)
         end
     end
 
-    res
+    LinearMap(res)
 end
 
 function fisher_information(dist::Exponential)
     λ = params(dist)[1]
     res = spzeros(1, 1)
     res[1, 1] = 1/λ^2
-    res
+    LinearMap(res)
 end
 
 function fisher_information(dist::Product)
@@ -53,15 +46,19 @@ function fisher_information(dist::Product)
     blockdiag(λinformations...)
 end
 
-function λ_fisher_information(f::Function, p)
+function λ_fisher_information(f::Function, p::Vector)
     dists = values(f(p))
     λinformations = map(fisher_information, dists)
     blockdiag(λinformations...)
 end
 
-function model_fisher_information(f::Function, p)
-    jac = jac_dλ_dθ(f, p)
-    Symmetric(transpose(jac) * λ_fisher_information(f, p) * jac)
+_dists_flat_params_getter(dist_generator) = par::Vector -> vcat((par |> dist_generator |> unshaped_params |> values)...)
+
+function model_fisher_information(f::Function, p::Vector,
+                                  jacobian_func::Type{JF}=FwdDerJacobianFunc) where JF<:AbstractJacobianFunc
+    flat_func = _dists_flat_params_getter(f)
+    jac = jacobian_func(flat_func)(p)
+    adjoint(jac) * λ_fisher_information(f, p) * jac
 end
 
 export model_fisher_information

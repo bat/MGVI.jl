@@ -1,7 +1,7 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
 function mgvi_kl_errors(f::Function, center_p)
-    inv(model_fisher_information(f, center_p) + I)
+    inv(Matrix(model_fisher_information(f, center_p)) + I)
 end
 
 function mgvi_kl(f::Function, data, residual_samples::Array, center_p)
