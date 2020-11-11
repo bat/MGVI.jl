@@ -4,13 +4,13 @@ import Base: *, adjoint
 import AbstractFFTs
 import FFTW: plan_r2r, DHT
 import ForwardDiff
-import Random: randn, MersenneTwister, MvNormal
+import Random: randn, MersenneTwister
+import Distributions: MvNormal
 import ValueShapes: NamedTupleDist
 import Zygote
 import LinearAlgebra: Diagonal
-using Debugger
 
-_dims = 1024
+_dims = 40
 _k = [i < _dims / 2 ? i : _dims-i for i = 0:_dims-1]
 
 # Define the harmonic transform operator as a matrix-like object
@@ -27,7 +27,7 @@ function _plan_dual_product(trafo::AbstractFFTs.Plan, u::Vector{ForwardDiff.Dual
     val = trafo * vs
     jvp = [trafo*t[:] for t in eachrow(ps)]
     # Pack SoA -> AoS (depending on jvp, might need `eachrow`)
-    return map((v, p) -> ForwardDiff.Dual{T}(v, p...), val, jvp)
+    return map((v, p) -> ForwardDiff.Dual{T}(v, p...), val, zip(jvp...))
 end
 
 
@@ -62,7 +62,7 @@ function _mean(ξ::Vector)
 end
 
 function model(ξ::Vector)
-    N = Diagonal(0.01^2 * ones(_dims))
+    N = Diagonal(0.4^2 * ones(_dims))
     return NamedTupleDist(unnamed=MvNormal(_mean(ξ), N))
 end
 
