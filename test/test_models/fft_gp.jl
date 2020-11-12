@@ -5,7 +5,7 @@ import AbstractFFTs
 import FFTW: plan_r2r, DHT
 import ForwardDiff
 import Random: randn, MersenneTwister
-import Distributions: MvNormal
+import Distributions: Normal
 import ValueShapes: NamedTupleDist
 import Zygote
 import LinearAlgebra: Diagonal
@@ -62,8 +62,7 @@ function _mean(ξ::Vector)
 end
 
 function model(ξ::Vector)
-    N = Diagonal(0.4^2 * ones(_dims))
-    return NamedTupleDist(unnamed=MvNormal(_mean(ξ), N))
+    return NamedTupleDist(unnamed=Normal.(_mean(ξ), 0.4))
 end
 
 # ξ := latent variables

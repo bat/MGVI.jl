@@ -5,7 +5,7 @@ function fisher_information(dist::Normal)
     res = spzeros(Float64, 2, 2)
     res[1, 1] = 1/σval^2
     res[2, 2] = 1/2 * 1/σval^4
-    LinearMap(res)
+    LinearMap(PDSparseMat(res), isposdef=true)
 end
 
 function fisher_information(dist::MvNormal)
@@ -30,14 +30,14 @@ function fisher_information(dist::MvNormal)
         end
     end
 
-    LinearMap(res)
+    LinearMap(PDSparseMat(res), isposdef=true)
 end
 
 function fisher_information(dist::Exponential)
     λ = params(dist)[1]
     res = spzeros(1, 1)
     res[1, 1] = 1/λ^2
-    LinearMap(res)
+    LinearMap(PDSparseMat(res), isposdef=true)
 end
 
 function fisher_information(dist::Product)

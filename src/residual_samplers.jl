@@ -23,12 +23,16 @@ end
 
 Base.length(rs::ImplicitResidualSampler) = size(rs.jac_dλ_dθ_map, 2)
 
+function cholesky_sparse_L(lm::LinearMaps.WrappedMap{T, PDSparseMat{A, B}}) where {T, A, B}
+    lm.lmap |> cholesky |> (fac -> fac.L) |> sparse |> LinearMap
+end
+
 function cholesky_sparse_L(lm::LinearMap)
     convert(SparseMatrixCSC, lm) |> cholesky |> (fac -> fac.L) |> sparse |> LinearMap
 end
 
 function cholesky_sparse_L(bd::LinearMaps.BlockDiagonalMap)
-    mapreduce(cholesky_sparse_L, blockdiag, bd.maps)
+    blockdiag(map(cholesky_sparse_L, bd.maps)...)
 end
 
 function Distributions._rand!(rng::AbstractRNG, s::ImplicitResidualSampler, x::AbstractVector{T}) where T<:Real

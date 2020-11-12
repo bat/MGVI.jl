@@ -20,7 +20,7 @@ function (jf::FwdRevADJacobianFunc)(θ::Vector)
     λs = jf.f
     num_λs = size(λs(θ), 1)
     dual_along(f::Function, x::Vector, δ::Vector) = map(ForwardDiff.Dual, x, δ) |> f
-    grad_along(f::Function, x::Vector, δ::Vector) = mapreduce(ForwardDiff.partials, vcat, dual_along(f, x, δ))
+    grad_along(f::Function, x::Vector, δ::Vector) = vcat(map(ForwardDiff.partials, dual_along(f, x, δ))...)
     jvd(δ::Vector) = grad_along(λs, θ, δ)
     vjd(δ::Vector) = first(Zygote.pullback(λs, θ)[2](δ))
     LinearMap(jvd, vjd, num_λs, size(θ, 1))
@@ -36,13 +36,13 @@ function (jf::FwdJacobianFunc)(θ::Vector)
     num_λs = size(λs(θ), 1)
 
     dual_along(f::Function, x::Vector, δ::Vector) = map(ForwardDiff.Dual, x, δ) |> f
-    grad_along(f::Function, x::Vector, δ::Vector) = mapreduce(ForwardDiff.partials, vcat, dual_along(f, x, δ))
+    grad_along(f::Function, x::Vector, δ::Vector) = vcat(map(ForwardDiff.partials, dual_along(f, x, δ))...)
     jvd(δ::Vector) = grad_along(λs, θ, δ)
 
     grad_i(i) = map(first ∘ ForwardDiff.partials,
                     λs([θ[1:i-1]..., ForwardDiff.Dual(θ[i], 1.), θ[i+1:end]...]))
     grad_i_along(i, δ::Vector) = dot(δ, grad_i(i))
-    vjd(δ::Vector) = mapreduce(p -> grad_i_along(p...), vcat, enumerate(repeated(δ, num_θs)))
+    vjd(δ::Vector) = vcat(map(p -> grad_i_along(p...), enumerate(repeated(δ, num_θs)))...)
 
     LinearMap(jvd, vjd, num_λs, num_θs)
 end
@@ -57,7 +57,7 @@ function (jf::FwdDerJacobianFunc)(θ::Vector)
     num_λs = size(λs(θ), 1)
 
     dual_along(f::Function, x::Vector, δ::Vector) = map(ForwardDiff.Dual, x, δ) |> f
-    grad_along(f::Function, x::Vector, δ::Vector) = mapreduce(ForwardDiff.partials, vcat, dual_along(f, x, δ))
+    grad_along(f::Function, x::Vector, δ::Vector) = vcat(map(ForwardDiff.partials, dual_along(f, x, δ))...)
     jvd(δ::Vector) = grad_along(λs, θ, δ)
     vjd(δ::Vector) = ForwardDiff.gradient(t -> dot(δ, jvd(t)), zeros(num_θs))
 
