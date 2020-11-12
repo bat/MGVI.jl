@@ -1,5 +1,7 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
+optim_default_options = Optim.Options()
+
 function _get_residual_sampler(f::Function, center_p::Vector;
                                residual_sampler::Type{RS}=ImplicitResidualSampler,
                                jacobian_func::Type{JF}=FwdDerJacobianFunc) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
@@ -19,14 +21,17 @@ end
 function mgvi_kl_optimize_step(f::Function, data, center_p::Vector;
                                num_residuals=15,
                                residual_sampler::Type{RS},
-                               jacobian_func::Type{JF}) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
+                               jacobian_func::Type{JF},
+                               optim_options::Optim.Options=optim_default_options
+                              ) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
     estimated_dist = _get_residual_sampler(f, center_p; residual_sampler=residual_sampler, jacobian_func=jacobian_func)
     residual_samples = rand(estimated_dist, num_residuals)
     residual_samples = hcat(residual_samples, -residual_samples)
     res = optimize(params -> mgvi_kl(f, data, residual_samples, params),
                    center_p, LBFGS(); autodiff=:forward)
     updated_p = Optim.minimizer(res)
-    updated_p
+
+    (result=updated_p, optimized=res, samples=residual_samples .+ updated_p)
 end
 
 export mgvi_kl_optimize_step

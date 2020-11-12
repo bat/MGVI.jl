@@ -68,3 +68,5 @@ end
 # ξ := latent variables
 true_params = randn(MersenneTwister(128), _dims)
 starting_point = randn(MersenneTwister(12), _dims)
+
+export model, true_params, starting_point
