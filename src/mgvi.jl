@@ -18,8 +18,8 @@ end
 
 function mgvi_kl_optimize_step(f::Function, data, center_p::Vector;
                                num_residuals=15,
-                               residual_sampler::Type{RS}=ImplicitResidualSampler,
-                               jacobian_func::Type{JF}=FwdDerJacobianFunc) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
+                               residual_sampler::Type{RS},
+                               jacobian_func::Type{JF}) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
     estimated_dist = _get_residual_sampler(f, center_p; residual_sampler=residual_sampler, jacobian_func=jacobian_func)
     residual_samples = rand(estimated_dist, num_residuals)
     residual_samples = hcat(residual_samples, -residual_samples)
