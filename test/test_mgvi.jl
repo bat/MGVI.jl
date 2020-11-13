@@ -11,17 +11,18 @@ include("test_models/polyfit.jl")
 
 @testset "test_mgvi_optimize_step" begin
 
-    data = rand(full_model(true_params), 1)[1]
+    rng = MersenneTwister(145)
+    data = rand(rng, full_model(true_params), 1)[1]
 
-    first_iteration = mgvi_kl_optimize_step(full_model, data, starting_point;
+    first_iteration = mgvi_kl_optimize_step(rng,
+                                            full_model, data, starting_point;
                                             jacobian_func=FwdRevADJacobianFunc,
                                             residual_sampler=ImplicitResidualSampler)
 
     next_iteration = first_iteration
-    for i in 1:20
-        next_iteration = mgvi_kl_optimize_step(full_model, data, next_iteration;
-                                            jacobian_func=FwdRevADJacobianFunc,
-                                            residual_sampler=ImplicitResidualSampler)
-    end
+    next_iteration = mgvi_kl_optimize_step(rng,
+                                           full_model, data, next_iteration.result;
+                                           jacobian_func=FwdRevADJacobianFunc,
+                                           residual_sampler=ImplicitResidualSampler)
 
 end

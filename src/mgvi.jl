@@ -18,14 +18,15 @@ function mgvi_kl(f::Function, data, residual_samples::Array, center_p)
     res/size(residual_samples, 2)
 end
 
-function mgvi_kl_optimize_step(f::Function, data, center_p::Vector;
+function mgvi_kl_optimize_step(rng::AbstractRNG,
+                               f::Function, data, center_p::Vector;
                                num_residuals=15,
                                residual_sampler::Type{RS},
                                jacobian_func::Type{JF},
                                optim_options::Optim.Options=optim_default_options
                               ) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
     estimated_dist = _get_residual_sampler(f, center_p; residual_sampler=residual_sampler, jacobian_func=jacobian_func)
-    residual_samples = rand(estimated_dist, num_residuals)
+    residual_samples = rand(rng, estimated_dist, num_residuals)
     residual_samples = hcat(residual_samples, -residual_samples)
     res = optimize(params -> mgvi_kl(f, data, residual_samples, params),
                    center_p, LBFGS(); autodiff=:forward)
