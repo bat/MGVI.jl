@@ -51,5 +51,6 @@ include("jacobian_maps.jl")
 include("information.jl")
 include("residual_samplers.jl")
 include("mgvi.jl")
+include("../test/test_models/test_models.jl")
 
 end # module

@@ -1,8 +1,12 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
+module ModelPolyfit
+
 using Distributions
 using Random
 using ValueShapes
+
+export model, true_params, starting_point
 
 _x1_grid = [Float64(i)/10 for i in 1:25]
 _x2_grid = [Float64(i)/10 + 0.1 for i in 1:15]
@@ -34,4 +38,4 @@ starting_point = [
  -0.6
 ]
 
-export model, true_params, starting_point
+end  # module

@@ -6,25 +6,25 @@ DocTestSetup  = quote
 end
 ```
 
-## Modules
+### Modules
 
 ```@index
 Order = [:module]
 ```
 
-## Types and constants
+### Types and constants
 
 ```@index
 Order = [:type, :constant]
 ```
 
-## Functions and macros
+### Functions and macros
 
 ```@index
 Order = [:macro, :function]
 ```
 
-# Documentation
+## Documentation
 
 ```@autodocs
 Modules = [MGVInference]
