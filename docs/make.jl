@@ -55,7 +55,7 @@ end
 
 deploydocs(
     root = GENERATED,
-    build = "docs",
+    target = "docs",
     repo = "github.com/bat/MGVInference.jl.git",
     forcepush = false,
     push_preview = false
