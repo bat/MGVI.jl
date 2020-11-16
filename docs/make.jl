@@ -49,14 +49,12 @@ makedocs(
     strict = !("nonstrict" in ARGS),
 )
 
-if ("local" in ARGS)
-    return
+if !("local" in ARGS)
+    deploydocs(
+        root = GENERATED,
+        target = "docs",
+        repo = "github.com/bat/MGVInference.jl.git",
+        forcepush = false,
+        push_preview = false
+    )
 end
-
-deploydocs(
-    root = GENERATED,
-    target = "docs",
-    repo = "github.com/bat/MGVInference.jl.git",
-    forcepush = false,
-    push_preview = false
-)
