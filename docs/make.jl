@@ -14,7 +14,7 @@ GENERATED = joinpath(@__DIR__, "build")
 GENERATED_SRC = joinpath(GENERATED, "src")
 GENERATED_DOCS = joinpath(GENERATED, "docs")
 
-EXECUTE_NOTEBOOKS = false
+EXECUTE_NOTEBOOKS = true
 
 mkdir(GENERATED)
 cp(SRC, GENERATED_SRC)
@@ -48,6 +48,10 @@ makedocs(
     linkcheck = ("linkcheck" in ARGS),
     strict = !("nonstrict" in ARGS),
 )
+
+if ("local" in ARGS)
+    return
+end
 
 deploydocs(
     root = GENERATED,
