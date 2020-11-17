@@ -55,7 +55,7 @@ function Distributions._rand!(rng::AbstractRNG, s::ImplicitResidualSampler, x::A
     root_Id = cholesky_sparse_L(s.λ_information_map)
     sample_n = randn(rng, num_λs)
     sample_eta = randn(rng, num_θs)
-    Δφ = adjoint(s.jac_dλ_dθ_map) * root_Id * sample_n + sample_eta
+    Δφ = adjoint(s.jac_dλ_dθ_map) * (root_Id * sample_n) + sample_eta
     invcov_estimate = assemble_fisher_information(s.λ_information_map, s.jac_dλ_dθ_map) + I
     x[:] = cg(invcov_estimate, Δφ; s.cg_params...)  # Δξ
 end
