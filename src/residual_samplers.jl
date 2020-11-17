@@ -25,11 +25,6 @@ end
 _default_cg_params=(;)
 
 ImplicitResidualSampler(λ_information_map::LinearMap,
-                        jac_dλ_dθ_map::LinearMap) = ImplicitResidualSampler(λ_information_map,
-                                                                            jac_dλ_dθ_map,
-                                                                            _default_cg_params)
-
-ImplicitResidualSampler(λ_information_map::LinearMap,
                         jac_dλ_dθ_map::LinearMap;
                         cg_params::NamedTuple=_default_cg_params) = ImplicitResidualSampler(λ_information_map,
                                                                                             jac_dλ_dθ_map,

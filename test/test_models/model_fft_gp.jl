@@ -43,8 +43,10 @@ function *(trafo::AbstractFFTs.ScaledPlan, u::Vector{ForwardDiff.Dual{T, V, N}})
     _plan_dual_product(trafo, u)
 end
 
-Zygote.@adjoint function *(trafo::AbstractFFTs.Plan, xs)
-    # return trafo * xs, Δ -> (nothing, adjoint(trafo) * Δ)
+Zygote.@adjoint function *(trafo::AbstractFFTs.ScaledPlan, xs)
+    # Zygote has implementation for AbstractFFTs.Plan. ScaledPlan doesn't require norm mb?
+    # https://github.com/FluxML/Zygote.jl/blob/2308bc8f30ccd6be913a054f7cc938c12a103512/src/lib/array.jl#L824
+    # should be adjoint actually: return trafo * xs, Δ -> (nothing, trafo * Δ)
     return trafo * xs, Δ -> (nothing, trafo * Δ)
 end
 
