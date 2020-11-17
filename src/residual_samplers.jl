@@ -19,7 +19,21 @@ end
 struct ImplicitResidualSampler <: AbstractResidualSampler{Multivariate, Continuous}
     λ_information_map::LinearMap
     jac_dλ_dθ_map::LinearMap
+    cg_params::NamedTuple
 end
+
+_default_cg_params=(;)
+
+ImplicitResidualSampler(λ_information_map::LinearMap,
+                        jac_dλ_dθ_map::LinearMap) = ImplicitResidualSampler(λ_information_map,
+                                                                            jac_dλ_dθ_map,
+                                                                            _default_cg_params)
+
+ImplicitResidualSampler(λ_information_map::LinearMap,
+                        jac_dλ_dθ_map::LinearMap;
+                        cg_params::NamedTuple=_default_cg_params) = ImplicitResidualSampler(λ_information_map,
+                                                                                            jac_dλ_dθ_map,
+                                                                                            cg_params)
 
 Base.length(rs::ImplicitResidualSampler) = size(rs.jac_dλ_dθ_map, 2)
 
@@ -43,7 +57,7 @@ function Distributions._rand!(rng::AbstractRNG, s::ImplicitResidualSampler, x::A
     sample_eta = randn(rng, num_θs)
     Δφ = adjoint(s.jac_dλ_dθ_map) * root_Id * sample_n + sample_eta
     invcov_estimate = assemble_fisher_information(s.λ_information_map, s.jac_dλ_dθ_map) + I
-    x[:] = cg(invcov_estimate, Δφ)  # Δξ
+    x[:] = cg(invcov_estimate, Δφ; s.cg_params...)  # Δξ
 end
 
 export ImplicitResidualSampler, FullResidualSampler

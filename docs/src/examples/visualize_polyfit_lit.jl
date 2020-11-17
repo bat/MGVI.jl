@@ -38,7 +38,9 @@ first_iteration = mgvi_kl_optimize_step(rng,
                                         model, data,
                                         starting_point;
                                         jacobian_func=FwdRevADJacobianFunc,
-                                        residual_sampler=ImplicitResidualSampler)
+                                        residual_sampler=ImplicitResidualSampler,
+                                        optim_options=Optim.Options(iterations=10, show_trace=true),
+                                        residual_sampler_options=(;cg_params=(;maxiter=10)))
 pprintln(hcat(first_iteration.result, true_params))
 #-
 plot_iteration = (params, label) -> let
@@ -72,7 +74,8 @@ for i in 1:5
                                                   next_iteration.result;
                                                   jacobian_func=FwdRevADJacobianFunc,
                                                   residual_sampler=ImplicitResidualSampler,
-                                                  optim_options=Optim.Options(g_reltol=1E-2, g_abstol=1E-2))
+                                                  optim_options=Optim.Options(iterations=10, show_trace=true),
+                                                  residual_sampler_options=(;cg_params=(;maxiter=10)))
     plot_iteration_light(next_iteration, i)
 end
 pprintln(minimum(next_iteration.optimized))

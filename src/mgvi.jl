@@ -1,12 +1,16 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
+rs_default_options=(;)
 optim_default_options = Optim.Options()
+optim_default_solver = LBFGS()
 
 function _get_residual_sampler(f::Function, center_p::Vector;
                                residual_sampler::Type{RS}=ImplicitResidualSampler,
-                               jacobian_func::Type{JF}=FwdDerJacobianFunc) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
+                               jacobian_func::Type{JF}=FwdDerJacobianFunc,
+                               residual_sampler_options::NamedTuple
+                              ) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
     fisher_map, jac_map = fisher_information_components(f, center_p; jacobian_func=jacobian_func)
-    residual_sampler(fisher_map, jac_map)
+    residual_sampler(fisher_map, jac_map; residual_sampler_options...)
 end
 
 function mgvi_kl(f::Function, data, residual_samples::Array, center_p)
@@ -23,13 +27,18 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
                                num_residuals=15,
                                residual_sampler::Type{RS},
                                jacobian_func::Type{JF},
-                               optim_options::Optim.Options=optim_default_options
+                               residual_sampler_options::NamedTuple=rs_default_options,
+                               optim_options::Optim.Options=optim_default_options,
+                               optim_solver::Optim.AbstractOptimizer=optim_default_solver
                               ) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
-    estimated_dist = _get_residual_sampler(f, center_p; residual_sampler=residual_sampler, jacobian_func=jacobian_func)
+    estimated_dist = _get_residual_sampler(f, center_p;
+                                           residual_sampler=residual_sampler,
+                                           jacobian_func=jacobian_func,
+                                           residual_sampler_options=residual_sampler_options)
     residual_samples = rand(rng, estimated_dist, num_residuals)
     residual_samples = hcat(residual_samples, -residual_samples)
     res = optimize(params -> mgvi_kl(f, data, residual_samples, params),
-                   center_p, LBFGS(); autodiff=:forward)
+                   center_p, optim_solver, optim_options; autodiff=:forward)
     updated_p = Optim.minimizer(res)
 
     (result=updated_p, optimized=res, samples=residual_samples .+ updated_p)
