@@ -44,15 +44,33 @@ function cholesky_sparse_L(bd::LinearMaps.BlockDiagonalMap)
     blockdiag(map(cholesky_sparse_L, bd.maps)...)
 end
 
-function Distributions._rand!(rng::AbstractRNG, s::ImplicitResidualSampler, x::AbstractVector{T}) where T<:Real
+function _implicit_rand_common_params(s::ImplicitResidualSampler)
     num_λs = size(s.jac_dλ_dθ_map, 1)
     num_θs = size(s.jac_dλ_dθ_map, 2)
     root_Id = cholesky_sparse_L(s.λ_information_map)
+    invcov_estimate = assemble_fisher_information(s.λ_information_map, s.jac_dλ_dθ_map) + I
+    (num_λs, num_θs, root_Id, invcov_estimate)
+end
+
+function _implicit_rand_common!(rng::AbstractRNG, s::ImplicitResidualSampler, x::AbstractVector{T},
+                                num_λs, num_θs, root_Id, invcov_estimate) where T<:Real
     sample_n = randn(rng, num_λs)
     sample_eta = randn(rng, num_θs)
     Δφ = adjoint(s.jac_dλ_dθ_map) * (root_Id * sample_n) + sample_eta
-    invcov_estimate = assemble_fisher_information(s.λ_information_map, s.jac_dλ_dθ_map) + I
     x[:] = cg(invcov_estimate, Δφ; s.cg_params...)  # Δξ
+end
+
+function Distributions._rand!(rng::AbstractRNG, s::ImplicitResidualSampler, x::AbstractVector{T}) where T<:Real
+    params = _implicit_rand_common_params(s)
+    _implicit_rand_common!(rng, s, x, params...)
+end
+
+function Distributions._rand!(rng::AbstractRNG, s::Sampleable{Multivariate}, A::DenseMatrix{T}) where T<:Real
+    params = _implicit_rand_common_params(s)
+    for i = 1:size(A,2)
+        _implicit_rand_common!(rng, s, view(A,:,i), params...)
+    end
+    return A
 end
 
 export ImplicitResidualSampler, FullResidualSampler
