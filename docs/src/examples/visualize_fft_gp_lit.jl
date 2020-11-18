@@ -9,7 +9,7 @@ using LinearAlgebra
 using Optim
 #-
 using Plots
-pyplot(size=(600, 500))
+gr(size=(400, 300), dpi=700)
 #-
 function pprintln(obj)
     show(stdout, "text/plain", obj)

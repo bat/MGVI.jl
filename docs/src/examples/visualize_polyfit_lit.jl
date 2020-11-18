@@ -14,7 +14,7 @@ function pprintln(obj)
 end
 #-
 using Plots
-pyplot(size=(600, 500))
+gr(size=(400, 300), dpi=700)
 #-
 rng = MersenneTwister(157);
 #-
