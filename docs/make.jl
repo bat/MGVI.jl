@@ -54,6 +54,7 @@ if !("local" in ARGS)
         root = GENERATED,
         target = "docs",
         repo = "github.com/bat/MGVInference.jl.git",
+        devbranch = "dev",
         forcepush = false,
         push_preview = false
     )
