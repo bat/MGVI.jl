@@ -22,6 +22,10 @@ function mgvi_kl(f::Function, data, residual_samples::Array, center_p)
     res/size(residual_samples, 2)
 end
 
+_fill_grad(f::Function, grad_f::Function) = function (res::AbstractVector, x::AbstractVector)
+    res[:] = grad_f(f, x)
+end
+
 function mgvi_kl_optimize_step(rng::AbstractRNG,
                                f::Function, data, center_p::Vector;
                                num_residuals=15,
@@ -37,8 +41,10 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
                                            residual_sampler_options=residual_sampler_options)
     residual_samples = rand(rng, estimated_dist, num_residuals)
     residual_samples = hcat(residual_samples, -residual_samples)
-    res = optimize(params -> mgvi_kl(f, data, residual_samples, params),
-                   center_p, optim_solver, optim_options; autodiff=:forward)
+    mgvi_kl_simple(params::Vector) = mgvi_kl(f, data, residual_samples, params)
+    mgvi_kl_grad! =  _fill_grad(mgvi_kl_simple, first ∘ gradient)
+    res = optimize(mgvi_kl_simple, mgvi_kl_grad!,
+                   center_p, optim_solver, optim_options)
     updated_p = Optim.minimizer(res)
 
     (result=updated_p, optimized=res, samples=residual_samples .+ updated_p)
