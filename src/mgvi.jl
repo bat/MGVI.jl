@@ -1,5 +1,11 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
+abstract type MGVISolvers end
+
+struct NewtonAvgModelFisher{T<:Real} <: MGVISolvers
+    speed::T
+end
+
 rs_default_options=(;)
 optim_default_options = Optim.Options()
 optim_default_solver = LBFGS()
@@ -64,6 +70,58 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
     updated_p = Optim.minimizer(res)
 
     (result=updated_p, optimized=res, samples=residual_samples .+ updated_p)
+end
+
+function _avg_fisher_hessian(f, samples; jacobian_func)
+    res = []
+    for sample in eachcol(samples)
+        components = fisher_information_components(f, Vector(sample); jacobian_func=jacobian_func)
+        information = assemble_fisher_information(components...)
+        push!(res, information)
+    end
+    sum(res)/length(res) + I
+end
+
+function mgvi_kl_optimize_step(rng::AbstractRNG,
+                               f::Function, data, center_p::Vector,
+                               optim_solver::NewtonAvgModelFisher{T};
+                               num_residuals=15,
+                               residual_sampler::Type{RS},
+                               jacobian_func::Type{JF},
+                               residual_sampler_options::NamedTuple=rs_default_options,
+                               optim_options::Optim.Options=optim_default_options
+                              ) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc where T
+    residual_samples = _generate_residual_samples(rng,
+                                                  f, center_p;
+                                                  num_residuals=num_residuals,
+                                                  jacobian_func=jacobian_func,
+                                                  residual_sampler=residual_sampler,
+                                                  residual_sampler_options=residual_sampler_options)
+    est_hessian = _avg_fisher_hessian(f, residual_samples; jacobian_func=jacobian_func)
+
+    pos = center_p
+    for _ in 1:optim_options.iterations
+        grad = gradient(p -> mgvi_kl(f, data, residual_samples, p), pos)[1]
+        if (optim_options.g_abstol > 0 && norm(grad) < optim_options.g_abstol)
+            if (optim_options.show_trace)
+                @info "MGVI KL Optim iteration stop. G-tol reached" pos grad
+            end
+            break
+        end
+        shift = cg(est_hessian, grad; verbose=optim_options.show_trace)*optim_solver.speed
+        if (optim_options.x_abstol > 0 && norm(shift) < optim_options.x_abstol)
+            if (optim_options.show_trace)
+                @info "MGVI KL Optim iteration stop. G-tol reached" pos grad shift
+            end
+            break
+        end
+        pos .-= shift
+        if (optim_options.show_trace)
+            @info "MGVI KL Optim iteration" pos grad shift
+        end
+    end
+
+    (result=pos, samples=residual_samples .+ pos)
 end
 
 function mgvi_kl_optimize_step(rng::AbstractRNG,
