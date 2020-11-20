@@ -115,7 +115,7 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
             end
             break
         end
-        pos .-= shift
+        pos = pos - shift
         if (optim_options.show_trace)
             @info "MGVI KL Optim iteration" pos grad shift
         end
@@ -140,4 +140,4 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
                           optim_options=optim_options)
 end
 
-export mgvi_kl_optimize_step
+export mgvi_kl_optimize_step, NewtonAvgModelFisher
