@@ -22,7 +22,7 @@ struct ImplicitResidualSampler <: AbstractResidualSampler{Multivariate, Continuo
     cg_params::NamedTuple
 end
 
-_default_cg_params=(;)
+const _default_cg_params=(;)
 
 ImplicitResidualSampler(λ_information_map::LinearMap,
                         jac_dλ_dθ_map::LinearMap;

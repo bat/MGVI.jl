@@ -1,8 +1,8 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
-rs_default_options=(;)
-optim_default_options = Optim.Options()
-optim_default_solver = LBFGS()
+const rs_default_options=(;)
+const optim_default_options = Optim.Options()
+const optim_default_solver = LBFGS()
 
 function _get_residual_sampler(f::Function, center_p::Vector;
                                residual_sampler::Type{RS}=ImplicitResidualSampler,

@@ -10,11 +10,11 @@ import ValueShapes: NamedTupleDist
 import Zygote
 import LinearAlgebra: Diagonal
 
-_dims = 40
-_k = [i < _dims / 2 ? i : _dims-i for i = 0:_dims-1]
+const _dims = 40
+const _k = [i < _dims / 2 ? i : _dims-i for i = 0:_dims-1]
 
 # Define the harmonic transform operator as a matrix-like object
-_ht = plan_r2r(zeros(_dims), DHT)
+const _ht = plan_r2r(zeros(_dims), DHT)
 
 # Unfortunately neither Zygote nor ForwardDiff support planned Hartley
 # transformations. While Zygote does not support AbstractFFTs.ScaledPlan,
@@ -68,5 +68,5 @@ function model(ξ::Vector)
 end
 
 # ξ := latent variables
-true_params = randn(MersenneTwister(128), _dims)
-starting_point = randn(MersenneTwister(12), _dims)
+const true_params = randn(MersenneTwister(128), _dims)
+const starting_point = randn(MersenneTwister(12), _dims)
