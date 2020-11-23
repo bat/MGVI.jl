@@ -18,7 +18,7 @@ using Base.Iterators
 
 # using ArgCheck
 # using ArraysOfArrays
-# using BlockDiagonals
+using BlockDiagonals
 # using ChainRules
 # using ChainRulesCore
 # using DiffResults

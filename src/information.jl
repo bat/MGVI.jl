@@ -2,10 +2,8 @@
 
 function fisher_information(dist::Normal)
     μval, σval = params(dist)
-    res = spzeros(Float64, 2, 2)
-    res[1, 1] = 1/σval^2
-    res[2, 2] = 1/2 * 1/σval^4
-    LinearMap(PDSparseMat(res), isposdef=true)
+    res = [1/σval^2, 1/2 * 1/σval^4]
+    PDiagMat(res)
 end
 
 function fisher_information(dist::MvNormal)
@@ -30,25 +28,25 @@ function fisher_information(dist::MvNormal)
         end
     end
 
-    LinearMap(PDSparseMat(res), isposdef=true)
+    PDSparseMat(res)
 end
 
 function fisher_information(dist::Exponential)
     λ = params(dist)[1]
-    res = spzeros(1, 1)
-    res[1, 1] = 1/λ^2
-    LinearMap(PDSparseMat(res), isposdef=true)
+    res = [1/λ^2,]
+    PDiagMat(res)
 end
 
 function fisher_information(dist::Product)
     dists = dist.v
     λinformations = map(fisher_information, dists)
-    blockdiag(λinformations...)
+    λinformations |> BlockDiagonal |> sparse |> PDSparseMat
 end
 
 function λ_fisher_information(f::Function, p::Vector)
     dists = values(f(p))
-    λinformations = map(fisher_information, dists)
+    posdef_map = m -> LinearMap(m, isposdef=true)
+    λinformations = map(posdef_map ∘ fisher_information, dists)
     blockdiag(λinformations...)
 end
 
