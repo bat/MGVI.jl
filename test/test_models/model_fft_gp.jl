@@ -1,7 +1,5 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
-module ModelFFTGP
-
 import Base: *, adjoint
 import AbstractFFTs
 import FFTW: plan_r2r, DHT
@@ -11,8 +9,6 @@ import Distributions: Normal
 import ValueShapes: NamedTupleDist
 import Zygote
 import LinearAlgebra: Diagonal
-
-export model, true_params, starting_point
 
 _dims = 40
 _k = [i < _dims / 2 ? i : _dims-i for i = 0:_dims-1]
@@ -74,5 +70,3 @@ end
 # ξ := latent variables
 true_params = randn(MersenneTwister(128), _dims)
 starting_point = randn(MersenneTwister(12), _dims)
-
-end  # module

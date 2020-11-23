@@ -5,7 +5,8 @@ using Distributions
 using ValueShapes
 
 using MGVInference
-using MGVInference.TestModels.ModelPolyfit
+include("test_models/model_polyfit.jl")
+
 using Test
 
 @testset "test_mgvi_optimize_step" begin

@@ -1,7 +1,7 @@
 using MGVInference
-using MGVInference.TestModels.ModelPolyfit
-import MGVInference.TestModels.ModelPolyfit: _mean, _common_grid, _x1_grid, _x2_grid
-
+#
+include("../../../../test/test_models/model_polyfit.jl")
+#
 using Distributions
 using Random
 using ValueShapes
