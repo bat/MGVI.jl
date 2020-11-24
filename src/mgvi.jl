@@ -9,8 +9,8 @@ function _get_residual_sampler(f::Function, center_p::Vector;
                                jacobian_func::Type{JF}=FwdDerJacobianFunc,
                                residual_sampler_options::NamedTuple
                               ) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
-    fisher_map, jac_map = fisher_information_components(f, center_p; jacobian_func=jacobian_func)
-    residual_sampler(fisher_map, jac_map; residual_sampler_options...)
+    fisher, jac = fisher_information_and_jac(f, center_p; jacobian_func=jacobian_func)
+    residual_sampler(fisher, jac; residual_sampler_options...)
 end
 
 function mgvi_kl(f::Function, data, residual_samples::Array, center_p)

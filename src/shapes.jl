@@ -28,5 +28,3 @@ end
 function unshaped_params(dp::Product)
     unshaped(map(unshaped_params, dp.v))
 end
-
-export unshaped, unshaped_params

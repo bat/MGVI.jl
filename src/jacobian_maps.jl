@@ -43,8 +43,3 @@ function (jf::FwdDerJacobianFunc)(θ::Vector)
 
     LinearMap(jvd, vjd, num_λs, num_θs)
 end
-
-export FwdDerJacobianFunc,
-       FwdRevADJacobianFunc,
-       FullJacobianFunc,
-       AbstractJacobianFunc

@@ -2,7 +2,7 @@
 
 function fisher_information(dist::Normal)
     μval, σval = params(dist)
-    res = [1/σval^2, 1/2 * 1/σval^4]
+    res = SVector(1/σval^2, 1/σval^4/2)
     PDiagMat(res)
 end
 
@@ -33,34 +33,41 @@ end
 
 function fisher_information(dist::Exponential)
     λ = params(dist)[1]
-    res = [1/λ^2,]
+    res = SVector(1/λ^2,)
     PDiagMat(res)
+end
+
+function _blockdiag_map(A::AbstractVector{PDiagMat{T,SArray{Tuple{M},T,1,M}}}) where {T<:Real,M}
+    d = reduce(vcat, map(x -> x.diag, A))
+    LinearMap(PDiagMat(d), isposdef=true, ishermitian=true, issymmetric=true)
+end
+
+function _blockdiag_map(A::AbstractVector{<:AbstractPDMat})
+    res = BlockDiagonal(A)
+    LinearMap(res, isposdef=true, ishermitian=true, issymmetric=true)
 end
 
 function fisher_information(dist::Product)
     dists = dist.v
-    λinformations = map(fisher_information, dists)
-    λinformations |> BlockDiagonal |> sparse |> PDSparseMat
+    λinformations = fisher_information.(dists)
+    _blockdiag_map(λinformations)
 end
 
-function λ_fisher_information(f::Function, p::Vector)
-    dists = values(f(p))
-    posdef_map = m -> LinearMap(m, isposdef=true)
-    λinformations = map(posdef_map ∘ fisher_information, dists)
+function fisher_information(d::NamedTupleDist)
+    dists = values(d)
+    λinformations = map(fisher_information, dists)
     blockdiag(λinformations...)
 end
 
-_dists_flat_params_getter(dist_generator) = par::Vector -> vcat((par |> dist_generator |> unshaped_params |> values)...)
+_dists_flat_params_getter(dist_generator) = par::Vector -> reduce(vcat, (par |> dist_generator |> unshaped_params |> values))
 
-function fisher_information_components(f::Function, p::Vector;
-                                       jacobian_func::Type{JF}) where JF<:AbstractJacobianFunc
+function fisher_information_and_jac(f::Function, p::Vector;
+                                    jacobian_func::Type{JF}) where JF<:AbstractJacobianFunc
     flat_func = _dists_flat_params_getter(f)
     jac = jacobian_func(flat_func)(p)
-    λ_fisher_information(f, p), jac
+    fisher_information(f(p)), jac
 end
 
-function assemble_fisher_information(λ_fisher_map::LinearMap, jac_map::LinearMap)
-    adjoint(jac_map) * λ_fisher_map * jac_map
+function fisher_information_in_parspace(λ_fisher::LinearMap, jac::LinearMap)
+    adjoint(jac) * λ_fisher * jac
 end
-
-export assemble_fisher_information, fisher_information_components
