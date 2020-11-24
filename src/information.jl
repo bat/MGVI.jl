@@ -1,8 +1,11 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
 function fisher_information(dist::Normal)
-    μval, σval = params(dist)
-    res = SVector(1/σval^2, 1/σval^4/2)
+    σval = var(dist)
+    inv_σ = inv(σval)
+    inv_σ_2 = inv_σ * inv_σ
+    inv_σ_4 = inv_σ_2 * inv_σ_2
+    res = SVector(inv_σ_2, inv_σ_4/2)
     PDiagMat(res)
 end
 
@@ -33,7 +36,8 @@ end
 
 function fisher_information(dist::Exponential)
     λ = params(dist)[1]
-    res = SVector(1/λ^2,)
+    inv_l = inv(λ)
+    res = SVector(inv_l * inv_l,)
     PDiagMat(res)
 end
 
