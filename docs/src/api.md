@@ -6,6 +6,8 @@ DocTestSetup  = quote
 end
 ```
 
+## Components listing
+
 ### Modules
 
 ```@index
