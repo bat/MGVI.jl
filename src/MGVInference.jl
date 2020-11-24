@@ -21,7 +21,7 @@ using LinearMaps
 using IterativeSolvers
 using Optim
 using PDMats
-# using PositiveFactorizations
+using PositiveFactorizations
 using SparseArrays
 using StaticArrays
 using ValueShapes
