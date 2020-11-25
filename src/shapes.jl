@@ -13,12 +13,12 @@ function unshaped(x::PDMat)
 end
 
 function unshaped(x)
-    vcat(map(unshaped, x)...)
+    reduce(vcat, map(unshaped, x))
 end
 
 
 function unshaped_params(d::Distribution)
-    vcat(map(unshaped, params(d))...)
+    reduce(vcat, map(unshaped, params(d)))
 end
 
 function unshaped_params(ntd::NamedTupleDist)
