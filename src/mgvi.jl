@@ -4,26 +4,31 @@ const rs_default_options=(;)
 const optim_default_options = Optim.Options()
 const optim_default_solver = LBFGS()
 
-function _get_residual_sampler(f::Function, center_p::Vector;
-                               residual_sampler::Type{RS}=ImplicitResidualSampler,
-                               jacobian_func::Type{JF}=FwdDerJacobianFunc,
-                               residual_sampler_options::NamedTuple
-                              ) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
+function _create_residual_sampler(f::Function, center_p::Vector;
+                                  residual_sampler::Type{RS}=ImplicitResidualSampler,
+                                  jacobian_func::Type{JF}=FwdDerJacobianFunc,
+                                  residual_sampler_options::NamedTuple
+                                 ) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
     fisher, jac = fisher_information_and_jac(f, center_p; jacobian_func=jacobian_func)
     residual_sampler(fisher, jac; residual_sampler_options...)
 end
 
-function mgvi_kl(f::Function, data, residual_samples::Array, center_p)
-    res = 0.
+function mgvi_kl(f::Function, data, residual_samples::AbstractMatrix, center_p::AbstractVector)
+    res = 0
+    kl_component(p::AbstractVector) = -logpdf(f(p), data) + dot(p, p)/2
     for residual_sample in eachcol(residual_samples)
-        p = center_p + residual_sample
-        res += -logpdf(f(p), data) + dot(p, p)/2
+        res += kl_component(center_p + residual_sample) + kl_component(center_p - residual_sample)
     end
-    res/size(residual_samples, 2)
+    res/size(residual_samples, 2)/2
 end
 
 _fill_grad(f::Function, grad_f::Function) = function (res::AbstractVector, x::AbstractVector)
-    res[:] = grad_f(f, x)
+end
+
+function _gradient_for_optim(kl::Function)
+    (res::AbstractVector, x::AbstractVector) -> begin
+        res[:] = Zygote.gradient(kl, x)[1]
+    end
 end
 
 function mgvi_kl_optimize_step(rng::AbstractRNG,
@@ -35,15 +40,14 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
                                optim_options::Optim.Options=optim_default_options,
                                optim_solver::Optim.AbstractOptimizer=optim_default_solver
                               ) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
-    estimated_dist = _get_residual_sampler(f, center_p;
-                                           residual_sampler=residual_sampler,
-                                           jacobian_func=jacobian_func,
-                                           residual_sampler_options=residual_sampler_options)
-    residual_samples = rand(rng, estimated_dist, num_residuals)
-    residual_samples = hcat(residual_samples, -residual_samples)
-    mgvi_kl_simple(params::Vector) = mgvi_kl(f, data, residual_samples, params)
-    mgvi_kl_grad! =  _fill_grad(mgvi_kl_simple, first ∘ gradient)
-    res = optimize(mgvi_kl_simple, mgvi_kl_grad!,
+    est_res_sampler = _create_residual_sampler(f, center_p;
+                                               residual_sampler=residual_sampler,
+                                               jacobian_func=jacobian_func,
+                                               residual_sampler_options=residual_sampler_options)
+    residual_samples = rand(rng, est_res_sampler, num_residuals)
+    kl(params::Vector) = mgvi_kl(f, data, residual_samples, params)
+    mgvi_kl_grad! =  _gradient_for_optim(kl)
+    res = optimize(kl, mgvi_kl_grad!,
                    center_p, optim_solver, optim_options)
     updated_p = Optim.minimizer(res)
 

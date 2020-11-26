@@ -46,3 +46,7 @@ function (jf::FwdDerJacobianFunc)(θ::AbstractVector{T}) where T
     vjd(δ) = ForwardDiff.gradient(t -> dot(δ, jvd(t)), zeros(num_θs))
     LinearMap{T}(jvd, vjd, num_λs, num_θs, isposdef=false, issymmetric=false, ishermitian=false)
 end
+
+export FullJacobianFunc,
+       FwdRevADJacobianFunc,
+       FwdDerJacobianFunc
