@@ -22,9 +22,6 @@ function mgvi_kl(f::Function, data, residual_samples::AbstractMatrix{<:Real}, ce
     res/size(residual_samples, 2)/2
 end
 
-_fill_grad(f::Function, grad_f::Function) = function (res::AbstractVector, x::AbstractVector)
-end
-
 function _gradient_for_optim(kl::Function)
     (res::AbstractVector, x::AbstractVector) -> begin
         res[:] = Zygote.gradient(kl, x)[1]
