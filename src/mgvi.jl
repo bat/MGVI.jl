@@ -13,7 +13,7 @@ function _create_residual_sampler(f::Function, center_p::Vector;
     residual_sampler(fisher, jac; residual_sampler_options...)
 end
 
-function mgvi_kl(f::Function, data, residual_samples::AbstractMatrix, center_p::AbstractVector)
+function mgvi_kl(f::Function, data, residual_samples::AbstractMatrix{<:Real}, center_p::AbstractVector{<:Real})
     res = 0
     kl_component(p::AbstractVector) = -logpdf(f(p), data) + dot(p, p)/2
     for residual_sample in eachcol(residual_samples)
