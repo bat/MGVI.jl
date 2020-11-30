@@ -4,5 +4,6 @@ import Test
 Test.@testset "Package MGVInference" begin
 
 include("test_mgvi.jl")
+include("test_information.jl")
 
 end # testset
