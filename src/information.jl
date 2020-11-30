@@ -15,7 +15,7 @@ function fisher_information(dist::MvNormal)
 
     μdof, σdof = length(μval), length(σval)
     dof = μdof + σdof
-    res = spzeros(dof, dof)
+    res = zeros(dof, dof)
 
     res[1:μdof, 1:μdof] = invσ
 
@@ -31,7 +31,8 @@ function fisher_information(dist::MvNormal)
         end
     end
 
-    PDSparseMat(res)
+    sqrt_res = cholesky(PositiveFactorizations.Positive, res)
+    PDMat(res, sqrt_res)
 end
 
 function fisher_information(dist::Exponential)

@@ -14,17 +14,18 @@ function _create_residual_sampler(f::Function, center_p::Vector;
 end
 
 function mgvi_kl(f::Function, data, residual_samples::AbstractMatrix{<:Real}, center_p::AbstractVector{<:Real})
-    res = 0
     kl_component(p::AbstractVector) = -logpdf(f(p), data) + dot(p, p)/2
-    for residual_sample in eachcol(residual_samples)
-        res += kl_component(center_p + residual_sample) + kl_component(center_p - residual_sample)
+    kl_comp_both(rs::AbstractVector) = kl_component(center_p + rs) + kl_component(center_p - rs)
+    res = 0
+    for rs in eachcol(residual_samples)
+        res += kl_comp_both(rs)
     end
     res/size(residual_samples, 2)/2
 end
 
 function _gradient_for_optim(kl::Function)
     (res::AbstractVector, x::AbstractVector) -> begin
-        res[:] = Zygote.gradient(kl, x)[1]
+        res .= Zygote.gradient(kl, x)[1]
     end
 end
 
@@ -42,7 +43,7 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
                                                jacobian_func=jacobian_func,
                                                residual_sampler_options=residual_sampler_options)
     residual_samples = rand(rng, est_res_sampler, num_residuals)
-    kl(params::Vector) = mgvi_kl(f, data, residual_samples, params)
+    kl(params::AbstractVector) = mgvi_kl(f, data, residual_samples, params)
     mgvi_kl_grad! =  _gradient_for_optim(kl)
     res = optimize(kl, mgvi_kl_grad!,
                    center_p, optim_solver, optim_options)
