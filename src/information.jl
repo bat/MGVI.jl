@@ -1,12 +1,30 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
+function _blockdiag_map(A::AbstractVector{<:LinearMaps.WrappedMap{Q, PDiagMat{T,SArray{Tuple{M},T,1,M}}}}) where {T<:Real,M,Q}
+    d = reduce(vcat, map(x -> x.lmap.diag, A))
+    LinearMap(PDiagMat(d), isposdef=true, ishermitian=true, issymmetric=true)
+end
+
+function _blockdiag_map(A::AbstractVector{<:LinearMaps.WrappedMap{T, <:AbstractPDMat}}) where {T}
+    mats = getfield.(A, :lmap)
+    res = BlockDiagonal(mats)
+    LinearMap(res, isposdef=true, ishermitian=true, issymmetric=true)
+end
+
+function _blockdiag_map(A::AbstractVector{<:LinearMaps.LinearMap})
+    mats = getfield.(A, :lmap)
+    res = BlockDiagonal(mats)
+    # assuming the building blocks are posdef
+    LinearMap(res, isposdef=true, ishermitian=true, issymmetric=true)
+end
+
 function fisher_information(dist::Normal)
-    σval = var(dist)
+    _, σval = params(dist)
     inv_σ = inv(σval)
     inv_σ_2 = inv_σ * inv_σ
     inv_σ_4 = inv_σ_2 * inv_σ_2
     res = SVector(inv_σ_2, inv_σ_4/2)
-    PDiagMat(res)
+    LinearMap(PDiagMat(res), isposdef=true, ishermitian=true, issymmetric=true)
 end
 
 function fisher_information(dist::MvNormal)
@@ -14,42 +32,28 @@ function fisher_information(dist::MvNormal)
     invσ = inv(σval)
 
     μdof, σdof = length(μval), length(σval)
-    dof = μdof + σdof
-    res = zeros(dof, dof)
 
-    res[1:μdof, 1:μdof] = invσ
-
+    covpart = zeros(σdof, σdof)
     for i in 1:σdof
         for j in 1:σdof
-            full_i, full_j = μdof + i, μdof + j
-
             # translation from flat index of matrix to row/col
             i_row, i_col = (i-1) ÷ μdof + 1, (i-1) % μdof + 1
             j_row, j_col = (j-1) ÷ μdof + 1, (j-1) % μdof + 1
 
-            res[full_i, full_j] = invσ[j_col, i_row] * invσ[i_col, j_row] / 2
+            covpart[i, j] = invσ[j_col, i_row] * invσ[i_col, j_row] / 2
         end
     end
 
-    sqrt_res = cholesky(PositiveFactorizations.Positive, res)
-    PDMat(res, sqrt_res)
+    sqrt_meanpart = cholesky(PositiveFactorizations.Positive, invσ)
+    sqrt_covpart = cholesky(PositiveFactorizations.Positive, covpart)
+    _blockdiag_map(LinearMap.([PDMat(invσ, sqrt_meanpart), PDMat(covpart, sqrt_covpart)], isposdef=true, ishermitian=true, issymmetric=true))
 end
 
 function fisher_information(dist::Exponential)
     λ = params(dist)[1]
     inv_l = inv(λ)
     res = SVector(inv_l * inv_l,)
-    PDiagMat(res)
-end
-
-function _blockdiag_map(A::AbstractVector{PDiagMat{T,SArray{Tuple{M},T,1,M}}}) where {T<:Real,M}
-    d = reduce(vcat, map(x -> x.diag, A))
-    LinearMap(PDiagMat(d), isposdef=true, ishermitian=true, issymmetric=true)
-end
-
-function _blockdiag_map(A::AbstractVector{<:AbstractPDMat})
-    res = BlockDiagonal(A)
-    LinearMap(res, isposdef=true, ishermitian=true, issymmetric=true)
+    LinearMap(PDiagMat(res), isposdef=true, ishermitian=true, issymmetric=true)
 end
 
 function fisher_information(dist::Product)

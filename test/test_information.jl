@@ -34,5 +34,5 @@ Random.seed!(42)
 
     mgvi_fi = MGVInference.fisher_information(MvNormal(mean, variance))
 
-    @test sum((mgvi_fi - res) .* (mgvi_fi - res)) < 1E-5
+    @test norm(mgvi_fi - res) < 1E-5
 end
