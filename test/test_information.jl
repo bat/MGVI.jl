@@ -1,6 +1,6 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
-Test.@testset "test_fisher_information" begin
+Test.@testset "test_fisher_information_value" begin
 
     Random.seed!(42)
     epsilon = 1E-5
@@ -29,5 +29,21 @@ Test.@testset "test_fisher_information" begin
     mgvi_fi = MGVInference.fisher_information(MvNormal(mean, variance))
 
     Test.@test norm(Matrix(mgvi_fi - res)) < epsilon
+
+end
+
+Test.@testset "test_fisher_information_combinations" begin
+
+    MGVInference.fisher_information(Normal(0.1, 0.2))
+
+    MGVInference.fisher_information(MvNormal([0.1, 0.2], [2. 0.1; 0.1 4]))
+
+    MGVInference.fisher_information(Product([Normal(0.1, 0.2), Exponential(0.3)]))
+
+    MGVInference.fisher_information(Product([Normal(0.1, 0.2), Normal(0.1, 0.3)]))
+
+    MGVInference.fisher_information(NamedTupleDist(a=Normal(0.1, 0.2),
+                                                   b=Product([Normal(0.1, 0.2), Exponential(0.3)]),
+                                                   c=MvNormal([0.2, 0.3], [2. 0.1; 0.1 4.5])))
 
 end

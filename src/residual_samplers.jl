@@ -31,22 +31,6 @@ ImplicitResidualSampler(λ_information::LinearMap,
 
 Base.length(rs::ImplicitResidualSampler) = size(rs.jac_dλ_dθ, 2)
 
-function cholesky_L(lm::LinearMaps.WrappedMap{T, <:Diagonal}) where {T}
-    LinearMap(sqrt.(lm.lmap), issymmetric = false, ishermitian = false, isposdef = false)
-end
-
-function cholesky_L(lm::LinearMaps.WrappedMap{T, <:PDSparseMat{A, B}}) where {T, A, B}
-    LinearMap(sparse(cholesky(lm.lmap).L), issymmetric = false, ishermitian = false, isposdef = false)
-end
-
-function cholesky_L(lm::LinearMaps.WrappedMap{T, <:AbstractPDMat}) where {T}
-    LinearMap(cholesky(lm.lmap).L, issymmetric = false, ishermitian = false, isposdef = false)
-end
-
-function cholesky_L(bd::LinearMaps.BlockDiagonalMap)
-    blockdiag(map(cholesky_L, bd.maps)...)
-end
-
 function _implicit_rand_impl_args(s::ImplicitResidualSampler)
     num_λs = size(s.jac_dλ_dθ, 1)
     num_θs = size(s.jac_dλ_dθ, 2)

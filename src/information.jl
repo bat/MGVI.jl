@@ -1,30 +1,12 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
-function _blockdiag_map(A::AbstractVector{<:LinearMaps.WrappedMap{Q, <:Diagonal}}) where {Q}
-    d = reduce(vcat, map(x -> x.lmap.diag, A))
-    LinearMap(Diagonal(d), isposdef=true, ishermitian=true, issymmetric=true)
-end
-
-function _blockdiag_map(A::AbstractVector{<:LinearMaps.WrappedMap{T, <:AbstractPDMat}}) where {T}
-    mats = getfield.(A, :lmap)
-    res = BlockDiagonal(mats)
-    LinearMap(res, isposdef=true, ishermitian=true, issymmetric=true)
-end
-
-function _blockdiag_map(A::AbstractVector{<:LinearMaps.LinearMap})
-    mats = getfield.(A, :lmap)
-    res = BlockDiagonal(mats)
-    # assuming the building blocks are posdef
-    LinearMap(res, isposdef=true, ishermitian=true, issymmetric=true)
-end
-
 function fisher_information(dist::Normal)
     _, σval = params(dist)
     inv_σ = inv(σval)
     inv_σ_2 = inv_σ * inv_σ
     inv_σ_4 = inv_σ_2 * inv_σ_2
     res = SVector(inv_σ_2, inv_σ_4/2)
-    LinearMap(Diagonal(res), isposdef=true, ishermitian=true, issymmetric=true)
+    PDLinMapWithChol(Diagonal(res))
 end
 
 function fisher_information(dist::MvNormal)
@@ -44,28 +26,32 @@ function fisher_information(dist::MvNormal)
         end
     end
 
-    sqrt_meanpart = cholesky(PositiveFactorizations.Positive, invσ)
-    sqrt_covpart = cholesky(PositiveFactorizations.Positive, covpart)
-    _blockdiag_map(LinearMap.([PDMat(invσ, sqrt_meanpart), PDMat(covpart, sqrt_covpart)], isposdef=true, ishermitian=true, issymmetric=true))
+    sqrt_meanpart = cholesky(PositiveFactorizations.Positive, invσ).L
+    meanpart_map = PDLinMapWithChol(invσ, sqrt_meanpart)
+
+    sqrt_covpart = cholesky(PositiveFactorizations.Positive, covpart).L
+    covpart_map = PDLinMapWithChol(covpart, sqrt_covpart)
+
+    _blockdiag([meanpart_map, covpart_map])
 end
 
 function fisher_information(dist::Exponential)
     λ = params(dist)[1]
     inv_l = inv(λ)
     res = SVector(inv_l * inv_l,)
-    LinearMap(Diagonal(res), isposdef=true, ishermitian=true, issymmetric=true)
+    PDLinMapWithChol(Diagonal(res))
 end
 
 function fisher_information(dist::Product)
     dists = dist.v
     λinformations = fisher_information.(dists)
-    _blockdiag_map(λinformations)
+    _blockdiag(λinformations)
 end
 
 function fisher_information(d::NamedTupleDist)
     dists = values(d)
     λinformations = map(fisher_information, dists)
-    blockdiag(λinformations...)
+    _blockdiag([λinformations...])
 end
 
 _dists_flat_params_getter(dist_generator) = par::Vector -> reduce(vcat, (par |> dist_generator |> unshaped_params |> values))
