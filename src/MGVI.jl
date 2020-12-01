@@ -27,6 +27,7 @@ using StaticArrays
 using ValueShapes
 import Zygote
 
+include("custom_linear_maps.jl")
 include("shapes.jl")
 include("jacobian_maps.jl")
 include("information.jl")
