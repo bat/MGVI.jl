@@ -1,16 +1,10 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
-using Random
-using Distributions
-using LinearAlgebra
+Test.@testset "test_fisher_information" begin
 
-using MGVInference
+    Random.seed!(42)
+    epsilon = 1E-5
 
-using Test
-
-Random.seed!(42)
-
-@testset "test_fisher_information" begin
     mean = rand(2)
     variance_sqrt = rand(2, 2)
     variance = adjoint(variance_sqrt)*variance_sqrt
@@ -34,5 +28,6 @@ Random.seed!(42)
 
     mgvi_fi = MGVInference.fisher_information(MvNormal(mean, variance))
 
-    @test norm(mgvi_fi - res) < 1E-5
+    Test.@test norm(Matrix(mgvi_fi - res)) < epsilon
+
 end
