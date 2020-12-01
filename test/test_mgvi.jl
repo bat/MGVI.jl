@@ -1,15 +1,10 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
-using Random
-using Distributions
-using ValueShapes
+Test.@testset "test_mgvi_optimize_step" begin
 
-using MGVInference
-include("test_models/model_polyfit.jl")
-
-using Test
-
-@testset "test_mgvi_optimize_step" begin
+    model = ModelPolyfit.model
+    true_params = ModelPolyfit.true_params
+    starting_point = ModelPolyfit.starting_point
 
     rng = MersenneTwister(145)
     data = rand(rng, model(true_params), 1)[1]
