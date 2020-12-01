@@ -1,9 +1,16 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
+function cholesky_L(m::AbstractSparseMatrix)
+    sparse(cholesky(m).L)
+end
 
-function cholesky_L end
+function cholesky_L(m::AbstractMatrix)
+    cholesky(m).L
+end
 
-
+function cholesky_L(m::Diagonal)
+    Diagonal(sqrt.(m.diag))
+end
 
 struct PDLinMapWithChol{
     T,
@@ -17,7 +24,50 @@ end
 
 function PDLinMapWithChol(A::AbstractMatrix)
     chol_L = LinearMap(
-        cholesky(A).L,
+        cholesky_L(A),
+        issymmetric = false, ishermitian = false, isposdef = false
+    )
+
+    wrapped_A = LinearMap(
+        A,
+        issymmetric = true, ishermitian = true, isposdef = true
+    )
+
+    PDLinMapWithChol(wrapped_A, chol_L)
+end
+
+function PDLinMapWithChol(A::PDMat)
+    chol_L = LinearMap(
+        cholesky_L(A),
+        issymmetric = false, ishermitian = false, isposdef = false
+    )
+
+    wrapped_A = LinearMap(
+        A.mat,
+        issymmetric = true, ishermitian = true, isposdef = true
+    )
+
+    PDLinMapWithChol(wrapped_A, chol_L)
+end
+
+function PDLinMapWithChol(A::PDMat, chol_A::AbstractMatrix)
+    chol_L = LinearMap(
+        chol_A,
+        issymmetric = false, ishermitian = false, isposdef = false
+    )
+
+    wrapped_A = LinearMap(
+        A.mat,
+        issymmetric = true, ishermitian = true, isposdef = true
+    )
+
+    PDLinMapWithChol(wrapped_A, chol_L)
+end
+
+
+function PDLinMapWithChol(A::AbstractMatrix, chol_A::AbstractMatrix)
+    chol_L = LinearMap(
+        chol_A,
         issymmetric = false, ishermitian = false, isposdef = false
     )
 
@@ -32,7 +82,7 @@ end
 
 Base.parent(A::PDLinMapWithChol) = A.parent
 
-cholesky_L(A::PDLinMapWithChol) = A.chol_L
+cholesky_L(A::PDLinMapWithChol) = A.chol_L.lmap
 
 
 Base.Matrix(A::PDLinMapWithChol) = Matrix(parent(A))
@@ -92,3 +142,18 @@ Base.@propagate_inbounds LinearAlgebra.mul!(
 Base.:(*)(A::LinearMap, B::PDLinMapWithChol) = A * parent(B)
 Base.:(*)(A::PDLinMapWithChol, B::LinearMap) = parent(A) * B
 Base.:(*)(A::PDLinMapWithChol, B::PDLinMapWithChol) = parent(A) * parent(B)
+
+function _blockdiag(A::AbstractVector{<:PDLinMapWithChol{T, <:LinearMaps.WrappedMap{Q, <:Diagonal}, G}}) where {T<:Real, Q, G}
+    d = reduce(vcat, map(x -> parent(x).lmap.diag, A))
+    PDLinMapWithChol(Diagonal(d))
+end
+
+function _blockdiag(A::AbstractVector{<:PDLinMapWithChol{T, <:LinearMaps.LinearMap{X}, <:LinearMaps.LinearMap{Y}}}) where {T, X, Y}
+    mats = map(lm -> parent(lm).lmap, A)
+    resmat = BlockDiagonal(mats)
+
+    chols = cholesky_L.(A)
+    reschol = BlockDiagonal(chols)
+
+    PDLinMapWithChol(resmat, reschol)
+end

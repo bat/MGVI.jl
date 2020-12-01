@@ -1,5 +1,7 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
+module ModelFFTGP
+
 import Base: *, adjoint
 import AbstractFFTs
 import FFTW: plan_r2r, DHT
@@ -9,6 +11,8 @@ import Distributions: Normal
 import ValueShapes: NamedTupleDist
 import Zygote
 import LinearAlgebra: Diagonal
+
+export model, true_params, starting_point
 
 const _dims = 40
 const _k = [i < _dims / 2 ? i : _dims-i for i = 0:_dims-1]
@@ -70,3 +74,5 @@ end
 # ξ := latent variables
 const true_params = randn(MersenneTwister(128), _dims)
 const starting_point = randn(MersenneTwister(12), _dims)
+
+end # module

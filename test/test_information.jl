@@ -1,16 +1,10 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
-using Random
-using Distributions
-using LinearAlgebra
+Test.@testset "test_fisher_information_value" begin
 
-using MGVI
+    Random.seed!(42)
+    epsilon = 1E-5
 
-using Test
-
-Random.seed!(42)
-
-@testset "test_fisher_information" begin
     mean = rand(2)
     variance_sqrt = rand(2, 2)
     variance = adjoint(variance_sqrt)*variance_sqrt
@@ -34,5 +28,22 @@ Random.seed!(42)
 
     mgvi_fi = MGVI.fisher_information(MvNormal(mean, variance))
 
-    @test sum((mgvi_fi - res) .* (mgvi_fi - res)) < 1E-5
+    Test.@test norm(Matrix(mgvi_fi - res)) < epsilon
+
+end
+
+Test.@testset "test_fisher_information_combinations" begin
+
+    MGVI.fisher_information(Normal(0.1, 0.2))
+
+    MGVI.fisher_information(MvNormal([0.1, 0.2], [2. 0.1; 0.1 4]))
+
+    MGVI.fisher_information(Product([Normal(0.1, 0.2), Exponential(0.3)]))
+
+    MGVI.fisher_information(Product([Normal(0.1, 0.2), Normal(0.1, 0.3)]))
+
+    MGVI.fisher_information(NamedTupleDist(a=Normal(0.1, 0.2),
+                                                   b=Product([Normal(0.1, 0.2), Exponential(0.3)]),
+                                                   c=MvNormal([0.2, 0.3], [2. 0.1; 0.1 4.5])))
+
 end
