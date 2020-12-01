@@ -1,8 +1,8 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
-function _blockdiag_map(A::AbstractVector{<:LinearMaps.WrappedMap{Q, PDiagMat{T,SArray{Tuple{M},T,1,M}}}}) where {T<:Real,M,Q}
+function _blockdiag_map(A::AbstractVector{<:LinearMaps.WrappedMap{Q, <:Diagonal}}) where {Q}
     d = reduce(vcat, map(x -> x.lmap.diag, A))
-    LinearMap(PDiagMat(d), isposdef=true, ishermitian=true, issymmetric=true)
+    LinearMap(Diagonal(d), isposdef=true, ishermitian=true, issymmetric=true)
 end
 
 function _blockdiag_map(A::AbstractVector{<:LinearMaps.WrappedMap{T, <:AbstractPDMat}}) where {T}
@@ -24,7 +24,7 @@ function fisher_information(dist::Normal)
     inv_σ_2 = inv_σ * inv_σ
     inv_σ_4 = inv_σ_2 * inv_σ_2
     res = SVector(inv_σ_2, inv_σ_4/2)
-    LinearMap(PDiagMat(res), isposdef=true, ishermitian=true, issymmetric=true)
+    LinearMap(Diagonal(res), isposdef=true, ishermitian=true, issymmetric=true)
 end
 
 function fisher_information(dist::MvNormal)
@@ -53,7 +53,7 @@ function fisher_information(dist::Exponential)
     λ = params(dist)[1]
     inv_l = inv(λ)
     res = SVector(inv_l * inv_l,)
-    LinearMap(PDiagMat(res), isposdef=true, ishermitian=true, issymmetric=true)
+    LinearMap(Diagonal(res), isposdef=true, ishermitian=true, issymmetric=true)
 end
 
 function fisher_information(dist::Product)

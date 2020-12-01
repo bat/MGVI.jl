@@ -31,9 +31,11 @@ num_of_test_samples = 60
     p = BartlettTest(full_samples_1', implicit_samples') |> pvalue
 
     @test p > p0/10
+
 end
 
 @testset "test_num_residual_sampler_full" begin
+
     _simple_model_params = [1, 2.]
 
     function simple_model(p)
@@ -46,4 +48,5 @@ end
     truth = [1/_simple_model_params[2]^2 0; 0 1/_simple_model_params[2]^4/2]
 
     @test norm(truth - full_fisher) < 1E-5
+
 end
