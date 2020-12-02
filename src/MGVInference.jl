@@ -14,7 +14,6 @@ using LinearAlgebra
 using Random
 using SparseArrays
 using Base.Iterators
-using BlockDiagonals
 using Distributions
 import ForwardDiff
 using LinearMaps
@@ -22,6 +21,7 @@ using IterativeSolvers
 using Optim
 using PDMats
 using PositiveFactorizations
+import SparseArrays: blockdiag
 using SparseArrays
 using StaticArrays
 using ValueShapes
