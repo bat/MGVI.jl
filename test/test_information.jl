@@ -1,6 +1,52 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
-Test.@testset "test_fisher_information_value" begin
+
+# fisher information MC implementation
+
+function _grad_logpdf(model::Function, params::AbstractVector, data_point)
+    g = Zygote.gradient(dp -> logpdf(model(dp), data_point), params)[1]
+    g_flat = reduce(vcat, g)
+    g_flat * g_flat'
+end
+
+function fisher_information_mc(model::Function, params::AbstractVector, n::Integer)
+    dist = model(params)
+    sample() = _grad_logpdf(model, params, rand(dist))
+
+    res = [sample()/n for _ in 1:Threads.nthreads()]
+    Threads.@threads for i in 1:n-Threads.nthreads()
+        res[Threads.threadid()] += sample()/n
+    end
+
+    sum(res)
+end
+
+# end fisher information mc
+
+
+Test.@testset "test_fisher_with_mc" begin
+
+    Random.seed!(42)
+    epsilon = 5E-2
+    num_runs = 100000
+
+    # test univariate normal
+    params = [0.1, 0.2]
+    model = p -> Normal(p...)
+    res = MGVInference.fisher_information(model(params))
+    truth = fisher_information_mc(model, params, num_runs)
+    Test.@test norm((Matrix(res) - truth)) / norm(truth) < epsilon
+
+    # test exponential
+    params = [0.3]
+    model = p -> Exponential(p...)
+    res = MGVInference.fisher_information(model(params))
+    truth = fisher_information_mc(model, params, num_runs)
+    Test.@test norm((Matrix(res)[1] - truth)) / norm(truth) < epsilon
+
+end
+
+Test.@testset "test_fisher_mvnormal_explicit" begin
 
     Random.seed!(42)
     epsilon = 1E-5
@@ -36,21 +82,22 @@ Test.@testset "test_fisher_information_combinations" begin
 
     epsilon = 1E-5
 
-    μ, σ = 0.1, 0.2
-    res = MGVInference.fisher_information(Normal(μ, σ))
-    truth = Diagonal([1/σ^2, 1/σ^4/2])
-    Test.@test norm(Matrix(res) - truth) < epsilon
-
     MGVInference.fisher_information(MvNormal([0.1, 0.2], [2. 0.1; 0.1 4]))
 
+    # test Product(Univariates)
     μ1, σ1 = 0.1, 0.2
     μ2, σ2 = 0.1, 0.3
-    res = MGVInference.fisher_information(Product([Normal(0.1, 0.2), Normal(0.1, 0.3)]))
-    truth = Diagonal([1/σ1^2, 1/σ1^4/2, 1/σ2^2, 1/σ2^4/2])
-    Test.@test norm(Matrix(res) - truth) < epsilon
+    dists = [Normal(μ1, σ1), Normal(μ2, σ2)]
+    res = MGVInference.fisher_information(Product(dists))
+    truth = blockdiag(MGVInference.fisher_information.(dists)...)
+    Test.@test norm(Matrix(res) - Matrix(truth)) < epsilon
 
-    MGVInference.fisher_information(NamedTupleDist(a=Normal(0.1, 0.2),
-                                                   b=Product([Normal(0.1, 0.2), Normal(0.3, 0.1)]),
-                                                   c=MvNormal([0.2, 0.3], [2. 0.1; 0.1 4.5])))
+    # test NamedTupleDist
+    dists = NamedTupleDist(a=Normal(0.1, 0.2),
+                           b=Product([Normal(0.1, 0.2), Normal(0.3, 0.1)]),
+                           c=MvNormal([0.2, 0.3], [2. 0.1; 0.1 4.5]))
+    res = MGVInference.fisher_information(dists)
+    truth = blockdiag((parent ∘ MGVInference.fisher_information).(values(dists))...)
+    Test.@test norm(Matrix(res) - Matrix(truth)) < epsilon
 
 end
