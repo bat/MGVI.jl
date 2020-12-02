@@ -21,6 +21,18 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
 julia = "1"
+BlockDiagonals = "0.1"
+Distributions = "0.23, 0.24"
+ForwardDiff = "0.10"
+HypothesisTests = "0.10"
+IterativeSolvers = "0.8"
+LinearMaps = "2"
+Optim = "1"
+PDMats = "0.10"
+PositiveFactorizations = "0.2"
+StaticArrays = "0.12, 1"
+ValueShapes = "0.7"
+Zygote = "0.5.14"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
