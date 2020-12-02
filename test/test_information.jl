@@ -34,16 +34,23 @@ end
 
 Test.@testset "test_fisher_information_combinations" begin
 
-    MGVInference.fisher_information(Normal(0.1, 0.2))
+    epsilon = 1E-5
+
+    μ, σ = 0.1, 0.2
+    res = MGVInference.fisher_information(Normal(μ, σ))
+    truth = Diagonal([1/σ^2, 1/σ^4/2])
+    Test.@test norm(Matrix(res) - truth) < epsilon
 
     MGVInference.fisher_information(MvNormal([0.1, 0.2], [2. 0.1; 0.1 4]))
 
-    MGVInference.fisher_information(Product([Normal(0.1, 0.2), Exponential(0.3)]))
-
-    MGVInference.fisher_information(Product([Normal(0.1, 0.2), Normal(0.1, 0.3)]))
+    μ1, σ1 = 0.1, 0.2
+    μ2, σ2 = 0.1, 0.3
+    res = MGVInference.fisher_information(Product([Normal(0.1, 0.2), Normal(0.1, 0.3)]))
+    truth = Diagonal([1/σ1^2, 1/σ1^4/2, 1/σ2^2, 1/σ2^4/2])
+    Test.@test norm(Matrix(res) - truth) < epsilon
 
     MGVInference.fisher_information(NamedTupleDist(a=Normal(0.1, 0.2),
-                                                   b=Product([Normal(0.1, 0.2), Exponential(0.3)]),
+                                                   b=Product([Normal(0.1, 0.2), Normal(0.3, 0.1)]),
                                                    c=MvNormal([0.2, 0.3], [2. 0.1; 0.1 4.5])))
 
 end
