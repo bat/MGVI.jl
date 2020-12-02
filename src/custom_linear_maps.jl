@@ -93,21 +93,23 @@ Base.:(*)(A::LinearMap, B::PDLinMapWithChol) = A * parent(B)
 Base.:(*)(A::PDLinMapWithChol, B::LinearMap) = parent(A) * B
 Base.:(*)(A::PDLinMapWithChol, B::PDLinMapWithChol) = parent(A) * parent(B)
 
-function SparseArrays.blockdiag(As::PDLinMapWithChol...)
+function _blockdiag(As::Tuple{Vararg{<:PDLinMapWithChol}})
     PDLinMapWithChol(blockdiag(map(parent, As)...), blockdiag(map(A -> A.chol_L, As)...))
 end
 
 const DiagLinearMap{T} = LinearMaps.WrappedMap{T,<:Diagonal}
 const DiagPDLinMapWithChol = PDLinMapWithChol{T,<:DiagLinearMap,<:DiagLinearMap} where T
 
-function SparseArrays.blockdiag(As::DiagPDLinMapWithChol...) where T
+function _blockdiag(As::Tuple{Vararg{<:DiagPDLinMapWithChol}}) where T
     PDLinMapWithChol(
         LinearMap(Diagonal(vcat(map(A -> A.parent.lmap.diag, As)...)), issymmetric = true, ishermitian = true, isposdef = true),
         LinearMap(Diagonal(vcat(map(A -> A.chol_L.lmap.diag, As)...)), issymmetric = true, ishermitian = true, isposdef = true)
     )
 end
 
-function _blockdiag_v(A::AbstractVector{<:DiagPDLinMapWithChol})
+blockdiag(As::PDLinMapWithChol...) = _blockdiag(As)
+
+function _blockdiag(A::AbstractVector{<:DiagPDLinMapWithChol})
     d = reduce(vcat, map(x -> parent(x).lmap.diag, A))
     PDLinMapWithChol(Diagonal(d))
 end

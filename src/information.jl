@@ -27,7 +27,7 @@ function fisher_information(dist::MvNormal)
     end
 
     sqrt_meanpart = cholesky(PositiveFactorizations.Positive, invσ).L
-    meanpart_map = PDLinMapWithChol(invσ, sqrt_meanpart)
+    meanpart_map = PDLinMapWithChol(invσ.mat, sqrt_meanpart)
 
     sqrt_covpart = cholesky(PositiveFactorizations.Positive, covpart).L
     covpart_map = PDLinMapWithChol(covpart, sqrt_covpart)
@@ -45,13 +45,13 @@ end
 function fisher_information(dist::Product)
     dists = dist.v
     λinformations = fisher_information.(dists)
-    _blockdiag_v(λinformations)
+    _blockdiag(λinformations)
 end
 
 function fisher_information(d::NamedTupleDist)
     dists = values(d)
     λinformations = map(fisher_information, dists)
-    blockdiag(λinformations...)
+    _blockdiag(λinformations)
 end
 
 _dists_flat_params_getter(dist_generator) = par::Vector -> reduce(vcat, (par |> dist_generator |> unshaped_params |> values))
