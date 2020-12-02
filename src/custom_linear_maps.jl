@@ -143,11 +143,14 @@ Base.:(*)(A::LinearMap, B::PDLinMapWithChol) = A * parent(B)
 Base.:(*)(A::PDLinMapWithChol, B::LinearMap) = parent(A) * B
 Base.:(*)(A::PDLinMapWithChol, B::PDLinMapWithChol) = parent(A) * parent(B)
 
+
+# Rename to _blockdiag_v
 function _blockdiag(A::AbstractVector{<:PDLinMapWithChol{T, <:LinearMaps.WrappedMap{Q, <:Diagonal}, G}}) where {T<:Real, Q, G}
     d = reduce(vcat, map(x -> parent(x).lmap.diag, A))
     PDLinMapWithChol(Diagonal(d))
 end
 
+# This should be removed, should also remove BlockDiagonal from deps.
 function _blockdiag(A::AbstractVector{<:PDLinMapWithChol{T, <:LinearMaps.LinearMap{X}, <:LinearMaps.LinearMap{Y}}}) where {T, X, Y}
     mats = map(lm -> parent(lm).lmap, A)
     resmat = BlockDiagonal(mats)
@@ -156,4 +159,20 @@ function _blockdiag(A::AbstractVector{<:PDLinMapWithChol{T, <:LinearMaps.LinearM
     reschol = BlockDiagonal(chols)
 
     PDLinMapWithChol(resmat, reschol)
+end
+
+
+function SparseArrays.blockdiag(As::PDLinMapWithChol...)
+    PDLinMapWithChol(blockdiag(map(parent, As)...), blockdiag(map(A -> A.chol_L, As)...))
+end
+
+
+const DiagLinearMap{T} = LinearMaps.WrappedMap{T,<:Diagonal}
+const DiagPDLinMapWithChol = PDLinMapWithChol{T,<:DiagLinearMap,<:DiagLinearMap} where T
+
+function SparseArrays.blockdiag(As::DiagPDLinMapWithChol...) where T
+    PDLinMapWithChol(
+        LinearMap(Diagonal(vcat(map(A -> A.parent.lmap.diag, As)...)), issymmetric = true, ishermitian = true, isposdef = true),
+        LinearMap(Diagonal(vcat(map(A -> A.chol_L.lmap.diag, As)...)), issymmetric = true, ishermitian = true, isposdef = true)
+    )
 end
