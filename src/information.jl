@@ -4,8 +4,7 @@ function fisher_information(dist::Normal)
     _, σval = params(dist)
     inv_σ = inv(σval)
     inv_σ_2 = inv_σ * inv_σ
-    inv_σ_4 = inv_σ_2 * inv_σ_2
-    res = SVector(inv_σ_2, inv_σ_4/2)
+    res = SVector(inv_σ_2, 2*inv_σ_2)
     PDLinMapWithChol(Diagonal(res))
 end
 
@@ -56,7 +55,7 @@ end
 
 _dists_flat_params_getter(dist_generator) = par::Vector -> reduce(vcat, (par |> dist_generator |> unshaped_params |> values))
 
-function fisher_information_and_jac(f::Function, p::Vector;
+function fisher_information_and_jac(f::Function, p::AbstractVector;
                                     jacobian_func::Type{JF}) where JF<:AbstractJacobianFunc
     flat_func = _dists_flat_params_getter(f)
     jac = jacobian_func(flat_func)(p)

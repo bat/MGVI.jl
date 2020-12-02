@@ -2,9 +2,12 @@
 
 using Random
 using Distributions
+using DistributionsAD
 using HypothesisTests
 using LinearAlgebra
+using SparseArrays
 using ValueShapes
+import Zygote
 
 using MGVI
 
