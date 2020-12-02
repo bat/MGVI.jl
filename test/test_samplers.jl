@@ -25,23 +25,3 @@ Test.@testset "test_cmp_residual_samplers" begin
     Test.@test p > p0/10
 
 end
-
-Test.@testset "test_num_residual_sampler_full" begin
-
-    Random.seed!(42)
-    epsilon = 1E-5
-
-    _simple_model_params = [1, 2.]
-
-    function simple_model(p)
-        Normal(p[1], p[2])
-    end
-
-    fisher, jac = MGVInference.fisher_information_and_jac(simple_model, _simple_model_params; jacobian_func=FullJacobianFunc)
-    full_fisher = Matrix(jac' * fisher * jac)
-
-    truth = [1/_simple_model_params[2]^2 0; 0 1/_simple_model_params[2]^4/2]
-
-    Test.@test norm(truth - full_fisher) < epsilon
-
-end
