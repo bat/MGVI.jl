@@ -16,7 +16,7 @@ Test.@testset "test_cmp_residual_samplers" begin
     full_samples_2 = rand(Random.GLOBAL_RNG, full_rs, num_of_test_samples)
     p0 = BartlettTest(full_samples_1', full_samples_2') |> pvalue
 
-    Test.@test p0 > 1E-3
+    Test.@test p0 > 5E-2
 
     implicit_rs = ImplicitResidualSampler(fisher, jac)
     implicit_samples = rand(Random.GLOBAL_RNG, implicit_rs, num_of_test_samples)
