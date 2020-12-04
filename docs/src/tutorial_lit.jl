@@ -59,7 +59,7 @@ init_plots =() -> let
     truth = _mean(true_params)
     plot!(_common_grid, truth, markercolor=:blue, linecolor=:blue, label="truth")
     scatter!(_common_grid, _mean(starting_point), markercolor=:orange, markerstrokewidth=0, markersize=3, label="init")
-    scatter!(vcat(_x1_grid, _x2_grid), MGVInference.unshaped(data), markercolor=:black, markerstrokewidth=0, markersize=3, label="data")
+    scatter!(vcat(_x1_grid, _x2_grid), reduce(vcat, data), markercolor=:black, markerstrokewidth=0, markersize=3, label="data")
 end
 #-
 p = plot()
