@@ -1,5 +1,13 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
+"""
+    abstract type AbstractJacobianFunc <: Function end
+
+Abstract type of the jacobian calculators.
+
+Instance represents the jacobian of the function. The instance can be called at the point `θ`,
+then LinearMap representing the jacobian is returned.
+"""
 abstract type AbstractJacobianFunc <: Function end
 
 struct JacVecProdTag{F, T} end
@@ -10,6 +18,22 @@ function _dual_along(f::F, x::AbstractVector{T1}, δ::AbstractVector{T2}) where 
     f(ForwardDiff.Dual{T_Dual}.(x, δ))
 end
 
+"""
+    FullJacobianFunc(f)
+
+Construct Jacobian with ForwardDiff.
+
+When called at point `θ`, jacobian matrix being fully instantiated
+and stored explicitly in memory.
+
+# Examples
+```julia
+# forward_model: θ -> Distribution
+jacobian_func = FullJacobianFunc(forward_model)
+jacobian = jacobian_func(θ)  # LinearMap
+jacobian * v  # act on vector
+```
+"""
 struct FullJacobianFunc{F<:Function} <: AbstractJacobianFunc
     f::F
 end
@@ -20,6 +44,21 @@ function (jf::FullJacobianFunc)(θ::AbstractVector{T}) where T
     LinearMap{T}(jac, isposdef=false, issymmetric=false, ishermitian=false)
 end
 
+"""
+    FwdRevADJacobianFunc(f)
+
+Construct Jacobian with ForwardDiff for direct action and Zygote.pullback for the adjoint
+
+Jacobian action being computed on the fly, no matrix stored in memory at any point.
+
+# Examples
+```julia
+# forward_model: θ -> Distribution
+jacobian_func = FwdRevADJacobianFunc(forward_model)
+jacobian = jacobian_func(θ)  # LinearMap
+jacobian * v  # act on vector as if it was a matrix
+```
+"""
 struct FwdRevADJacobianFunc{F<:Function} <: AbstractJacobianFunc
     f::F
 end
@@ -33,6 +72,19 @@ function (jf::FwdRevADJacobianFunc)(θ::AbstractVector{T}) where T
     LinearMap{T}(jvd, vjd, num_λs, size(θ, 1), isposdef=false, issymmetric=false, ishermitian=false)
 end
 
+"""
+    FwdDerJacobianFunc(f)
+
+Construct Jacobian with ForwardDiff for the direct action, and twice applied
+ForwardDiff for the adjoint action
+
+Adjoint is implemented by introducing fake parametric vector ``\\vec{t}``:
+
+`` \\frac{d}{d\\vec{t}} \\vec{x} \\cdot (A \\vec{t}) = A^{T} \\vec{x} ``
+
+With this trick we manage to implement both direct and adjoint actions using
+ForwardDiff, without instantiating full jacobian at any point.
+"""
 struct FwdDerJacobianFunc{F<:Function} <: AbstractJacobianFunc
     f::F
 end
