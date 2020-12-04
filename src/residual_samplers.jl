@@ -21,7 +21,7 @@ struct ImplicitResidualSampler <: AbstractResidualSampler
     cg_params::NamedTuple
 end
 
-const _default_cg_params=(;)
+const _default_cg_params=NamedTuple()
 
 ImplicitResidualSampler(λ_information::LinearMap,
                         jac_dλ_dθ::LinearMap;
