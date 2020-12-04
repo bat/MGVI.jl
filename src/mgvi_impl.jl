@@ -1,6 +1,6 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
-const rs_default_options=(;)
+const rs_default_options=NamedTuple()
 const optim_default_options = Optim.Options()
 const optim_default_solver = LBFGS()
 
