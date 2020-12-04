@@ -12,24 +12,37 @@ function fisher_information(dist::MvNormal)
     μval, σval = params(dist)
     invσ = inv(σval)
 
-    μdof, σdof = length(μval), length(σval)
+    μdof = length(μval)
+    σdof = μdof*(μdof+1) ÷ 2
 
-    covpart = zeros(σdof, σdof)
-    for i in 1:σdof
-        for j in 1:σdof
-            # translation from flat index of matrix to row/col
-            i_row, i_col = (i-1) ÷ μdof + 1, (i-1) % μdof + 1
-            j_row, j_col = (j-1) ÷ μdof + 1, (j-1) % μdof + 1
-
-            covpart[i, j] = invσ[j_col, i_row] * invσ[i_col, j_row] / 2
+    T = promote_type(eltype(μval), eltype(σval))
+    covpart = UpperTriangular(fill(T(0), σdof, σdof))
+    for my in 1:μdof
+        m_flat_base = my*(my-1)÷2
+        for mx in 1:my
+            m_flat = m_flat_base + mx
+            for ny in 1:my
+                n_flat_base = ny*(ny-1)÷2
+                for nx in 1:min(ny, (m_flat - n_flat_base))
+                    n_flat = n_flat_base + nx
+                    covpart[n_flat, m_flat] = (invσ[ny, mx] * invσ[my, nx] + invσ[mx, nx] * invσ[my, ny])
+                end
+            end
         end
+    end
+
+    for x in 1:μdof
+        xflat = x*(x+1)÷2
+        covpart[1:xflat, xflat] ./= 2
+        covpart[xflat, xflat:end] ./= 2
     end
 
     sqrt_meanpart = cholesky(PositiveFactorizations.Positive, invσ).L
     meanpart_map = PDLinMapWithChol(invσ.mat, sqrt_meanpart)
 
-    sqrt_covpart = cholesky(PositiveFactorizations.Positive, covpart).L
-    covpart_map = PDLinMapWithChol(covpart, sqrt_covpart)
+    sym_covpart = Symmetric(covpart)
+    sqrt_covpart = cholesky(PositiveFactorizations.Positive, sym_covpart).L
+    covpart_map = PDLinMapWithChol(sym_covpart, sqrt_covpart)
 
     blockdiag(meanpart_map, covpart_map)
 end
