@@ -1,7 +1,17 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
+"""
+    abstract type AbstractResidualSampler <: Sampleable{Multivariate, Continuous} end
+
+Generate zero-mean samples from Gaussian posterior, assuming priors are standard gaussians.
+"""
 abstract type AbstractResidualSampler <: Sampleable{Multivariate, Continuous} end
 
+"""
+    FullResidualSampler(λ_information, jac_dλ_dθ)
+
+add args
+"""
 struct FullResidualSampler <: AbstractResidualSampler
     λ_information::LinearMap
     jac_dλ_dθ::LinearMap
