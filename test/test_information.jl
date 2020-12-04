@@ -1,30 +1,6 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
-
-# fisher information MC implementation
-
-function _grad_logpdf(model::Function, params::AbstractVector, data_point)
-    g = Zygote.gradient(dp -> logpdf(model(dp), data_point), params)[1]
-    g_flat = reduce(vcat, g)
-    g_flat * g_flat'
-end
-
-function fisher_information_mc(model::Function, params::AbstractVector, n::Integer)
-    dist = model(params)
-    sample() = _grad_logpdf(model, params, rand(dist))
-
-    res = [sample()/n for _ in 1:Threads.nthreads()]
-    Threads.@threads for i in 1:n-Threads.nthreads()
-        res[Threads.threadid()] += sample()/n
-    end
-
-    sum(res)
-end
-
-# end fisher information mc
-
-
-Test.@testset "test_fisher_with_mc" begin
+Test.@testset "test_fisher_values" begin
 
     Random.seed!(42)
     epsilon = 5E-2
@@ -42,39 +18,43 @@ Test.@testset "test_fisher_with_mc" begin
     model = p -> Exponential(p...)
     res = MGVI.fisher_information(model(params))
     truth = fisher_information_mc(model, params, num_runs)
-    Test.@test norm((Matrix(res)[1] - truth)) / norm(truth) < epsilon
+    Test.@test norm((Matrix(res) - truth)) / norm(truth) < epsilon
 
-end
+    # test mv normal
+    dim = 1
+    cov = I*5 + Symmetric(rand(dim, dim))
+    mean = rand(dim)
+    params = vcat(mean, cov[:])
+    model = p -> MvNormal(p[1:dim], reshape(p[dim+1:end], dim, dim))
+    res = MGVI.fisher_information(model(params))
+    explicit = explicit_mv_normal_fi(cov)
+    truth = fisher_information_mc(model, params, num_runs)
+    Test.@test norm((Matrix(res) - truth)) / norm(truth) < epsilon
+    Test.@test norm((Matrix(res) - explicit)) / norm(explicit) < epsilon
 
-Test.@testset "test_fisher_mvnormal_explicit" begin
+    # test mv normal
+    dim = 2
+    cov = Matrix(I*5 + Symmetric(rand(dim, dim)))
+    mean = rand(dim)
+    params = vcat(mean, cov[:])
+    model = p -> MvNormal(p[1:dim], reshape(p[dim+1:end], dim, dim))
+    res = MGVI.fisher_information(model(params))
+    truth = fisher_information_mc(model, params, num_runs)
+    explicit = explicit_mv_normal_fi(cov)
+    Test.@test norm((Matrix(res) - truth)) / norm(truth) < epsilon
+    Test.@test norm((Matrix(res) - explicit)) / norm(explicit) < epsilon
 
-    Random.seed!(42)
-    epsilon = 1E-5
-
-    mean = rand(2)
-    variance_sqrt = rand(2, 2)
-    variance = adjoint(variance_sqrt)*variance_sqrt
-
-    mean_dims = length(mean)
-    var_dims = length(variance)
-    dims = mean_dims + var_dims
-
-    res = zeros(dims, dims)
-    inv_var = inv(variance)
-    res[1:mean_dims, 1:mean_dims] .= inv_var
-    for m in 1:var_dims
-        for n in 1:var_dims
-            m_mat = zeros(mean_dims, mean_dims)
-            m_mat[m] = 1
-            n_mat = zeros(mean_dims, mean_dims)
-            n_mat[n] = 1
-            res[mean_dims + m, mean_dims + n] = tr(inv_var * m_mat * inv_var * n_mat)/2
-        end
-    end
-
-    mgvi_fi = MGVI.fisher_information(MvNormal(mean, variance))
-
-    Test.@test norm(Matrix(mgvi_fi - res)) < epsilon
+    # test mv normal
+    dim = 3
+    cov = I*5 + Symmetric(rand(dim, dim))
+    mean = rand(dim)
+    params = vcat(mean, cov[:])
+    model = p -> MvNormal(p[1:dim], reshape(p[dim+1:end], dim, dim))
+    res = MGVI.fisher_information(model(params))
+    truth = fisher_information_mc(model, params, num_runs)
+    explicit = explicit_mv_normal_fi(cov)
+    Test.@test norm((Matrix(res) - truth)) / norm(truth) < epsilon
+    Test.@test norm((Matrix(res) - explicit)) / norm(explicit) < epsilon
 
 end
 

@@ -21,6 +21,7 @@ import Test
 
 Test.@testset "Package MGVI" begin
 
+include("utils.jl")
 include("test_mgvi_impl.jl")
 include("test_jacobians.jl")
 include("test_information.jl")
