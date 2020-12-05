@@ -4,13 +4,34 @@
     abstract type AbstractResidualSampler <: Sampleable{Multivariate, Continuous} end
 
 Generate zero-mean samples from Gaussian posterior, assuming priors are standard gaussians.
+
+# Example
+```julia
+rng = MersenneTwister(145)
+rs = FullResidualSampler(λ_information, jac_dλ_dθ)
+samples = rand(rng, rs, 10)  # generate 10 samples
+```
 """
 abstract type AbstractResidualSampler <: Sampleable{Multivariate, Continuous} end
 
 """
     FullResidualSampler(λ_information, jac_dλ_dθ)
 
-add args
+Gaussian posterior's covariance approximated by the Fisher Information
+
+**This sampler constructs covariance matrix explicitly, so memory use grows
+quadratically with the number of model parameters**
+
+Fisher information in canonical coordinates and coordinate transformation jacobian are provided
+as arguments. Since `` J \\cdot I_{canon} \\cdot J^T `` does not depend on the definition of canonical coordinates,
+we omit description of what canonical coordinates are
+
+# Arguments
+
+* `λ_information::LinearMap`: Fisher Information in canonical coordinates. Coordinates are chosen in the way
+  that this matrix is very simple, and diagonal for the univariate distributions
+* `jac_dλ_fθ::LinearMap`: Coordinate transformation jacobian between canonical coordinates and
+  coordinates of the model
 """
 struct FullResidualSampler <: AbstractResidualSampler
     λ_information::LinearMap
@@ -25,6 +46,21 @@ function Distributions._rand!(rng::AbstractRNG, s::FullResidualSampler, x::Abstr
     x[:] = root_covariance * randn(eltype(root_covariance), size(root_covariance, 1))
 end
 
+"""
+    ImplicitResidualSampler(λ_information, jac_dλ_dθ; cg_params=NamedTuple())
+
+Memory efficient Gaussian posterior's covariance approximated by the Fisher Information
+
+This sampler uses Conjugate Gradients to iteratively invert Fisher information, and
+never instantiates entire jacobian or fisher information / covariance in memory.
+
+# Arguments
+
+* `λ_information::LinearMap`: Fisher Information in canonical coordinates.
+* `jac_dλ_fθ::LinearMap`: Coordinate transformation jacobian between canonical coordinates and
+* `cg_params::NamedTuple`: Keyword arguments passed to `cg`. Useful for enabling verbose mode
+  or to set accuracy/number of iterations
+"""
 struct ImplicitResidualSampler <: AbstractResidualSampler
     λ_information::LinearMap
     jac_dλ_dθ::LinearMap
