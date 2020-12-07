@@ -1,6 +1,15 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
+using MGVI
+
+using LinearAlgebra
+using Random
+using SparseArrays
+using ValueShapes
+
 Test.@testset "test_fisher_values" begin
+
+    include("information_utils.jl")
 
     Random.seed!(42)
     epsilon = 5E-2

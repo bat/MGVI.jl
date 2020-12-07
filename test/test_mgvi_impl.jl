@@ -1,5 +1,14 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
+using MGVI
+
+using Random
+
+if :ModelPolyfit ∉ names(Main)
+    include("test_models/model_polyfit.jl")
+    import .ModelPolyfit
+end
+
 Test.@testset "test_mgvi_optimize_step" begin
 
     model = ModelPolyfit.model
