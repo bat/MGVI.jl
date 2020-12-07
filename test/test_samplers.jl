@@ -1,5 +1,15 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
+using MGVInference
+
+using HypothesisTests
+using Random
+
+if :ModelPolyfit ∉ names(Main)
+    include("test_models/model_polyfit.jl")
+    import .ModelPolyfit
+end
+
 Test.@testset "test_cmp_residual_samplers" begin
 
     model = ModelPolyfit.model
@@ -22,6 +32,6 @@ Test.@testset "test_cmp_residual_samplers" begin
     implicit_samples = rand(Random.GLOBAL_RNG, implicit_rs, num_of_test_samples)
     B1 = BartlettTest(full_samples_1', implicit_samples')
 
-    Test.@test B1.L′ > B0.L′ 
+    Test.@test B1.L′ > B0.L′
 
 end

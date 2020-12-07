@@ -1,5 +1,10 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 
+using Distributions
+using DistributionsAD
+using LinearAlgebra
+import Zygote
+
 """
     _fi_cov_only_upper_params(s; offset=0)
 
@@ -50,7 +55,7 @@ function fisher_information_mc(model::Function, params::AbstractVector, n::Integ
     sample() = _grad_logpdf(model, params, rand(dist))/n
 
     res = [sample() for _ in 1:Threads.nthreads()]
-    for i in 1:n-Threads.nthreads()
+    Threads.@threads for i in 1:n-Threads.nthreads()
         res[Threads.threadid()] .+= sample()
     end
 
