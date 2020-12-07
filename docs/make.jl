@@ -38,7 +38,7 @@ makedocs(
     ),
     pages = [
         "Home" => "index.md",
-        "Examples" => "tutorial.md",
+        "Tutorial" => "tutorial.md",
         "API" => "api.md",
         "LICENSE" => "LICENSE.md",
     ],

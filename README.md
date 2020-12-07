@@ -14,3 +14,18 @@ MGVI is an iterative method that performs a series of Gaussian approximations to
 ## Documentation
 * [Documentation for stable version](https://bat.github.io/MGVI.jl/stable)
 * [Documentation for development version](https://bat.github.io/MGVI.jl/dev)
+
+## Citing MGVI.jl
+
+When using MGVI.jl for research, teaching or similar, please cite [MGVI](https://arxiv.org/abs/1901.11033) publication:
+
+```
+@article{knollmüller2020metric,
+         title={Metric Gaussian Variational Inference},
+         author={Jakob Knollmüller and Torsten A. Enßlin},
+         year={2020},
+         eprint={1901.11033},
+         archivePrefix={arXiv},
+         primaryClass={stat.ML}
+}
+```
