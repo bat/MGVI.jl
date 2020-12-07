@@ -137,7 +137,7 @@ pprintln(minimum(next_iteration.optimized))
 pprintln(hcat(next_iteration.result, true_params))
 plt
 
-# Finally, let's plot the last best guess and compare it to the truth. Also, notice, that black dots that are based on samples from
+# Finally, let's plot the last best guess and compare it to the truth. Also, notice, that gray dots that represent samples from
 # the covariance, became less spread after few iterations, so we reduced error estimate of our guess.
 
 p = plot()
