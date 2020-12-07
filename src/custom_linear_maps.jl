@@ -37,7 +37,6 @@ function PDLinMapWithChol(A::AbstractMatrix, chol_A::AbstractMatrix)
 end
 
 PDLinMapWithChol(A::AbstractMatrix) = PDLinMapWithChol(A, cholesky_L(A))
-PDLinMapWithChol(A::PDMat) = PDLinMapWithChol(A.mat, cholesky_L(A))
 
 
 Base.parent(A::PDLinMapWithChol) = A.parent
