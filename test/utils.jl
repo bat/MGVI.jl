@@ -1,5 +1,14 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
+"""
+    _fi_cov_only_upper_params(s; offset=0)
+
+Return indices of the covariance part of the FI matrix that
+correspond to upper triangular part of the covariance matrix.
+
+Specify offset to get indices shifted to the right and bottom by
+the same offset. (useful to remove irrelevant cols from full FI)
+"""
 function _fi_cov_only_upper_params(s; offset=0)
     slices = []
     for i in 1:s
@@ -21,6 +30,15 @@ end
 
 _cut_params(res, dist::Distribution) = res
 
+"""
+    _cut_params(res, dist::Distribution)
+
+noop for most of the distributions.
+
+for MvNormal it removes rows and cols from FI that correspond to lower triangular
+part of the covariance matrix. Covariance matrix is symmetric, so lower triangular
+parameters are redundand.
+"""
 function _cut_params(res, dist::MvNormal)
     mean_size = length(dist.μ)
     slices = _fi_cov_only_upper_params(mean_size; offset=mean_size)
@@ -41,6 +59,13 @@ end
 
 # end fisher information mc
 
+"""
+    explicit_mv_normal_fi(variance::AbstractMatrix)
+
+Compute fisher information of MvNormal based on the wiki article:
+
+https://en.wikipedia.org/wiki/Fisher_information#Multivariate_normal_distribution
+"""
 function explicit_mv_normal_fi(variance::AbstractMatrix)
     var_dims = length(variance)
     mean_dims = size(variance, 1)
