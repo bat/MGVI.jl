@@ -15,63 +15,39 @@ Test.@testset "test_fisher_values" begin
     epsilon = 5E-2
     num_runs = 100000
 
-    # test univariate normal
-    params = [0.1, 0.2]
-    model = p -> Normal(p...)
-    res = MGVInference.fisher_information(model(params))
-    truth = fisher_information_mc(model, params, num_runs)
-    Test.@test norm((Matrix(res) - truth)) / norm(truth) < epsilon
+    function test_univariate(dist, params)
+        model = p -> dist(p...)
+        res = MGVInference.fisher_information(model(params))
+        truth = fisher_information_mc(model, params, num_runs)
+        Test.@test norm((Matrix(res) - truth)) / norm(truth) < epsilon
+    end
 
-    # test exponential
-    params = [0.3]
-    model = p -> Exponential(p...)
-    res = MGVInference.fisher_information(model(params))
-    truth = fisher_information_mc(model, params, num_runs)
-    Test.@test norm((Matrix(res) - truth)) / norm(truth) < epsilon
+    test_univariate(Normal, [0.1, 0.2])
+    test_univariate(Exponential, [0.3])
 
-    # test mv normal
-    dim = 1
-    cov = I*5 + Symmetric(rand(dim, dim))
-    mean = rand(dim)
-    params = vcat(mean, cov[:])
-    model = p -> MvNormal(p[1:dim], reshape(p[dim+1:end], dim, dim))
-    res = MGVInference.fisher_information(model(params))
-    explicit = explicit_mv_normal_fi(cov)
-    truth = fisher_information_mc(model, params, num_runs)
-    Test.@test norm((Matrix(res) - truth)) / norm(truth) < epsilon
-    Test.@test norm((Matrix(res) - explicit)) / norm(explicit) < epsilon
+    function test_mvnormal(dim)
+        dim = 1
+        cov = I*5 + Symmetric(rand(dim, dim))
+        mean = rand(dim)
+        params = vcat(mean, cov[:])
+        model = p -> MvNormal(p[1:dim], reshape(p[dim+1:end], dim, dim))
+        res = MGVInference.fisher_information(model(params))
+        explicit = explicit_mv_normal_fi(cov)
+        truth = fisher_information_mc(model, params, num_runs)
+        Test.@test norm((Matrix(res) - truth)) / norm(truth) < epsilon
+        Test.@test norm((Matrix(res) - explicit)) / norm(explicit) < epsilon
+    end
 
-    # test mv normal
-    dim = 2
-    cov = Matrix(I*5 + Symmetric(rand(dim, dim)))
-    mean = rand(dim)
-    params = vcat(mean, cov[:])
-    model = p -> MvNormal(p[1:dim], reshape(p[dim+1:end], dim, dim))
-    res = MGVInference.fisher_information(model(params))
-    truth = fisher_information_mc(model, params, num_runs)
-    explicit = explicit_mv_normal_fi(cov)
-    Test.@test norm((Matrix(res) - truth)) / norm(truth) < epsilon
-    Test.@test norm((Matrix(res) - explicit)) / norm(explicit) < epsilon
+    test_mvnormal(1)  # test mvnormal 1d
+    test_mvnormal(2)  # test mvnormal 2d
+    test_mvnormal(3)  # test mvnormal 3d
 
-    # test mv normal
-    dim = 3
-    cov = I*5 + Symmetric(rand(dim, dim))
-    mean = rand(dim)
-    params = vcat(mean, cov[:])
-    model = p -> MvNormal(p[1:dim], reshape(p[dim+1:end], dim, dim))
-    res = MGVInference.fisher_information(model(params))
-    truth = fisher_information_mc(model, params, num_runs)
-    explicit = explicit_mv_normal_fi(cov)
-    Test.@test norm((Matrix(res) - truth)) / norm(truth) < epsilon
-    Test.@test norm((Matrix(res) - explicit)) / norm(explicit) < epsilon
 
 end
 
 Test.@testset "test_fisher_information_combinations" begin
 
     epsilon = 1E-5
-
-    MGVInference.fisher_information(MvNormal([0.1, 0.2], [2. 0.1; 0.1 4]))
 
     # test Product(Univariates)
     μ1, σ1 = 0.1, 0.2
