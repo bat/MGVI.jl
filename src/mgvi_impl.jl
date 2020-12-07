@@ -110,7 +110,7 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
     kl(params::AbstractVector) = mgvi_kl(forward_model, data, residual_samples, params)
     mgvi_kl_grad! =  _gradient_for_optim(kl)
     res = optimize(kl, mgvi_kl_grad!,
-                   center_p, optim_solver, optim_options)
+                   init_param_point, optim_solver, optim_options)
     updated_p = Optim.minimizer(res)
 
     (result=updated_p, optimized=res, samples=residual_samples .+ updated_p)
