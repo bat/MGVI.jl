@@ -55,7 +55,7 @@ function pprintln(obj)
 end;
 #-
 using Plots
-gr(size=(400, 300), dpi=700, fmt=:png);
+gr(size=(400, 300), dpi=700, fmt=:png)
 #-
 rng = MersenneTwister(157);
 
