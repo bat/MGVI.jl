@@ -54,6 +54,12 @@ function fisher_information(dist::Exponential)
     PDLinMapWithChol(Diagonal(res))
 end
 
+function fisher_information(dist::Poisson)
+    λ = params(dist)[1]
+    res = SVector(inv(λ),)
+    PDLinMapWithChol(Diagonal(res))
+end
+
 function fisher_information(dist::Product)
     dists = dist.v
     λinformations = fisher_information.(dists)
