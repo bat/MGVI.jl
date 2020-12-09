@@ -55,10 +55,10 @@ approximation.
 * `jacobian_func::Type{<:AbstractJacobianFunc}`: method to calculate the Jacobian
   of the forward model
 * `residual_sampler::Type{<:AbstractResidualSampler}`: method to draw samples from
- the approximation
+  the approximation
 * `num_residuals::Integer = 3`: number of samples used to estimate the KL divergence
 * `residual_sampler_options::NamedTuple = NamedTuple()`: further options to pass to the
-   residual sampler. Important is `cg_params` that is passed to  the CG solver used inside of ImplicitResidualSampler
+  residual sampler. Important is `cg_params` that is passed to the CG solver used inside of ImplicitResidualSampler
 * `optim_solver::Optim.AbstractOptimizer = LBFGS()`: optimizer used for minimizing KL divergence
 * `optim_options::Optim.Options = Optim.Options()`: options to pass to the KL optimizer
 
