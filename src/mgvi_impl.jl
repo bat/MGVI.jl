@@ -38,26 +38,27 @@ end
                           [optim_solver=LBFGS(),]
                           [optim_options=Optim.Options()])
 
-Make one step of MGVI iterative procedure
+Performs one MGVI iteration.
 
-We approximate posterior distribution with a multivariate normal. Estimate covariance of it around
-`init_param_point` with inverse fisher information, then build next guess of model params
-by choosing `param_point` that minimizes the KL divergence between the estimated
-multivariate normal and the `forward_model`.
+The posterior distribution is approximated with a multivariate normal distribution.
+The covariance is approximated with the inverse Fisher information valuated at
+`init_param_point`. Samples are drawn according to this covariance, which are then
+used to estimate and minimize the KL divergence between the true posterior and the
+approximation.
 
 # Arguments
 
 * `rng::AbstractRNG`: instance of the random number generator
-* `forward_model::Function`: gets model parameters and returns instance of Distribution
+* `forward_model::Function`: turns model parameters into an instance of Distribution
 * `data::AbstractVector`: data on which model's pdf is evaluated
-* `init_param_point::Vector`: best guess for model parameters from which to start iterative optimization procedure
-* `jacobian_func::Type{<:AbstractJacobianFunc}`: type of the calculator to use for finding jacobian
-  matrix for the transition from canonical to model parametrization of the distributions
-* `residual_sampler::Type{<:AbstractResidualSampler}`: type of sampler to use for sampling from
-  estimated covariance of the forward model
-* `num_residuals::Integer = 3`: number of samples to average KL divergence on
-* `residual_sampler_options::NamedTuple = NamedTuple()`: options to pass to the residual sampler. Useful option
-  is `cg_params` that is passed to CG solver used inside of ImplicitResidualSampler
+* `init_param_point::Vector`: initial estimate of the model parameters
+* `jacobian_func::Type{<:AbstractJacobianFunc}`: method to calculate the Jacobian
+  of the forward model
+* `residual_sampler::Type{<:AbstractResidualSampler}`: method to draw samples from
+ the approximation
+* `num_residuals::Integer = 3`: number of samples used to estimate the KL divergence
+* `residual_sampler_options::NamedTuple = NamedTuple()`: further options to pass to the
+   residual sampler. Important is `cg_params` that is passed to  the CG solver used inside of ImplicitResidualSampler
 * `optim_solver::Optim.AbstractOptimizer = LBFGS()`: optimizer used for minimizing KL divergence
 * `optim_options::Optim.Options = Optim.Options()`: options to pass to the KL optimizer
 

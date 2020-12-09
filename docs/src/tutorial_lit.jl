@@ -9,11 +9,13 @@ using ValueShapes
 using LinearAlgebra
 using Optim
 
-# We define model of two sets of measurements (`a` and `b`) of the same 3-degree polynomial. MGVI takes model
-# expressed as a function of model parameters returning an instance of the Distribution. In this example, since
-# we have two sets of independent measurements, we pack them into the ValueShapes.NamedTupleDist.
+# We want to fit a 3-degree polynomial using two data sets (`a` and `b`). MGVI requires a model
+# expressed as a function of the model parameters and returning an instance of the Distribution.
+# In this example, since we have two sets of independent measurements, we express them as
+# ValueShapes.NamedTupleDist.
 #
-# We assume errors are normally distributed with unknown variance that we also would like to fit.
+#
+# We assume errors are normally distributed with unknown covariance, which has to be learned as well.
 
 const _x1_grid = [Float64(i)/10 for i in 1:25]
 const _x2_grid = [Float64(i)/10 + 0.1 for i in 1:15]
@@ -29,10 +31,7 @@ function model(p)
     NamedTupleDist(a=dist1,
                    b=dist2)
 end
-
-# When model is defined, we also provide some real values of the parameters. Also, since MGVI is an iterative procedure,
-# we define starting point — best guess of the true parameters. Each iteration will return new best guess that we can use
-# as a starting point to construct next step.
+# Here we define the ground truth of the parameters, as well as an initial guess.
 
 const true_params =  [
  -0.3
@@ -59,7 +58,7 @@ gr(size=(400, 300), dpi=700, fmt=:png)
 #-
 rng = MersenneTwister(157);
 
-# We also sample data directly from the model:
+# We draw data directly from the model, using the true parameter values:
 
 data = rand(rng, model(true_params), 1)[1];
 #-
@@ -74,14 +73,15 @@ init_plots =() -> let
     scatter!(vcat(_x1_grid, _x2_grid), reduce(vcat, data), markercolor=:black, markerstrokewidth=0, markersize=3, label="data")
 end;
 
-# Before we start optimization, let's have a look at the data first. Also it is interesting to see how does our starting guess
-# differ from true parameters
+# Before we start the optimization, let's have an initial look at the data.
+# It is also interesting to see how our starting guess performs.
 
 p = plot()
 init_plots()
 
-# Now we are ready to run one iteration of the MGVI. In the output we could print next best guess (`first_iteration.result`)
-# and compare it to the true parameters.
+# Now we are ready to run one iteration of the MGVI.
+# The output contains an updated parameter estimate (`first_iteration.result`),
+# which we can compare to the true parameters.
 
 first_iteration = mgvi_kl_optimize_step(rng,
                                         model, data,
@@ -105,7 +105,7 @@ plot_iteration = (params, label) -> let
     scatter!(_common_grid, _mean(params.result), markercolor=:green, label=label)
 end;
 
-# Now let's also plot the curve built on the estimated parameters after the first iteration:
+# Now let's also plot the curve corresponding to the new parameters after the first iteration:
 
 p = plot()
 init_plots()
@@ -116,7 +116,7 @@ plot_iteration_light = (params, counter) -> let
     scatter!(_common_grid, _mean(params.result), markercolor=:green, markersize=3, markeralpha=2*atan(counter/18)/π, label=nothing)
 end;
 
-# From the plot above we see that 1 iteration is not enough. Let's do 5 more steps and plot the evolution of guesses
+# From the plot above we see that one iteration is not enough. Let's do 5 more steps and plot the evolution of estimates.
 
 init_plots()
 plt = scatter()
@@ -137,8 +137,8 @@ pprintln(minimum(next_iteration.optimized))
 pprintln(hcat(next_iteration.result, true_params))
 plt
 
-# Finally, let's plot the last best guess and compare it to the truth. Also, notice, that gray dots that represent samples from
-# the covariance, became less spread after few iterations, so we reduced error estimate of our guess.
+# Finally, let's plot the last estimate and compare it to the truth. Also, notice, that gray dots represent samples from
+# the approximation.
 
 p = plot()
 init_plots()

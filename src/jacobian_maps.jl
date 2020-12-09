@@ -5,8 +5,8 @@
 
 Abstract type of the jacobian calculators.
 
-Instance represents the jacobian of the function. The instance can be called at the point `θ`,
-then LinearMap representing the jacobian is returned.
+Represents the jacobian of the function. The instance can be called at the point `θ`,
+a LinearMap representing the jacobian is returned.
 """
 abstract type AbstractJacobianFunc <: Function end
 
@@ -21,9 +21,9 @@ end
 """
     FullJacobianFunc(f)
 
-Construct Jacobian with ForwardDiff.
+Construct of the Jacobian with ForwardDiff.
 
-When called at point `θ`, jacobian matrix being fully instantiated
+When called at point `θ`, the Jacobian matrix being fully instantiated
 and stored explicitly in memory.
 
 # Examples
@@ -47,9 +47,9 @@ end
 """
     FwdRevADJacobianFunc(f)
 
-Construct Jacobian with ForwardDiff for direct action and Zygote.pullback for the adjoint
+Construct of the Jacobian with ForwardDiff for direct action and Zygote.pullback for the adjoint
 
-Jacobian action being computed on the fly, no matrix stored in memory at any point.
+The Jacobian action is computed on the fly, no matrix is stored in memory at any time.
 
 # Examples
 ```julia
@@ -75,15 +75,15 @@ end
 """
     FwdDerJacobianFunc(f)
 
-Construct Jacobian with ForwardDiff for the direct action, and twice applied
+Construct of the Jacobian with ForwardDiff for the direct action, and twice applied
 ForwardDiff for the adjoint action
 
-Adjoint is implemented by introducing fake parametric vector ``\\vec{t}``:
+Adjoint is implemented by introducing a placeholder parametric vector ``\\vec{t}``:
 
 `` \\frac{d}{d\\vec{t}} \\vec{x} \\cdot (A \\vec{t}) = A^{T} \\vec{x} ``
 
-With this trick we manage to implement both direct and adjoint actions using
-ForwardDiff, without instantiating full jacobian at any point.
+This allows to implement both, the direct and adjoint actions, using
+ForwardDiff, without instantiating full Jacobian at any point.
 """
 struct FwdDerJacobianFunc{F<:Function} <: AbstractJacobianFunc
     f::F
