@@ -23,7 +23,7 @@ end
 
 Construct of the Jacobian with ForwardDiff.
 
-When called at point `θ`, the Jacobian matrix being fully instantiated
+When called at point `θ`, the Jacobian matrix is fully instantiated
 and stored explicitly in memory.
 
 # Examples
