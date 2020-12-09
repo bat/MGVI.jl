@@ -4,16 +4,24 @@ function _unshaped(x::Number)
     [x]
 end
 
-function _unshaped(x)
-    unshaped(x)
+function _unshaped(x::Tuple)
+    vcat(x...)
+end
+
+function _unshaped(x::NamedTuple)
+    vcat(values(x)...)
+end
+
+function _unshaped(x::AbstractVector)
+    x
 end
 
 function unshaped_params(d::Distribution)
-    reduce(vcat, map(_unshaped, params(d)))
+    vcat(map(_unshaped, params(d))...)
 end
 
 function unshaped_params(ntd::NamedTupleDist)
-    map(unshaped_params, ntd)
+    vcat(map(unshaped_params, values(ntd))...)
 end
 
 function unshaped_params(dp::Product)
