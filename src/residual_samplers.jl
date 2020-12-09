@@ -19,12 +19,12 @@ abstract type AbstractResidualSampler <: Sampleable{Multivariate, Continuous} en
 
 Gaussian posterior's covariance approximated by the Fisher Information
 
-**This sampler constructs covariance matrix explicitly, so memory use grows
-quadratically with the number of model parameters**
+**Caution: This sampler constructs the covariance matrix explicitly, so memory
+use grows quadratically with the number of model parameters**
 
-Fisher information in canonical coordinates and coordinate transformation jacobian are provided
-as arguments. Since `` J \\cdot I_{canon} \\cdot J^T `` does not depend on the definition of canonical coordinates,
-we omit description of what canonical coordinates are
+The Fisher information in canonical coordinates and Jacobian of the coordinate transformation
+are provided as arguments. Since `` J \\cdot I_{canon} \\cdot J^T `` does not depend on the definition of canonical coordinates,
+we omit description of what canonical coordinates are.
 
 # Arguments
 
@@ -51,8 +51,8 @@ end
 
 Memory efficient Gaussian posterior's covariance approximated by the Fisher Information
 
-This sampler uses Conjugate Gradients to iteratively invert Fisher information, and
-never instantiates entire jacobian or fisher information / covariance in memory.
+This sampler uses Conjugate Gradients to iteratively invert  the Fisher information,
+never instantiating the covariance in memory explicitly.
 
 # Arguments
 
