@@ -1,7 +1,7 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 #
 function _unshaped(x::Number)
-    [x]
+    SVector(x)
 end
 
 function _unshaped(x::Tuple)
