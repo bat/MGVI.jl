@@ -72,7 +72,7 @@ function fisher_information(d::NamedTupleDist)
     _blockdiag(λinformations)
 end
 
-_dists_flat_params_getter(dist_generator) = par::Vector -> reduce(vcat, (par |> dist_generator |> unshaped_params |> values))
+_dists_flat_params_getter(dist_generator) = par::Vector -> (par |> dist_generator |> unshaped_params)
 
 function fisher_information_and_jac(f::Function, p::AbstractVector;
                                     jacobian_func::Type{JF}) where JF<:AbstractJacobianFunc
