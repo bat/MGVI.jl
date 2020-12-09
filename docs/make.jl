@@ -51,7 +51,6 @@ deploydocs(
     root = GENERATED,
     target = "docs",
     repo = "github.com/bat/MGVI.jl.git",
-    devbranch = "dev",
     forcepush = true,
     push_preview = true
 )
