@@ -51,7 +51,7 @@ deploydocs(
     root = GENERATED,
     target = "docs",
     repo = "github.com/bat/MGVInference.jl.git",
-    devbranch = "dev",
+    devbranch = "master",
     forcepush = true,
     push_preview = true
 )
