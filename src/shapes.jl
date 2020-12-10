@@ -1,7 +1,15 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
-#
+
 function _unshaped(x::Number)
     SVector(x)
+end
+
+function rrule(::typeof(_unshaped), x::Number)
+    res = _unshaped(x)
+    function _unshaped_pullback(y)
+        return NO_FIELDS, SVector(1.)
+    end
+    return res, _unshaped_pullback
 end
 
 function _unshaped(x::Tuple)

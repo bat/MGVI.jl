@@ -9,6 +9,7 @@ An implementation of the Metric Gaussian Variational Inference algorithm.
 """
 module MGVInference
 
+using ChainRulesCore
 using Distributed
 using LinearAlgebra
 using Random
