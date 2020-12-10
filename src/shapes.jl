@@ -1,7 +1,11 @@
 # This file is a part of MGVInference.jl, licensed under the MIT License (MIT).
 #
 function _unshaped(x::Number)
-    [x]
+    SVector(x)
+end
+
+Zygote.@adjoint function _unshaped(x::T) where T <: Number
+    _unshaped(x), p -> (SVector(T(1.)),)
 end
 
 function _unshaped(x::Tuple)
