@@ -24,6 +24,7 @@ Test.@testset "test_fisher_values" begin
 
     test_univariate(Normal, [0.1, 0.2])
     test_univariate(Exponential, [0.3])
+    test_univariate(Poisson, [5.75])
 
     function test_mvnormal(dim)
         dim = 1
