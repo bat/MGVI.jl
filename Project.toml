@@ -20,7 +20,7 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 [compat]
 Distributions = "0.23, 0.24"
 ForwardDiff = "0.10"
-IterativeSolvers = "0.8"
+IterativeSolvers = "0.8, 0.9"
 LinearMaps = "2"
 Optim = "1"
 PositiveFactorizations = "0.2"
