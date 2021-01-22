@@ -40,7 +40,7 @@ PDLinMapWithChol(A::AbstractMatrix) = PDLinMapWithChol(A, cholesky_L(A))
 
 
 Base.parent(A::PDLinMapWithChol) = A.parent
-cholesky_L(A::PDLinMapWithChol) = A.chol_L.lmap
+cholesky_L(A::PDLinMapWithChol) = A.chol_L
 
 
 Base.Matrix(A::PDLinMapWithChol) = Matrix(parent(A))

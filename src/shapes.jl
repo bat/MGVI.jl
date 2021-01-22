@@ -32,7 +32,29 @@ function _uppertriang_to_vec(m::AbstractMatrix)
     reduce(vcat, [m[1:i, i] for i in 1:size(m, 1)])
 end
 
+function ChainRulesCore.rrule(::typeof(MGVI._uppertriang_to_vec), m::AbstractMatrix)
+    res = MGVI._uppertriang_to_vec(m)
+
+    function _uppertriang_to_vec_pullback(x)
+        triang_n = size(res, 1)
+        n = size(m, 1)
+        pb_res = zero(m)
+        for j in 1:n
+            pb_res[j, 1:j] .= x[j*(j-1)÷2+1:j*(j+1)÷2]
+        end
+        ChainRulesCore.NO_FIELDS, pb_res
+    end
+
+    res, _uppertriang_to_vec_pullback
+end
+
 function unshaped_params(d::MvNormal)
     μ, σ = params(d)
+    vcat(μ, _uppertriang_to_vec(σ))
+end
+
+function unshaped_params(d::TuringDenseMvNormal)
+    μ = d.m
+    σ = d.C.L*d.C.U
     vcat(μ, _uppertriang_to_vec(σ))
 end
