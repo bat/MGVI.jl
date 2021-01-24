@@ -86,24 +86,39 @@ Test.@testset "test_normal_mvnormal_logpdf_der" begin
         μ1, σ1, μ2, σ2
     end
 
-    function mvnormal_model(p)
-        μ1, σ1, μ2, σ2 = _common_params(p)
-        MvNormal([μ1, μ2], [σ1^2 0.;0. σ2^2])
-    end
-    mvnormal_logpdf = p -> logpdf(mvnormal_model(p), data)
-    mvnormal_grad = zeros(pardim)
-    MGVI._gradient_for_optim(mvnormal_logpdf)(mvnormal_grad, true_params)
-
     function normal_model(p)
         μ1, σ1, μ2, σ2 = _common_params(p)
         n1 = Normal(μ1, σ1)
         n2 = Normal(μ2, σ2)
         Product([n1, n2])
     end
+
+    # est_res_sampler = MGVI._create_residual_sampler(normal_model, true_params;
+                                               # residual_sampler=ImplicitResidualSampler,
+                                               # jacobian_func=FwdRevADJacobianFunc,
+                                               # residual_sampler_options=(;))
+    # residual_samples = rand(Random.GLOBAL_RNG, est_res_sampler, 5)
+
+    residual_samples = [
+        1.57327   -0.545016   -0.468532  -0.148169  -0.0476087
+        0.889662  -0.32206    -0.776208  -1.3703    -0.262721
+        0.535246  -0.0152493   0.847152   0.723876  -0.0277677
+        2.13597    0.252785   -0.278254   1.11853   -0.189659
+    ]
+
     normal_par_dim = dim + dim
-    normal_logpdf = p -> logpdf(normal_model(p), data)
+    normal_kl(params::AbstractVector) = MGVI.mgvi_kl(normal_model, data, residual_samples, params)
     normal_grad = zeros(pardim)
-    MGVI._gradient_for_optim(normal_logpdf)(normal_grad, true_params)
+    MGVI._gradient_for_optim(normal_kl)(normal_grad, true_params)
+
+
+    function mvnormal_model(p)
+        μ1, σ1, μ2, σ2 = _common_params(p)
+        MvNormal([μ1, μ2], [σ1^2 0.;0. σ2^2])
+    end
+    mvnormal_kl(params::AbstractVector) = MGVI.mgvi_kl(mvnormal_model, data, residual_samples, params)
+    mvnormal_grad = zeros(pardim)
+    MGVI._gradient_for_optim(mvnormal_kl)(mvnormal_grad, true_params)
 
     Test.@test norm(normal_grad - mvnormal_grad) < epsilon
 
