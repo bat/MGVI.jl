@@ -1,15 +1,5 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
-function ChainRulesCore.rrule(::typeof(PDMat{T, S}), dim::Int, mat::S, chol::Cholesky{T, S}) where {T<:Real, S<:AbstractMatrix}
-    res = PDMat{T, S}(dim, mat, chol)
-
-    function _PDMat_matrix_arg_pullback(x)
-        ChainRulesCore.NO_FIELDS, ChainRulesCore.DoesNotExist(), x, ChainRulesCore.DoesNotExist()
-    end
-
-    res, _PDMat_matrix_arg_pullback
-end
-
 """
     abstract type AbstractJacobianFunc <: Function end
 
