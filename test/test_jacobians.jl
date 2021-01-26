@@ -2,6 +2,7 @@
 
 using MGVI
 
+using Distributions
 using LinearAlgebra
 using Random
 

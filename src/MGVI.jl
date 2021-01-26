@@ -9,12 +9,14 @@ An implementation of the Metric Gaussian Variational Inference algorithm.
 """
 module MGVI
 
+import ChainRulesCore
 using Distributed
 using LinearAlgebra
 using Random
 using SparseArrays
 using Base.Iterators
 using Distributions
+using DistributionsAD
 import ForwardDiff
 using LinearMaps
 using IterativeSolvers
