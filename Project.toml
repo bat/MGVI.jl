@@ -1,6 +1,6 @@
 name = "MGVI"
 uuid = "fdae7790-d271-4276-880d-f72bbddf129c"
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
@@ -23,7 +23,7 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 Distributions = "0.23, 0.24"
 ForwardDiff = "0.10"
 IterativeSolvers = "0.8, 0.9"
-LinearMaps = "2"
+LinearMaps = "3"
 Optim = "1"
 PositiveFactorizations = "0.2"
 StaticArrays = "0.12, 1.0"
