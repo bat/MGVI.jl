@@ -66,18 +66,6 @@ LinearAlgebra.adjoint(A::PDLinMapWithChol) = A
 LinearAlgebra.transpose(A::PDLinMapWithChol{<:Real}) = A
 LinearAlgebra.transpose(A::PDLinMapWithChol) = PDLinMapWithChol(transpose(A.parent), A.chol_L)
 
-Base.@propagate_inbounds LinearMaps.A_mul_B!(
-    y::AbstractVector, A::PDLinMapWithChol, x::AbstractVector
-) = LinearMaps.A_mul_B!(y, parent(A), x)
-
-Base.@propagate_inbounds LinearMaps.At_mul_B!(
-    y::AbstractVector, A::PDLinMapWithChol, x::AbstractVector
-) = LinearMaps.At_mul_B!(y, parent(A), x)
-
-Base.@propagate_inbounds LinearMaps.Ac_mul_B!(
-    y::AbstractVector, A::PDLinMapWithChol, x::AbstractVector
-) = LinearMaps.Ac_mul_B!(y, parent(A), x)
-
 LinearMaps.MulStyle(A::PDLinMapWithChol) = LinearMaps.MulStyle(parent(A))
 
 Base.@propagate_inbounds LinearAlgebra.mul!(
