@@ -114,7 +114,7 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
                    init_param_point, optim_solver, optim_options)
     updated_p = Optim.minimizer(res)
 
-    (result=updated_p, optimized=res, samples=residual_samples .+ updated_p)
+    (result=updated_p, optimized=res, samples=hcat(residual_samples .+ updated_p, residual_samples .- updated_p))
 end
 
 export mgvi_kl_optimize_step
