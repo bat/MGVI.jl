@@ -13,8 +13,12 @@ function _create_residual_sampler(f::Function, center_p::Vector;
     residual_sampler(fisher, jac; residual_sampler_options...)
 end
 
+function posterior_loglike(model, p, data)
+    logpdf(model(p), data) - dot(p, p)/2
+end
+
 function mgvi_kl(f::Function, data, residual_samples::AbstractMatrix{<:Real}, center_p::AbstractVector{<:Real})
-    kl_component(p::AbstractVector) = -logpdf(f(p), data) + dot(p, p)/2
+    kl_component(p::AbstractVector) = -posterior_loglike(f, p, data)
     kl_comp_both(rs::AbstractVector) = kl_component(center_p + rs) + kl_component(center_p - rs)
     res = 0
     for rs in eachcol(residual_samples)
@@ -114,7 +118,7 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
                    init_param_point, optim_solver, optim_options)
     updated_p = Optim.minimizer(res)
 
-    (result=updated_p, optimized=res, samples=hcat(residual_samples .+ updated_p, residual_samples .- updated_p))
+    (result=updated_p, optimized=res, samples=hcat(updated_p .+ residual_samples, updated_p .- residual_samples))
 end
 
 export mgvi_kl_optimize_step
