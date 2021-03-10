@@ -1,6 +1,6 @@
 name = "MGVI"
 uuid = "fdae7790-d271-4276-880d-f72bbddf129c"
-version = "0.2.0"
+version = "0.2.1"
 
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
@@ -29,7 +29,7 @@ LinearMaps = "3"
 Optim = "1"
 PositiveFactorizations = "0.2"
 StaticArrays = "0.12, 1.0"
-ValueShapes = "0.7"
+ValueShapes = "0.7, 0.8"
 Zygote = "0.5.14, 0.6"
 julia = "1.5"
 
