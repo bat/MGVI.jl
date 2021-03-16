@@ -19,6 +19,13 @@ EXECUTE_MD = true
 mkdir(GENERATED)
 cp(SRC, GENERATED_SRC)
 
+Literate.notebook(joinpath(GENERATED_SRC, "coal_mining/coal_mining_lit.jl"),
+                  GENERATED_SRC; name="advanced_tutorial", execute=false)
+Literate.markdown(joinpath(GENERATED_SRC, "coal_mining/coal_mining_lit.jl"),
+                  GENERATED_SRC; name="advanced_tutorial", execute=EXECUTE_MD)
+Literate.script(joinpath(GENERATED_SRC, "coal_mining/coal_mining_lit.jl"),
+                GENERATED_SRC; name="advanced_tutorial")
+
 Literate.notebook(joinpath(GENERATED_SRC, "tutorial_lit.jl"),
                   GENERATED_SRC; name="tutorial", execute=false)
 Literate.markdown(joinpath(GENERATED_SRC, "tutorial_lit.jl"),
@@ -39,6 +46,7 @@ makedocs(
     pages = [
         "Home" => "index.md",
         "Tutorial" => "tutorial.md",
+        "Advanced Tutorial" => "advanced_tutorial.md",
         "API" => "api.md",
         "LICENSE" => "LICENSE.md",
     ],
