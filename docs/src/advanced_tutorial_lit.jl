@@ -1,8 +1,12 @@
 #md # # Advanced Tutorial
 #md # Notebook [download](advanced_tutorial.ipynb) [nbviewer](@__NBVIEWER_ROOT_URL__/advanced_tutorial.ipynb) [source](advanced_tutorial.jl)
 
+# ## Introduction
+
 # In this tutorial we will fit coal mining disaster dataset with a Gaussian process modulated
 # Poisson process.
+
+# ## Prepare environment
 
 # We start by importing:
 # * MGVI that we will use for posterior fit
@@ -26,6 +30,8 @@ using FFTW
 import ForwardDiff
 #-
 Random.seed!(84612);
+
+# ## Load data
 
 # Dataset is attached to the repository and contains intervals in days between
 # disasters happend at british coal mines between March 1851 and March 1962.
@@ -53,6 +59,8 @@ end
 
 coal_mine_disaster_data = read_coal_mining_data(joinpath(@__DIR__, "coal_mining_data.tsv"), 1);
 
+# ## Global parameters and grid
+
 # Now we define several model properties:
 # * `DATA_DIM` is just a size of the dataset
 # * `DATA_XLIM` specifies the time range of the data
@@ -71,62 +79,82 @@ DATA_XLIM = [1851., 1962.];
 GP_GRAIN_FACTOR = 3;
 GP_PADDING = 80;
 #-
-function produce_bins()  #hide
-    data_binsize = (DATA_XLIM[2] - DATA_XLIM[1])/DATA_DIM  #hide
-    gp_binsize = data_binsize/GP_GRAIN_FACTOR  #hide
-    gp_dim = Integer(((DATA_XLIM[2] - DATA_XLIM[1]) + 2*GP_PADDING) ÷ gp_binsize)  #hide
-    gp_left_bin_offset = gp_right_bin_offset = (gp_dim - DATA_DIM) ÷ 2  #hide
-    if (2*gp_left_bin_offset + DATA_DIM*GP_GRAIN_FACTOR) % 2 == 1  #hide
-        gp_left_bin_offset += 1  #hide
-    end  #hide
-    gp_left_xlim = DATA_XLIM[1] - gp_left_bin_offset*gp_binsize  #hide
-    gp_right_xlim = DATA_XLIM[2] + gp_right_bin_offset*gp_binsize  #hide
-    gp_left_xs = collect(gp_left_xlim + gp_binsize/2:gp_binsize:DATA_XLIM[1])  #hide
-    gp_right_xs = collect(DATA_XLIM[2] + gp_binsize/2:gp_binsize:gp_right_xlim)  #hide
-    gp_data_xs = collect(DATA_XLIM[1] + gp_binsize/2:gp_binsize:DATA_XLIM[2])  #hide
-    gp_xs = [gp_left_xs; gp_data_xs; gp_right_xs]  #hide
-    data_idxs = collect(gp_left_bin_offset+1:GP_GRAIN_FACTOR:gp_left_bin_offset+DATA_DIM*GP_GRAIN_FACTOR)  #hide
-    gp_xs, gp_binsize, data_idxs  #hide
-end;  #hide
+function produce_bins()
+    data_binsize = (DATA_XLIM[2] - DATA_XLIM[1])/DATA_DIM
+    gp_binsize = data_binsize/GP_GRAIN_FACTOR
+    gp_dim = Integer(((DATA_XLIM[2] - DATA_XLIM[1]) + 2*GP_PADDING) ÷ gp_binsize)
+    gp_left_bin_offset = gp_right_bin_offset = (gp_dim - DATA_DIM) ÷ 2
+    if (2*gp_left_bin_offset + DATA_DIM*GP_GRAIN_FACTOR) % 2 == 1
+        gp_left_bin_offset += 1
+    end
+    gp_left_xlim = DATA_XLIM[1] - gp_left_bin_offset*gp_binsize
+    gp_right_xlim = DATA_XLIM[2] + gp_right_bin_offset*gp_binsize
+    gp_left_xs = collect(gp_left_xlim + gp_binsize/2:gp_binsize:DATA_XLIM[1])
+    gp_right_xs = collect(DATA_XLIM[2] + gp_binsize/2:gp_binsize:gp_right_xlim)
+    gp_data_xs = collect(DATA_XLIM[1] + gp_binsize/2:gp_binsize:DATA_XLIM[2])
+    gp_xs = [gp_left_xs; gp_data_xs; gp_right_xs]
+    data_idxs = collect(gp_left_bin_offset+1:GP_GRAIN_FACTOR:gp_left_bin_offset+DATA_DIM*GP_GRAIN_FACTOR)
+    gp_xs, gp_binsize, data_idxs
+end;
 
 # Based on the defined model properties we generate the grid. GP grid is the fine grained grid
 # with offsets added to the data range. `_GP_XS` represent bin centers of such a fine grained grid,
 # `_GP_BINSIZE` is the width of the bin (that is 1/`GP_GRAIN_FACTOR` of data bin size),
 # `_DATA_IDXS` - integer indices of the left edges of the data bins.
-#
-# Implementation of the `produce_bins()` is hidden, but one can find it in the github repo.
 
 _GP_XS, _GP_BINSIZE, _DATA_IDXS = produce_bins();
 _GP_DIM = length(_GP_XS);
 
-function assemble_paridx(;kwargs...)  #hide
-    pos = 0  #hide
-    res = []  #hide
-    for (k, v) in kwargs  #hide
-        new_start, new_stop = v.start+pos, v.stop+pos  #hide
-        push!(res, (k, (v.start+pos):(v.stop+pos)))  #hide
-        pos = new_stop  #hide
-    end  #hide
-    (;res...)  #hide
-end;  #hide
+# ## Model parameters
 
-# Now we have to define the vector of parameters that we will use as an initial guess.
+# Gaussian process in this tutorial is modeled in the Fourier space with zero mean
+# and two hyperparameters defining properties of its kernel. To sample from this
+# Gaussian process we also need a parameter per bin that will represent the particular
+# realisation of the GP in the bin
+
+function assemble_paridx(;kwargs...)
+    pos = 0
+    res = []
+    for (k, v) in kwargs
+        new_start, new_stop = v.start+pos, v.stop+pos
+        push!(res, (k, (v.start+pos):(v.stop+pos)))
+        pos = new_stop
+    end
+    (;res...)
+end;
+
+# MGVI is an iterative procedure, so we will need to introduce an initial guess for the state of the model.
 # For this we create one vector of the size of the count of all parameters `starting_point` and a NamedTuple
 # `PARDIX` that assignes names to the sub-regions in the vector of parameters. In the currect case:
 # * `gp_hyper` two hyperparameters of the Gaussian process stored in the first two cells of the parameter vector
 # * `gp_latent` `_GP_DIM` parameters used to define the particular realization of the gaussian process,
-# stored at indices 3 to 2+`_GP_DIM`.
+# stored at indices between `3` to `2 + _GP_DIM`.
 #
-# Function `assemble_paridx` is responsible for constructing such a NamedTuple from the parameter specification. We omit
-# details of its implementation in the tutorial, but those who interested can find the details in the github repo.
+# Function `assemble_paridx` is responsible for constructing such a NamedTuple from the parameter specification.
 
 PARIDX = assemble_paridx(gp_hyper=1:2, gp_latent=1:_GP_DIM);
 
 starting_point = randn(last(PARIDX).stop);
-#-
+
+# ## Model implementation
+
 k = collect(0:(_GP_DIM)÷2 -1);
 
-# squared exp model. sqrt of the covariance matrix in the Fourier space
+# Gaussian process covariance in the fourier space is represented with a diagonal matrix. Values
+# on the diagonal follow squared exponential function with parameters depending on priors.
+# Diagonal kernel that is mirrored around the center represents periodic and translation invariant function
+# in the coordinate space. This helps to ensure that covariance has finite correlation length in the coordinate
+# space.
+#
+# MGVI assumes that all priors are distributed as standard normals `N(0, 1)`, thus in order
+# to modify shapes of the priors we explicitly rescale them at the model implementation phase.
+#
+# We also exponentiate each prior before using it for tuning squared exponential shape. In this way
+# we impose only positive values of the hyperparameters of the kernel.
+#
+# Actually, for the sake of numeric stability we model already square root of the covariance.
+# This can be traced by missing `sqrt` in the next level, where we sample from the Gaussian process.
+
 function kernel_model(p)
     kernel_A_c, kernel_l_c = p[PARIDX.gp_hyper]
     kernel_A = 60*exp(kernel_A_c*0.9)*GP_GRAIN_FACTOR
@@ -135,14 +163,30 @@ function kernel_model(p)
     negative_modes = positive_modes[end:-1:1]
     [positive_modes; negative_modes]
 end;
-#-
+
+# As a Fourier transform we use Discrete Hartley Transform that ensures that Fourier
+# coefficients of the real valued function are real valued.
+
 ht = FFTW.plan_r2r(zeros(_GP_DIM), FFTW.DHT);
+
+# After we defined the square root of the kernel function (`kernel_model`)
+# we just follow the regular procedure of sampling from the normal distribution.
+# Since the covariance matrix in the Fourier space is diagonal, Gaussian variables
+# in each bin are independent of each other. Thus, sampling end up in rescaling
+# priors responsible for the Gaussian process state `gp_latent`.
+#
+# After we produced a sample of Gaussian random values following the kernel model,
+# we apply Fourier transform to return back to the coordinate space.
 
 function gp_sample(p)
     flat_gp = kernel_model(p) .* p[PARIDX.gp_latent]
     (ht * flat_gp) ./ _GP_DIM
 end;
-#-
+
+# Together with the implementation of `gp_sample` we also need
+# it's version for the `Dual`s. It is a little patch that makes
+# application of the Hartley transform differentiatable.
+
 function gp_sample(dp::Vector{ForwardDiff.Dual{T, V, N}}) where {T,V,N}
     flat_gp_duals = kernel_model(dp) .* dp[PARIDX.gp_latent]
     val_res = ht*ForwardDiff.value.(flat_gp_duals) ./ _GP_DIM
@@ -151,11 +195,22 @@ function gp_sample(dp::Vector{ForwardDiff.Dual{T, V, N}}) where {T,V,N}
     val_ps = map((x -> ht*ps(x) ./ _GP_DIM), 1:psize)
     ForwardDiff.Dual{T}.(val_res, val_ps...)
 end;
-#-
+
+# Gaussian process realisation is meant to serve as a Poisson rate of the Poisson
+# process. Since Gaussian process is not restricted to positive values, we
+# exponentiate its values to forcefully make the function positive.
+
 function poisson_gp_link(fs)
     exp.(fs)
 end;
-#-
+
+# Now when we have a function representing the density of the Poisson rate,
+# we have to integrate it over each data bin to define Poisson rate in these bins.
+# Function `agg_lambdas` does exactly that. When `GP_GRAIN_FACTOR = 1`, this function
+# just multiplies the value of the Gaussan process in the bin by the `_GP_BINSIZE`.
+# When we have more GP bins per data bin (`GP_GRAIN_FACTOR > 1`) then we apply
+# rectangular quadrature to integrate over the bin.
+
 function _forward_agg(data, idxs, steps_forward)
     [sum(data[i:i+steps_forward-1]) for i in idxs]
 end;
@@ -178,14 +233,22 @@ function agg_full_lambdas(lambdas)
     full_gp = [left_gp; middle_gp; right_gp]
     full_xs, full_gp
 end;
-#-
+
+# Finally we arrive to the model definition assembled from the building blocks we defined above:
+# * `gp_sample` sample from the Gaussian process with defined `kernel_model` covariance
+# * `poisson_gp_link` ensures Gaussian process is positive
+# * `agg_lambdas` integrates Gaussian process over each data bin to turn it into Poisson rate for each bin
+# * Model maps parameters into the product of the Poisson distributions counting events in each bin.
+
 function model(params)
     fs = gp_sample(params)
     fine_lambdas = poisson_gp_link(fs)
     _, lambdas = agg_lambdas(fine_lambdas)
     Product(Poisson.(lambdas))
 end;
-#-
+
+# ## Visualization utilities
+
 function _mean(p; full=false)
     agg_func = if (!full) agg_lambdas else agg_full_lambdas end
     xs, gps = agg_func(poisson_gp_link(gp_sample(p)))
