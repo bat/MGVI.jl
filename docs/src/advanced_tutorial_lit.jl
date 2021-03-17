@@ -85,7 +85,7 @@ function produce_bins()  #hide
     gp_right_xs = collect(DATA_XLIM[2] + gp_binsize/2:gp_binsize:gp_right_xlim)  #hide
     gp_data_xs = collect(DATA_XLIM[1] + gp_binsize/2:gp_binsize:DATA_XLIM[2])  #hide
     gp_xs = [gp_left_xs; gp_data_xs; gp_right_xs]  #hide
-    data_idxs = collect(gp_left_bin_offset+-1:GP_GRAIN_FACTOR:gp_left_bin_offset+DATA_DIM*GP_GRAIN_FACTOR)  #hide
+    data_idxs = collect(gp_left_bin_offset+1:GP_GRAIN_FACTOR:gp_left_bin_offset+DATA_DIM*GP_GRAIN_FACTOR)  #hide
     gp_xs, gp_binsize, data_idxs  #hide
 end;  #hide
 
