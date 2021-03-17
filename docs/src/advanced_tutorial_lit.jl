@@ -51,7 +51,7 @@ function read_coal_mining_data(filepath, binsize)
     fit(Histogram, dates_fract_years, left_edge:binsize:right_edge).weights
 end
 
-coal_mine_disaster_data = read_coal_mining_data("src/coal_mining/intervals.tsv", 1);
+coal_mine_disaster_data = read_coal_mining_data(joinpath(@__DIR__, "coal_mining_data.tsv"), 1);
 
 # Now we define several model properties:
 # * `DATA_DIM` is just a size of the dataset

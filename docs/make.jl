@@ -19,11 +19,16 @@ EXECUTE_MD = true
 mkdir(GENERATED)
 cp(SRC, GENERATED_SRC)
 
-Literate.notebook(joinpath(GENERATED_SRC, "coal_mining/coal_mining_lit.jl"),
+function dir_replace(content)
+    content = replace(content, "@__DIR__" => '"' * GENERATED_SRC * '"')
+    return content
+end
+
+Literate.notebook(joinpath(GENERATED_SRC, "advanced_tutorial_lit.jl"),
                   GENERATED_SRC; name="advanced_tutorial", execute=false)
-Literate.markdown(joinpath(GENERATED_SRC, "coal_mining/coal_mining_lit.jl"),
-                  GENERATED_SRC; name="advanced_tutorial", execute=EXECUTE_MD)
-Literate.script(joinpath(GENERATED_SRC, "coal_mining/coal_mining_lit.jl"),
+Literate.markdown(joinpath(GENERATED_SRC, "advanced_tutorial_lit.jl"),
+                  GENERATED_SRC; name="advanced_tutorial", execute=EXECUTE_MD, preprocess=dir_replace)
+Literate.script(joinpath(GENERATED_SRC, "advanced_tutorial_lit.jl"),
                 GENERATED_SRC; name="advanced_tutorial")
 
 Literate.notebook(joinpath(GENERATED_SRC, "tutorial_lit.jl"),
