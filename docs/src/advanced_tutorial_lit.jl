@@ -238,9 +238,6 @@ function produce_posterior_samples(p, num_residuals)
         batch_residual_samples = MGVI.rand(Random.GLOBAL_RNG, est_res_sampler, batch_size)
         push!(batches, p .+ batch_residual_samples)
         push!(batches, p .- batch_residual_samples)
-        if VERBOSE
-            print(sum(size.(batches, 2)), "\n")
-        end
     end
     reduce(hcat, batches)
 end
