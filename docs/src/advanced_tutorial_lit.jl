@@ -59,16 +59,16 @@ end
 
 coal_mine_disaster_data = read_coal_mining_data(joinpath(@__DIR__, "coal_mining_data.tsv"), 1);
 
-# ## Global parameters and grid
+# ## Global parameters and the grid
 
 # Now we define several model properties:
 # * `DATA_DIM` is just a size of the dataset
 # * `DATA_XLIM` specifies the time range of the data
 # * `GP_GRAIN_FACTOR` determines numbers of finer bins into which data bin is split.
-# This is useful when there are several datasets defined on different grids.
+#    This is useful when there are several datasets defined on different grids.
 # * `GP_PADDING` adds empty paddings to the dataset. We use Fourier transform to sample from the Gaussian process
-# with a finite correlation length. `GP_PADDING` helps us to ensure that periodic boundary conditions
-# imposed by Fourier transform won't affect data region.
+#    with a finite correlation length. `GP_PADDING` helps us to ensure that periodic boundary conditions
+#    imposed by Fourier transform won't affect data region.
 
 DATA_DIM = size(coal_mine_disaster_data, 1);
 
@@ -98,9 +98,10 @@ function produce_bins()
 end;
 
 # Based on the defined model properties we generate the grid. GP grid is the fine grained grid
-# with offsets added to the data range. `_GP_XS` represent bin centers of such a fine grained grid,
-# `_GP_BINSIZE` is the width of the bin (that is 1/`GP_GRAIN_FACTOR` of data bin size),
-# `_DATA_IDXS` - integer indices of the left edges of the data bins.
+# with offsets added to the data range.
+# * `_GP_XS` represent bin centers of such a fine grained grid
+# * `_GP_BINSIZE` is the width of the bin (that is 1/`GP_GRAIN_FACTOR` of data bin size)
+# * `_DATA_IDXS` - integer indices of the left edges of the data bins
 
 _GP_XS, _GP_BINSIZE, _DATA_IDXS = produce_bins();
 _GP_DIM = length(_GP_XS);
@@ -221,19 +222,6 @@ function agg_lambdas(lambdas)
     xs, gps
 end;
 
-function agg_full_lambdas(lambdas)
-    left_idxs = 1:GP_GRAIN_FACTOR:(_DATA_IDXS[1]-GP_GRAIN_FACTOR)
-    left_gp = _forward_agg(lambdas, left_idxs, GP_GRAIN_FACTOR) .* _GP_BINSIZE
-    left_xs = _GP_XS[left_idxs .+ (GP_GRAIN_FACTOR ÷ 2)]
-    right_idxs = (_DATA_IDXS[end]+1):GP_GRAIN_FACTOR:(size(lambdas, 1) - GP_GRAIN_FACTOR)
-    right_gp = _forward_agg(lambdas, right_idxs, GP_GRAIN_FACTOR) .* _GP_BINSIZE
-    right_xs = _GP_XS[right_idxs .+ (GP_GRAIN_FACTOR ÷ 2)]
-    middle_xs, middle_gp = agg_lambdas(lambdas)
-    full_xs = [left_xs; middle_xs; right_xs]
-    full_gp = [left_gp; middle_gp; right_gp]
-    full_xs, full_gp
-end;
-
 # Finally we arrive to the model definition assembled from the building blocks we defined above:
 # * `gp_sample` sample from the Gaussian process with defined `kernel_model` covariance
 # * `poisson_gp_link` ensures Gaussian process is positive
@@ -248,6 +236,19 @@ function model(params)
 end;
 
 # ## Visualization utilities
+
+function agg_full_lambdas(lambdas)
+    left_idxs = 1:GP_GRAIN_FACTOR:(_DATA_IDXS[1]-GP_GRAIN_FACTOR)
+    left_gp = _forward_agg(lambdas, left_idxs, GP_GRAIN_FACTOR) .* _GP_BINSIZE
+    left_xs = _GP_XS[left_idxs .+ (GP_GRAIN_FACTOR ÷ 2)]
+    right_idxs = (_DATA_IDXS[end]+1):GP_GRAIN_FACTOR:(size(lambdas, 1) - GP_GRAIN_FACTOR)
+    right_gp = _forward_agg(lambdas, right_idxs, GP_GRAIN_FACTOR) .* _GP_BINSIZE
+    right_xs = _GP_XS[right_idxs .+ (GP_GRAIN_FACTOR ÷ 2)]
+    middle_xs, middle_gp = agg_lambdas(lambdas)
+    full_xs = [left_xs; middle_xs; right_xs]
+    full_gp = [left_gp; middle_gp; right_gp]
+    full_xs, full_gp
+end;
 
 function _mean(p; full=false)
     agg_func = if (!full) agg_lambdas else agg_full_lambdas end
@@ -325,21 +326,42 @@ function plot_posterior_bands(p, num_samples; full=false)
     sample_median = _extract_quantile(gp_realizations, 0.5)
     plot!(xs, sample_median; linewidth=2, linecolor=:grey25, label="median")
 end;
-#-
+
+# ## Visualization and fitting
+
+# We start by plotting the dynamic range of the Gaussian process by
+# sampling lots of possible realizations of it unconditionally on the data.
+# We expect the set of lines to be populated in the region of the data.
+
 plot()
 plot_prior_samples(200)
 plot_data()
 plot!(ylim=[0, 8])
-#-
+
+# Now when we see that Gaussian process potentially is able to fit the data,
+# we plot the initial guess (`starting_point`) to see where do we start from.
+# At this plot we show:
+# * data points
+# * smoothed data with moving average of 9 years
+# * Poisson rate for each bin
+
 plot()
 plot_mean(starting_point, "starting_point")
 plot_data()
-#-
+
+# We also want to introduce the `full` plot, that shows not only the data region,
+# but includes the region with the padding we added with `GP_PADDING`. We will use
+# this plot to make sure that periodic boundary conditions don't interfere with
+# the data.
+
 plot()
 plot_mean(starting_point, "full gp"; full=true)
 plot_mean(starting_point, "starting_point")
 plot_data()
-#-
+
+# Let's make a first iteration of the MGVI. We limited Optim option to 1 iteration on purpose
+# to let MGVI coverge slowly, so that we'll see nice convergence curve.
+
 first_iteration = mgvi_kl_optimize_step(Random.GLOBAL_RNG,
                                         model, data,
                                         starting_point;
@@ -348,7 +370,10 @@ first_iteration = mgvi_kl_optimize_step(Random.GLOBAL_RNG,
                                         residual_sampler=ImplicitResidualSampler,
                                         optim_options=Optim.Options(iterations=1, show_trace=false),
                                         residual_sampler_options=(;cg_params=(;abstol=1E-2,verbose=false)));
-#-
+
+# We again plot data and the Poisson rate. Then we again show the Gaussian process with padding.
+# After one iteration Poisson rate doesn't seem to get much closer to the data.
+
 plot()
 plot_mean(first_iteration.result, "first_iteration")
 plot_data()
@@ -357,7 +382,10 @@ plot()
 plot_data()
 plot_mean(first_iteration.result, "full gp"; full=true)
 plot_mean(first_iteration.result, "first_iteration")
-#-
+
+# In order to visualize convergence we prepare few functions to compute
+# average posterior likelihood, store it and plot it.
+
 function compute_avg_likelihood(model, samples, data)
     tot = 0
     for sample in eachcol(samples)
@@ -369,7 +397,10 @@ end;
 function show_avg_likelihood(series)
     scatter!(1:size(series, 1), series, label="-loglike")
 end;
-#-
+
+# Now we do 30 more iterations of the MGVI and storing average likelihood after each step.
+# We feed fitted result of the previous step as an input to the next iteration.
+
 next_iteration = first_iteration;
 avg_likelihood_series = [];
 push!(avg_likelihood_series, compute_avg_likelihood(model, next_iteration.samples, data));
@@ -385,31 +416,56 @@ for i in 1:30
     global next_iteration = tmp_iteration
     push!(avg_likelihood_series, compute_avg_likelihood(model, next_iteration.samples, data))
 end;
-#-
+
+# Firstly, let's have a look at the convergence plots. We see that MGVI converged after 10 iterations
+# while being limited to very poor Optim performance.
+
 plot(yscale=:log)
 show_avg_likelihood(avg_likelihood_series)
-#-
+
+# Results itself look also good. Together with data and Poisson rate we also plot
+# MGVI residuals. They are samples from the Gaussian posterior, sampled respecting the posterior
+# covariance structure. Thus MGVI residual samples are deviations from the MGVI fit that represent
+# how confident we are about the prediction.
+
 plot(ylim=[0,8])
 plot_mgvi_samples(next_iteration)
 plot_mean(next_iteration.result, "many_iterations", plot_args=(color=:deepskyblue2, linewidth=3.5))
 plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:deeppink3, linewidth=3))
-#-
+
+# To present credibility intervals we also plot credibility bands. We sample 400 residual samples
+# from MGVI and then plot quantiles for each data bin. This should give us a feeling of how
+# extreme are deviations of the data from the MGVI fit.
+
 plot(ylim=[0,8])
 plot_posterior_bands(next_iteration.result, 400)
 plot_mean(next_iteration.result, "many_iterations", plot_args=(color=:deepskyblue2, linewidth=3.5))
 plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:deeppink3, linewidth=3))
-#-
+
+# We also make sure boundary conditions do not interfere with the data. Here is the Gaussian process
+# plot with the paddings included:
+
 plot()
 plot_data()
 plot_mean(next_iteration.result; full=true)
 plot_mean(next_iteration.result, "many_iterations")
-#-
+
+# ## Maximum A-Posteriori estimation
+
+# We build a MAP as a cross check of MGVI results. We just optimize posterior likelihood with Optim
+# without any particular tuning:
+
 max_posterior = Optim.optimize(x -> -MGVI.posterior_loglike(model, x, data), starting_point, LBFGS(), Optim.Options(show_trace=false, g_tol=1E-10, iterations=300));
-#-
+
+# We observe that the bump in the middle is caught by MAP while it was missed by our MGVI fit:
+
 plot()
 plot_mean(Optim.minimizer(max_posterior), "map")
 plot_data()
-#-
+
+# We also can see the difference at the left edge of the data region. While MGVI smoothed the data,
+# MAP predicted a consequent peak:
+
 plot()
 plot_data()
 plot_mean(Optim.minimizer(max_posterior), "full gp"; full=true)
