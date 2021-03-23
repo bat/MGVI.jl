@@ -170,6 +170,33 @@ end;
 
 ht = FFTW.plan_r2r(zeros(_GP_DIM), FFTW.DHT);
 
+# Before we proceed, let's have a brief look at the kernel's shape. Below
+# we plot the kernel in the coordinate space `K(r) = K(x2 - x1)` as a function of time in years
+# between two points. The further we go along `x`-axis the larger is the time interval and the
+# smaller is the covariance between two points in time.
+
+function plot_kernel_model(p, width; plot_args=(;))
+    xs = collect(1:Int(floor(width/_GP_BINSIZE)))
+    plot!(xs .* _GP_BINSIZE, (ht * kernel_model(p))[xs] ./ _GP_DIM, label=nothing, linewidth=2.5; plot_args...)
+end
+
+plot()
+plot_kernel_model(starting_point, 20)
+
+# To make it even more visual, we plot also the structure of the covariance matrix as a heatmap.
+# We see that the finite correlation length shows up as a band around diagonal. We also
+# see small artifacts in the antidiagonal corners. They come from the assumption that the
+# kernel is periodic.
+
+function plot_kernel_matrix(p)
+    xkernel = ht * kernel_model(p) ./ _GP_DIM
+    res = reduce(hcat, [circshift(xkernel, i) for i in _GP_DIM-1:-1:0])'
+    heatmap!(res)
+end
+
+plot()
+pt_kernel_matrix(starting_point)
+
 # After we defined the square root of the kernel function (`kernel_model`),
 # we just follow the regular procedure of sampling from the normal distribution.
 # Since the covariance matrix in the Fourier space is diagonal, Gaussian variables
@@ -267,6 +294,14 @@ function plot_prior_samples(num_samples)
     end
 end;
 
+function plot_kernel_prior_samples(num_samples, width)
+    for _ in 1:num_samples
+        p = randn(last(PARIDX).stop)
+        plot_kernel_model(p, width)
+    end
+    plot!()
+end;
+
 function plot_data(; scatter_args=(;), smooth_args=(;))
     scatter!(_GP_XS[_DATA_IDXS .+ (GP_GRAIN_FACTOR ÷ 2)], data, la=0, markersize=2., markerstrokewidth=0, label="data"; scatter_args...)
     smooth_step = 4
@@ -282,6 +317,17 @@ function plot_mgvi_samples(params)
             continue
         end
         plot!(_mean(Vector(sample))..., linealpha=0.5, linewidth=1, label=nothing)
+    end
+    plot!()
+end;
+
+function plot_kernel_mgvi_samples(params, width)
+    for sample in eachcol(params.samples)
+        if any(isnan.(sample))
+            print("nan found in samples", "\n")
+            continue
+        end
+        plot_kernel_model(sample, width; plot_args=(linealpha=0.5, linewidth=1, label=nothing))
     end
     plot!()
 end;
@@ -338,6 +384,13 @@ plot_prior_samples(200)
 plot_data()
 plot!(ylim=[0, 8])
 
+# We also plot prior samples for the kernel in the coordinate space. The plot below
+# shows that the kernel is flexible in the amplitude while the correlation length
+# is quite strongly predefined:
+
+plot()
+plot_kernel_prior_samples(200, 20)
+
 # Now we see that the Gaussian process potentially is able to fit the data,
 # we plot the initial guess (`starting_point`) to see where we start from.
 # This plot shows:
@@ -382,6 +435,14 @@ plot()
 plot_data()
 plot_mean(first_iteration.result, "full gp"; full=true)
 plot_mean(first_iteration.result, "first_iteration")
+
+# We also would like to have a look at the kernel. Below we plot it together
+# with the MGVI samples that represent the possible variation of the kernel
+# shape around the mean:
+
+plot()
+plot_kernel_model(first_iteration.result, 20; plot_args=(;label="kernel model"))
+plot_kernel_mgvi_samples(first_iteration, 20)
 
 # In order to visualize convergence we prepare few functions to compute
 # average posterior likelihood, store it and plot it.
@@ -450,6 +511,13 @@ plot_data()
 plot_mean(next_iteration.result; full=true)
 plot_mean(next_iteration.result, "many_iterations")
 
+# Let's have a look at the kernel again. We expect the variation of samples
+# to become narrower:
+
+plot()
+plot_kernel_model(next_iteration.result, 20; plot_args=(;label="kernel model"))
+plot_kernel_mgvi_samples(next_iteration, 20)
+
 # ## Maximum A-Posteriori estimation
 
 # We build a MAP as a cross check of MGVI results. We just optimize posterior likelihood with Optim
@@ -462,6 +530,7 @@ max_posterior = Optim.optimize(x -> -MGVI.posterior_loglike(model, x, data), sta
 
 plot()
 plot_mean(Optim.minimizer(max_posterior), "map")
+plot_mean(next_iteration.result, "mgvi mean")
 plot_data()
 
 # We also can see the difference at the left edge of the data region. While MGVI smoothed the data,
@@ -470,4 +539,4 @@ plot_data()
 plot()
 plot_data()
 plot_mean(Optim.minimizer(max_posterior), "full gp"; full=true)
-plot_mean(Optim.minimizer(max_posterior), "map")
+plot_mean(next_iteration.result, "mgvi full gp"; full=true)
