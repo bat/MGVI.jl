@@ -195,7 +195,7 @@ function plot_kernel_matrix(p)
 end
 
 plot()
-pt_kernel_matrix(starting_point)
+plot_kernel_matrix(starting_point)
 
 # After we defined the square root of the kernel function (`kernel_model`),
 # we just follow the regular procedure of sampling from the normal distribution.
