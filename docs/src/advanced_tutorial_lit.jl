@@ -183,8 +183,8 @@ end
 plot()
 plot_kernel_model(starting_point, 20)
 
-# To make it even more visual, we plot also the structure of the covariance matrix as a heatmap.
-# We see that the finite correlation length shows up as a band around diagonal. We also
+# To make it even more visual, we also plot the structure of the covariance matrix as a heatmap.
+# We see that the finite correlation length shows up as a band around the diagonal. We also
 # see small artifacts in the antidiagonal corners. They come from the assumption that the
 # kernel is periodic.
 
