@@ -9,11 +9,11 @@
 # ## Prepare the environment
 
 # We start by importing:
-# * MGVI that we will use for posterior fit
-# * Distributions and FFTW to define the statistical model
-# * Optim to pass Optim.Options to MGVI and to find Maximum A-Posteriori fit that we will use for comparison
-# * StatsBase for histogram preparation from the data and also for error bands visualization
-# * Plots.jl for visualization
+# * MGVI for the posterior fit
+# * `Distributions.jl` and `FFTW.jl` to define the statistical model
+# * `Optim.jl` to pass `Optim.Options` to MGVI and to find Maximum A-Posteriori fit that we will use for comparison
+# * `StatsBase.jl` for histogram construction from the data and also for error bands visualization
+# * `Plots.jl` for visualization
 
 using MGVI
 
@@ -33,10 +33,9 @@ Random.seed!(84612);
 
 # ## Load data
 
-# Dataset is attached to the repository and contains intervals in days between
-# disasters happend at British coal mines between March 1851 and March 1962.
-# We split the entire time range into intervals of 365 days, then the number of events
-# in each interval costitutes the measurement we are going to model.
+# The dataset, which is included with this repository, contains intervals in days between
+# disasters occuring at British coal mines between March 1851 and March 1962.
+# We build a model by splitting the entire time range into intervals of 365 days.
 
 function read_coal_mining_data(filepath, binsize)
     init_year = empty
@@ -62,13 +61,13 @@ coal_mine_disaster_data = read_coal_mining_data(joinpath(@__DIR__, "coal_mining_
 # ## Global parameters and the grid
 
 # Now we define several model properties:
-# * `DATA_DIM` is just the size of the dataset
+# * `DATA_DIM` is the shape of the dataset
 # * `DATA_XLIM` specifies the time range of the data
-# * `GP_GRAIN_FACTOR` determines the numbers of finer bins into which the data bin is split.
+# * `GP_GRAIN_FACTOR` determines the numbers of finer bins which a data bin is split into.
 #    This is useful when there are several datasets defined on different grids.
-# * `GP_PADDING` adds empty paddings to the dataset. We use Fourier transform to sample from the Gaussian process
+# * `GP_PADDING` adds empty paddings to the dataset. We use a Fourier transform to sample from the Gaussian process
 #    with a finite correlation length. `GP_PADDING` helps us to ensure that periodic boundary conditions
-#    imposed by Fourier transform won't affect the data region.
+#    imposed by a Fourier transform won't affect the data region.
 
 DATA_DIM = size(coal_mine_disaster_data, 1);
 
@@ -125,10 +124,10 @@ function assemble_paridx(;kwargs...)
 end;
 
 # MGVI is an iterative procedure, so we will need to introduce an initial guess for the state of the model.
-# We create one vector of the size of the count of all parameters `starting_point` and a NamedTuple
-# `PARDIX` that assigns names to the sub-regions in the vector of parameters. In the correct case:
-# * `gp_hyper` two hyperparameters of the Gaussian process stored in the first two cells of the parameter vector
-# * `gp_latent` `_GP_DIM` parameters used to define the particular realization of the gaussian process,
+# We create a vector with size equal to the count of all parameters' `starting_point` and a NamedTuple
+# `PARDIX` that assigns names to the sub-regions in this vector. In the correct case:
+# * `gp_hyper` is two hyperparameters of the Gaussian process stored in the first two cells of the parameter vector
+# * `gp_latent` `_GP_DIM` are parameters used to define the particular realization of the gaussian process,
 #    stored at indices between `3` to `2 + _GP_DIM`.
 #
 # Function `assemble_paridx` is responsible for constructing such a NamedTuple from the parameter specification.
@@ -141,17 +140,17 @@ starting_point = randn(last(PARIDX).stop);
 
 k = collect(0:(_GP_DIM)÷2 -1);
 
-# Gaussian process covariance in the Fourier space is represented with a diagonal matrix. Values
-# on the diagonal follow squared exponential function with parameters depending on priors.
-# A kernel that is diagonal and mirrored around the center represents periodic and translation invariant function
+# A Gaussian process's covariance in the Fourier space is represented with a diagonal matrix. Values
+# on the diagonal follow a squared exponential function with parameters depending on priors.
+# A kernel that is diagonal and mirrored around the center represents a periodic and translationally invariant function
 # in the coordinate space. This property restricts covariance to have a finite correlation length in the coordinate
 # space.
 #
 # MGVI assumes that all priors are distributed as standard normals `N(0, 1)`; thus,
 # to modify the shapes of the priors, we explicitly rescale them at the model implementation phase.
 #
-# We also exponentiate each prior before using it for tuning squared exponential shape. In this way,
-# we impose only positive values of the hyperparameters of the kernel.
+# We also exponentiate each prior before using it to tune the squared exponential shape. In doing so,
+# we ensure only positive values for the kernel's hyperparameters.
 #
 # Actually, for the sake of numeric stability we model already square root of the covariance.
 # This can be traced by missing `sqrt` in the next level, where we sample from the Gaussian process.
@@ -165,15 +164,15 @@ function kernel_model(p)
     [positive_modes; negative_modes]
 end;
 
-# As a Fourier transform we use Discrete Hartley Transform that ensures that Fourier
-# coefficients of the real valued function are real valued.
+# As a Fourier transform we choose the Discrete Hartley Transform, which ensures that Fourier
+# coefficients of the real valued function remain real valued.
 
 ht = FFTW.plan_r2r(zeros(_GP_DIM), FFTW.DHT);
 
 # Before we proceed, let's have a brief look at the kernel's shape. Below
 # we plot the kernel in the coordinate space `K(r) = K(x2 - x1)` as a function of time in years
-# between two points. The further we go along `x`-axis the larger is the time interval and the
-# smaller is the covariance between two points in time.
+# between two points. As we go further along the `x`-axis, the time interval will increase, and
+# the covariance will decrease.
 
 function plot_kernel_model(p, width; plot_args=(;))
     xs = collect(1:Int(floor(width/_GP_BINSIZE)))
@@ -185,7 +184,7 @@ plot_kernel_model(starting_point, 20)
 
 # To make it even more visual, we also plot the structure of the covariance matrix as a heatmap.
 # We see that the finite correlation length shows up as a band around the diagonal. We also
-# see small artifacts in the antidiagonal corners. They come from the assumption that the
+# see small artifacts in the antidiagonal corners. These come from the assumption that the
 # kernel is periodic.
 
 function plot_kernel_matrix(p)
@@ -204,7 +203,7 @@ plot_kernel_matrix(starting_point)
 # the `gp_latent` part of the prior vector responsible for the Gaussian process state.
 #
 # After we produced a sample of Gaussian random values following the kernel model,
-# we apply Fourier transform to return back to the coordinate space.
+# we apply a Fourier transform to return back to the coordinate space.
 
 function gp_sample(p)
     flat_gp = kernel_model(p) .* p[PARIDX.gp_latent]
@@ -212,8 +211,8 @@ function gp_sample(p)
 end;
 
 # Together with the implementation of `gp_sample` we also need
-# it's version for the `Dual`s. It is a little patch that makes
-# application of the Hartley transform differentiatiable.
+# to define its version of the `Dual`s. This will allow our
+# application of the Hartley transform to be differentiatiable.
 
 function gp_sample(dp::Vector{ForwardDiff.Dual{T, V, N}}) where {T,V,N}
     flat_gp_duals = kernel_model(dp) .* dp[PARIDX.gp_latent]
@@ -249,11 +248,11 @@ function agg_lambdas(lambdas)
     xs, gps
 end;
 
-# Finally, we arrive to the model definition assembled from the building blocks we defined above:
+# Finally, we define the model by using the building blocks defined above:
 # * `gp_sample` sample from the Gaussian process with defined `kernel_model` covariance
 # * `poisson_gp_link` ensures Gaussian process is positive
-# * `agg_lambdas` integrates Gaussian process over each data bin to turn it into Poisson rate for each bin
-# * `model` maps parameters into the product of the Poisson distributions counting events in each bin.
+# * `agg_lambdas` integrates Gaussian process over each data bin to turn it into a Poisson rate for each bin
+# * `model` maps parameters into the product of the Poisson distribution's counting events in each bin.
 
 function model(params)
     fs = gp_sample(params)
@@ -391,8 +390,8 @@ plot!(ylim=[0, 8])
 plot()
 plot_kernel_prior_samples(200, 20)
 
-# Now we see that the Gaussian process potentially is able to fit the data,
-# we plot the initial guess (`starting_point`) to see where we start from.
+# Now that we see that the Gaussian process is potentially able to fit the data,
+# we plot the initial guess (`starting_point`) to see where we should start from.
 # This plot shows:
 # * data points
 # * smoothed data with a moving average of 9 years
@@ -402,7 +401,7 @@ plot()
 plot_mean(starting_point, "starting_point")
 plot_data()
 
-# We also want to introduce the `full` plot that shows not only the data region
+# We also want to introduce the `full` plot that shows not only the data region,
 # but includes the region with the padding we added with `GP_PADDING`. We will use
 # this plot to make sure that periodic boundary conditions don't interfere with
 # the data.
@@ -412,8 +411,8 @@ plot_mean(starting_point, "full gp"; full=true)
 plot_mean(starting_point, "starting_point")
 plot_data()
 
-# Let's make a first iteration of the MGVI. We limited Optim option to 1 iteration on purpose
-# to let MGVI coverge slowly, so that we'll see nice convergence curve.
+# Let's make a first iteration of the MGVI. For purposes of displaying the convergence curve, we limit `Optim.option` to 1 iteration so that
+# MGVI will coverge more slowly.
 
 first_iteration = mgvi_kl_optimize_step(Random.GLOBAL_RNG,
                                         model, data,
@@ -424,7 +423,7 @@ first_iteration = mgvi_kl_optimize_step(Random.GLOBAL_RNG,
                                         optim_options=Optim.Options(iterations=1, show_trace=false),
                                         residual_sampler_options=(;cg_params=(;abstol=1E-2,verbose=false)));
 
-# We again plot data and the Poisson rate. Then we again show the Gaussian process with padding.
+# We again plot data and the Poisson rate. We again show the Gaussian process with padding.
 # After one iteration the Poisson rate doesn't seem to get much closer to the data.
 
 plot()
@@ -444,8 +443,8 @@ plot()
 plot_kernel_model(first_iteration.result, 20; plot_args=(;label="kernel model"))
 plot_kernel_mgvi_samples(first_iteration, 20)
 
-# In order to visualize convergence we prepare few functions to compute
-# average posterior likelihood, store it and plot it.
+# In order to visualize convergence we prepare a few functions to compute,
+# store and plot the average posterior likelihood of.
 
 function compute_avg_likelihood(model, samples, data)
     tot = 0
@@ -478,15 +477,15 @@ for i in 1:30
     push!(avg_likelihood_series, compute_avg_likelihood(model, next_iteration.samples, data))
 end;
 
-# Firstly, let's have a look at the convergence plots. We see that MGVI converged after 10 iterations
-# while being limited to very poor Optim performance.
+# First, let's have a look at the convergence plots. We see that MGVI converged after 10 iterations
+# while being limited to very poor `Optim` performance.
 
 plot(yscale=:log)
 show_avg_likelihood(avg_likelihood_series)
 
-# Below we plot the result of the fit. Together with data and Poisson rate we also plot
-# MGVI residuals. They are samples from the Gaussian posterior, sampled respecting the posterior
-# covariance structure. Thus MGVI residual samples are deviations from the MGVI fit that represent
+# Below we plot the result of the fit. Together with the data and Poisson rate, we also plot
+# MGVI residuals. These are samples from the Gaussian posterior, sampled with respect to the posterior's
+# covariance structure. Thus MGVI residual samples are deviations from the MGVI fit and represent
 # how confident we are about the prediction.
 
 plot(ylim=[0,8])
@@ -495,8 +494,8 @@ plot_mean(next_iteration.result, "many_iterations", plot_args=(color=:deepskyblu
 plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:deeppink3, linewidth=3))
 
 # To present credibility intervals we also plot credibility bands. We sample 400 residual samples
-# from MGVI and then plot quantiles for each data bin. This should give us a feeling of how
-# the MGVI fit is compatible with the data.
+# from MGVI and then plot quantiles for each data bin. This should give us a feeling of how compatible
+# the MGVI fit is with the data.
 
 plot(ylim=[0,8])
 plot_posterior_bands(next_iteration.result, 400)
@@ -520,12 +519,12 @@ plot_kernel_mgvi_samples(next_iteration, 20)
 
 # ## Maximum A-Posteriori estimation
 
-# We build a MAP as a cross check of MGVI results. We just optimize posterior likelihood with Optim
-# without any particular tuning:
+# We build a MAP as a cross check of MGVI results. We simply optimize the posterior likelihood by using `Optim`
+# without any particular tuning settings:
 
 max_posterior = Optim.optimize(x -> -MGVI.posterior_loglike(model, x, data), starting_point, LBFGS(), Optim.Options(show_trace=false, g_tol=1E-10, iterations=300));
 
-# We observe that the bump in the middle (around 1910) is caught by MAP while it is less pronounced in the MGVI fit.
+# We observe that the bump in the middle (around 1910) is caught by the MAP while it is less pronounced in the MGVI fit.
 # MAP also has finer structure around 1875 and 1835.
 
 plot()
@@ -534,7 +533,7 @@ plot_mean(next_iteration.result, "mgvi mean")
 plot_data()
 
 # We also can see the difference at the left edge of the data region. While MGVI smoothed the data,
-# MAP predicted a consequent peak:
+# the MAP predicted a consequent peak:
 
 plot()
 plot_data()
