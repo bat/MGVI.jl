@@ -11,7 +11,7 @@
 # We start by importing:
 # * MGVI for the posterior fit
 # * `Distributions.jl` and `FFTW.jl` to define the statistical model
-# * `Optim.jl` to pass `Optim.Options` to MGVI and to find Maximum A-Posteriori fit that we will use for comparison
+# * `Optim.jl` to pass `Optim.Options` to MGVI and to find Maximum a posteriori fit that we will use for comparison
 # * `StatsBase.jl` for histogram construction from the data and also for error bands visualization
 # * `Plots.jl` for visualization
 
@@ -526,7 +526,7 @@ plot_kernel_model(next_iteration.result, 20; plot_args=(;label="kernel model"))
 plot_kernel_mgvi_samples(next_iteration, 20)
 png(joinpath(@__DIR__, "plots/kernel-many-iter.png"))
 
-# ## Maximum A-Posteriori estimation
+# ## Maximum a posteriori estimation
 
 # We build a MAP as a cross check of MGVI results. We simply optimize the posterior likelihood by using `Optim`
 # without any particular tuning settings:
