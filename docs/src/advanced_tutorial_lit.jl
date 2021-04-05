@@ -156,7 +156,7 @@ k = collect(0:(_GP_DIM)÷2 -1);
 # Actually, for the sake of numeric stability we model already square root of the covariance.
 # This can be traced by missing `sqrt` in the next level, where we sample from the Gaussian process.
 
-function kernel_model(p)
+function sqrt_kernel(p)
     kernel_A_c, kernel_l_c = p[PARIDX.gp_hyper]
     kernel_A = 60*exp(kernel_A_c*0.9)*GP_GRAIN_FACTOR
     kernel_l = 0.025*exp(kernel_l_c/15)/(GP_GRAIN_FACTOR^0.3)
@@ -177,7 +177,7 @@ ht = FFTW.plan_r2r(zeros(_GP_DIM), FFTW.DHT);
 
 function plot_kernel_model(p, width; plot_args=(;))
     xs = collect(1:Int(floor(width/_GP_BINSIZE)))
-    plot!(xs .* _GP_BINSIZE, (ht * kernel_model(p))[xs] ./ _GP_DIM, label=nothing, linewidth=2.5; plot_args...)
+    plot!(xs .* _GP_BINSIZE, (ht * (sqrt_kernel(p) .^ 2))[xs] ./ _GP_DIM, label=nothing, linewidth=2.5; plot_args...)
 end
 
 plot()
@@ -189,7 +189,7 @@ plot_kernel_model(starting_point, 20)
 # kernel is periodic.
 
 function plot_kernel_matrix(p)
-    xkernel = ht * kernel_model(p) ./ _GP_DIM
+    xkernel = ht * (sqrt_kernel(p) .^ 2) ./ _GP_DIM
     res = reduce(hcat, [circshift(xkernel, i) for i in _GP_DIM-1:-1:0])'
     heatmap!(res)
 end
@@ -198,7 +198,7 @@ plot()
 plot_kernel_matrix(starting_point)
 png(joinpath(@__DIR__, "plots/gp-covariance-matrix.png"))
 
-# After we defined the square root of the kernel function (`kernel_model`),
+# After we defined the square root of the kernel function (`sqrt_kernel`),
 # we just follow the regular procedure of sampling from the normal distribution.
 # Since the covariance matrix in the Fourier space is diagonal, Gaussian variables
 # in each bin are independent of each other. Thus, sampling ends up rescaling
@@ -208,7 +208,7 @@ png(joinpath(@__DIR__, "plots/gp-covariance-matrix.png"))
 # we apply a Fourier transform to return back to the coordinate space.
 
 function gp_sample(p)
-    flat_gp = kernel_model(p) .* p[PARIDX.gp_latent]
+    flat_gp = sqrt_kernel(p) .* p[PARIDX.gp_latent]
     (ht * flat_gp) ./ _GP_DIM
 end;
 
@@ -217,7 +217,7 @@ end;
 # application of the Hartley transform to be differentiatiable.
 
 function gp_sample(dp::Vector{ForwardDiff.Dual{T, V, N}}) where {T,V,N}
-    flat_gp_duals = kernel_model(dp) .* dp[PARIDX.gp_latent]
+    flat_gp_duals = sqrt_kernel(dp) .* dp[PARIDX.gp_latent]
     val_res = ht*ForwardDiff.value.(flat_gp_duals) ./ _GP_DIM
     psize = size(ForwardDiff.partials(flat_gp_duals[1]), 1)
     ps = x -> ForwardDiff.partials.(flat_gp_duals, x)
@@ -251,7 +251,7 @@ function agg_lambdas(lambdas)
 end;
 
 # Finally, we define the model by using the building blocks defined above:
-# * `gp_sample` sample from the Gaussian process with defined `kernel_model` covariance
+# * `gp_sample` sample from the Gaussian process with defined `sqrt_kernel` covariance
 # * `poisson_gp_link` ensures Gaussian process is positive
 # * `agg_lambdas` integrates Gaussian process over each data bin to turn it into a Poisson rate for each bin
 # * `model` maps parameters into the product of the Poisson distribution's counting events in each bin.
