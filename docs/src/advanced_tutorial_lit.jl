@@ -30,6 +30,7 @@ using FFTW
 import ForwardDiff
 #-
 Random.seed!(84612);
+mkdir(joinpath(@__DIR__, "plots"));
 
 # ## Load data
 
@@ -195,6 +196,7 @@ end
 
 plot()
 plot_kernel_matrix(starting_point)
+png(joinpath(@__DIR__, "plots/gp-covariance-matrix.png"))
 
 # After we defined the square root of the kernel function (`kernel_model`),
 # we just follow the regular procedure of sampling from the normal distribution.
@@ -382,6 +384,7 @@ plot()
 plot_prior_samples(200)
 plot_data()
 plot!(ylim=[0, 8])
+png(joinpath(@__DIR__, "plots/poisson-dynamic-range.png"))
 
 # We also plot prior samples for the kernel in the coordinate space. The plot below
 # shows that the kernel is flexible in the amplitude while the correlation length
@@ -389,6 +392,7 @@ plot!(ylim=[0, 8])
 
 plot()
 plot_kernel_prior_samples(200, 20)
+png(joinpath(@__DIR__, "plots/gp-kernel-dynamic-range.png"))
 
 # Now that we see that the Gaussian process is potentially able to fit the data,
 # we plot the initial guess (`starting_point`) to see where we should start from.
@@ -400,6 +404,7 @@ plot_kernel_prior_samples(200, 20)
 plot()
 plot_mean(starting_point, "starting_point")
 plot_data()
+png(joinpath(@__DIR__, "plots/res-starting-point.png"))
 
 # We also want to introduce the `full` plot that shows not only the data region,
 # but includes the region with the padding we added with `GP_PADDING`. We will use
@@ -482,6 +487,7 @@ end;
 
 plot(yscale=:log)
 show_avg_likelihood(avg_likelihood_series)
+png(joinpath(@__DIR__, "plots/convergence.png"))
 
 # Below we plot the result of the fit. Together with the data and Poisson rate, we also plot
 # MGVI residuals. These are samples from the Gaussian posterior, sampled with respect to the posterior's
@@ -492,6 +498,7 @@ plot(ylim=[0,8])
 plot_mgvi_samples(next_iteration)
 plot_mean(next_iteration.result, "many_iterations", plot_args=(color=:deepskyblue2, linewidth=3.5))
 plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:deeppink3, linewidth=3))
+png(joinpath(@__DIR__, "plots/res-many-iter.png"))
 
 # To present credibility intervals we also plot credibility bands. We sample 400 residual samples
 # from MGVI and then plot quantiles for each data bin. This should give us a feeling of how compatible
@@ -501,6 +508,7 @@ plot(ylim=[0,8])
 plot_posterior_bands(next_iteration.result, 400)
 plot_mean(next_iteration.result, "many_iterations", plot_args=(color=:deepskyblue2, linewidth=3.5))
 plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:deeppink3, linewidth=3))
+png(joinpath(@__DIR__, "plots/res-bands.png"))
 
 # We also make sure boundary conditions do not interfere with the data. Here is the Gaussian process
 # plot with the paddings included:
@@ -516,6 +524,7 @@ plot_mean(next_iteration.result, "many_iterations")
 plot()
 plot_kernel_model(next_iteration.result, 20; plot_args=(;label="kernel model"))
 plot_kernel_mgvi_samples(next_iteration, 20)
+png(joinpath(@__DIR__, "plots/kernel-many-iter.png"))
 
 # ## Maximum A-Posteriori estimation
 
@@ -531,6 +540,7 @@ plot()
 plot_mean(Optim.minimizer(max_posterior), "map")
 plot_mean(next_iteration.result, "mgvi mean")
 plot_data()
+png(joinpath(@__DIR__, "plots/map.png"))
 
 # We also can see the difference at the left edge of the data region. While MGVI smoothed the data,
 # the MAP predicted a consequent peak:
