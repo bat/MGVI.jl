@@ -312,8 +312,8 @@ function plot_data(; scatter_args=(;), smooth_args=(;))
     plot!(smooth_xs, smooth_data, linewidth=2, linealpha=1, ls=:dash, label="smooth data"; smooth_args...)
 end;
 
-function plot_mgvi_samples(params)
-    for sample in eachcol(params.samples)
+function plot_mgvi_samples(samples)
+    for sample in eachcol(samples)
         if any(isnan.(sample))
             print("nan found in samples", "\n")
             continue
@@ -323,8 +323,8 @@ function plot_mgvi_samples(params)
     plot!()
 end;
 
-function plot_kernel_mgvi_samples(params, width)
-    for sample in eachcol(params.samples)
+function plot_kernel_mgvi_samples(samples, width)
+    for sample in eachcol(samples)
         if any(isnan.(sample))
             print("nan found in samples", "\n")
             continue
@@ -403,9 +403,11 @@ plot!()
 # * data points
 # * smoothed data with a moving average of 9 years
 # * Poisson rate for each bin
+# * MGVI samples around the mean. At the later stages they can be used to estimate MGVI's uncertainty
 
 plot()
 plot_mean(starting_point, "starting_point")
+plot_mgvi_samples(produce_posterior_samples(starting_point, 6))
 plot_data()
 png(joinpath(@__DIR__, "plots/res-starting-point.png"))
 plot!()
@@ -419,6 +421,15 @@ plot()
 plot_mean(starting_point, "full gp"; full=true)
 plot_mean(starting_point, "starting_point")
 plot_data()
+
+# Below we also plot the kernel and MGVI samples that represent
+# the possible variation of the kernel shape around the mean:
+
+plot()
+plot_kernel_model(starting_point, 20; plot_args=(;label="kernel model"))
+plot_kernel_mgvi_samples(produce_posterior_samples(starting_point, 6), 20)
+png(joinpath(@__DIR__, "plots/kernel-starting-point.png"))
+plot!()
 
 # Let's make a first iteration of the MGVI. For purposes of displaying the convergence curve, we limit `Optim.option` to 1 iteration so that
 # MGVI will coverge more slowly.
@@ -444,13 +455,12 @@ plot_data()
 plot_mean(first_iteration.result, "full gp"; full=true)
 plot_mean(first_iteration.result, "first_iteration")
 
-# We also would like to have a look at the kernel. Below we plot it together
-# with the MGVI samples that represent the possible variation of the kernel
-# shape around the mean:
+# Kernel and its MGVI samples changed significantly
+# in comparison to the `starting_point` even after the first iteration:
 
 plot()
 plot_kernel_model(first_iteration.result, 20; plot_args=(;label="kernel model"))
-plot_kernel_mgvi_samples(first_iteration, 20)
+plot_kernel_mgvi_samples(first_iteration.samples, 20)
 
 # In order to visualize convergence we prepare a few functions to compute,
 # store and plot the average posterior likelihood of.
@@ -477,7 +487,7 @@ for i in 1:30
     tmp_iteration = mgvi_kl_optimize_step(Random.GLOBAL_RNG,
                                           model, data,
                                           next_iteration.result;
-                                          num_residuals=8,
+                                          num_residuals=3,
                                           jacobian_func=FwdRevADJacobianFunc,
                                           residual_sampler=ImplicitResidualSampler,
                                           optim_options=Optim.Options(iterations=1, show_trace=false),
@@ -500,7 +510,7 @@ plot!()
 # how confident we are about the prediction.
 
 plot(ylim=[0,8])
-plot_mgvi_samples(next_iteration)
+plot_mgvi_samples(next_iteration.samples)
 plot_mean(next_iteration.result, "many_iterations", plot_args=(color=:deepskyblue2, linewidth=3.5))
 plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:deeppink3, linewidth=3))
 png(joinpath(@__DIR__, "plots/res-many-iter.png"))
@@ -530,7 +540,7 @@ plot_mean(next_iteration.result, "many_iterations")
 
 plot()
 plot_kernel_model(next_iteration.result, 20; plot_args=(;label="kernel model"))
-plot_kernel_mgvi_samples(next_iteration, 20)
+plot_kernel_mgvi_samples(next_iteration.samples, 20)
 png(joinpath(@__DIR__, "plots/kernel-many-iter.png"))
 plot!()
 
