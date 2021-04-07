@@ -190,8 +190,8 @@ plot_kernel_model(starting_point, 20)
 
 function plot_kernel_matrix(p)
     xkernel = ht * (sqrt_kernel(p) .^ 2) ./ _GP_DIM
-    res = reduce(hcat, [circshift(xkernel, i) for i in _GP_DIM-1:-1:0])'
-    heatmap!(res)
+    res = reduce(hcat, [circshift(xkernel, i) for i in 0:(_GP_DIM-1)])'
+    heatmap!(_GP_XS, _GP_XS, res; yflip=true, xmirror=true)
 end
 
 plot()
