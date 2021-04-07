@@ -24,7 +24,7 @@ using Optim
 using StatsBase
 
 using Plots
-Plots.default(legendfontsize=18, tickfontsize=16, grid=false)
+Plots.default(legendfontsize=10, tickfontsize=10, grid=false, dpi=120, size=(500, 300))
 
 using FFTW
 
@@ -383,7 +383,7 @@ end;
 # We expect the set of lines to populate the regions where there are data.
 
 plot()
-plot_data(;plot_args=(;alpha=0.7))
+plot_data(;scatter_args=(;alpha=0.7))
 plot_prior_samples(200, mean_plot_args=(;alpha=0.5))
 plot!(ylim=[0, 8])
 png(joinpath(@__DIR__, "plots/poisson-dynamic-range.png"))
@@ -407,9 +407,9 @@ plot!()
 # * MGVI samples around the mean. At the later stages they can be used to estimate MGVI's uncertainty
 
 plot()
+plot_data()
 plot_mean(starting_point, "starting_point")
 plot_mgvi_samples(produce_posterior_samples(starting_point, 6))
-plot_data()
 png(joinpath(@__DIR__, "plots/res-starting-point.png"))
 plot!()
 
@@ -419,9 +419,9 @@ plot!()
 # the data.
 
 plot()
+plot_data()
 plot_mean(starting_point, "full gp"; full=true)
 plot_mean(starting_point, "starting_point")
-plot_data()
 
 # Below we also plot the kernel and MGVI samples that represent
 # the possible variation of the kernel shape around the mean:
@@ -448,8 +448,8 @@ first_iteration = mgvi_kl_optimize_step(Random.GLOBAL_RNG,
 # After one iteration the Poisson rate doesn't seem to get much closer to the data.
 
 plot()
-plot_mean(first_iteration.result, "first_iteration")
 plot_data()
+plot_mean(first_iteration.result, "first_iteration")
 #-
 plot()
 plot_data()
@@ -511,9 +511,9 @@ plot!()
 # how confident we are about the prediction.
 
 plot(ylim=[0,8])
+plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:deeppink3, linewidth=3))
 plot_mgvi_samples(next_iteration.samples)
 plot_mean(next_iteration.result, "many_iterations", plot_args=(color=:deepskyblue2, linewidth=3.5))
-plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:deeppink3, linewidth=3))
 png(joinpath(@__DIR__, "plots/res-many-iter.png"))
 plot!()
 
@@ -523,8 +523,8 @@ plot!()
 
 plot(ylim=[0,8])
 plot_posterior_bands(next_iteration.result, 400)
-plot_mean(next_iteration.result, "many_iterations", plot_args=(color=:deepskyblue2, linewidth=3.5))
 plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:deeppink3, linewidth=3))
+plot_mean(next_iteration.result, "many_iterations", plot_args=(color=:deepskyblue2, linewidth=3.5))
 png(joinpath(@__DIR__, "plots/res-bands.png"))
 plot!()
 
@@ -556,9 +556,9 @@ max_posterior = Optim.optimize(x -> -MGVI.posterior_loglike(model, x, data), sta
 # MAP also has finer structure around 1875 and 1835.
 
 plot()
+plot_data()
 plot_mean(Optim.minimizer(max_posterior), "map")
 plot_mean(next_iteration.result, "mgvi mean")
-plot_data()
 png(joinpath(@__DIR__, "plots/map.png"))
 plot!()
 
