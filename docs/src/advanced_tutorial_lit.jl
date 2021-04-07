@@ -24,6 +24,7 @@ using Optim
 using StatsBase
 
 using Plots
+Plots.default(legendfontsize=18, tickfontsize=16, grid=false)
 
 using FFTW
 
@@ -191,7 +192,7 @@ plot_kernel_model(starting_point, 20)
 function plot_kernel_matrix(p)
     xkernel = ht * (sqrt_kernel(p) .^ 2) ./ _GP_DIM
     res = reduce(hcat, [circshift(xkernel, i) for i in 0:(_GP_DIM-1)])'
-    heatmap!(_GP_XS, _GP_XS, res; yflip=true, xmirror=true)
+    heatmap!(_GP_XS, _GP_XS, res; yflip=true, xmirror=true, tick_direction=:out)
 end
 
 plot()
@@ -289,10 +290,10 @@ function plot_mean(p, label="mean"; plot_args=(;), full=false)
     plot!(_mean(p; full=full)..., label=label, linewidth=2; plot_args...)
 end;
 
-function plot_prior_samples(num_samples)
+function plot_prior_samples(num_samples; mean_plot_args=(;))
     for _ in 1:num_samples
         p = randn(last(PARIDX).stop)
-        plot_mean(p, nothing)
+        plot_mean(p, nothing; plot_args=mean_plot_args)
     end
 end;
 
@@ -305,7 +306,7 @@ function plot_kernel_prior_samples(num_samples, width)
 end;
 
 function plot_data(; scatter_args=(;), smooth_args=(;))
-    scatter!(_GP_XS[_DATA_IDXS .+ (GP_GRAIN_FACTOR ÷ 2)], data, la=0, markersize=2., markerstrokewidth=0, label="data"; scatter_args...)
+    bar!(_GP_XS[_DATA_IDXS .+ (GP_GRAIN_FACTOR ÷ 2)], data, la=0, markersize=2., markerstrokewidth=0, alpha=0.4, label="data"; scatter_args...)
     smooth_step = 4
     smooth_xs = _GP_XS[_DATA_IDXS .+ (GP_GRAIN_FACTOR ÷ 2)][(smooth_step+1):(end-smooth_step)]
     smooth_data = [sum(data[i-smooth_step:i+smooth_step])/(2*smooth_step+1) for i in (smooth_step+1):(size(data, 1)-smooth_step)]
@@ -382,8 +383,8 @@ end;
 # We expect the set of lines to populate the regions where there are data.
 
 plot()
-plot_prior_samples(200)
-plot_data()
+plot_data(;plot_args=(;alpha=0.7))
+plot_prior_samples(200, mean_plot_args=(;alpha=0.5))
 plot!(ylim=[0, 8])
 png(joinpath(@__DIR__, "plots/poisson-dynamic-range.png"))
 plot!()
