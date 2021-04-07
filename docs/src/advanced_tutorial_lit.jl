@@ -30,7 +30,7 @@ using FFTW
 import ForwardDiff
 #-
 Random.seed!(84612);
-mkdir(joinpath(@__DIR__, "plots"));
+mkpath(joinpath(@__DIR__, "plots"));
 
 # ## Load data
 
