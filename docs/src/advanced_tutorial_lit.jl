@@ -11,7 +11,7 @@
 # We start by importing:
 # * MGVI for the posterior fit
 # * `Distributions.jl` and `FFTW.jl` to define the statistical model
-# * `Optim.jl` to pass `Optim.Options` to MGVI and to find Maximum A-Posteriori fit that we will use for comparison
+# * `Optim.jl` to pass `Optim.Options` to MGVI and to find Maximum a posteriori fit that we will use for comparison
 # * `StatsBase.jl` for histogram construction from the data and also for error bands visualization
 # * `Plots.jl` for visualization
 
@@ -24,12 +24,15 @@ using Optim
 using StatsBase
 
 using Plots
+#!jl Plots.default(legendfontsize=10, tickfontsize=10, grid=false, dpi=120, size=(500, 300))
+#jl Plots.default(legendfontsize=24, tickfontsize=24, grid=false, dpi=100, size=(1300, 700))
 
 using FFTW
 
 import ForwardDiff
 #-
 Random.seed!(84612);
+mkpath(joinpath(@__DIR__, "plots"));
 
 # ## Load data
 
@@ -155,7 +158,7 @@ k = collect(0:(_GP_DIM)÷2 -1);
 # Actually, for the sake of numeric stability we model already square root of the covariance.
 # This can be traced by missing `sqrt` in the next level, where we sample from the Gaussian process.
 
-function kernel_model(p)
+function sqrt_kernel(p)
     kernel_A_c, kernel_l_c = p[PARIDX.gp_hyper]
     kernel_A = 60*exp(kernel_A_c*0.9)*GP_GRAIN_FACTOR
     kernel_l = 0.025*exp(kernel_l_c/15)/(GP_GRAIN_FACTOR^0.3)
@@ -176,7 +179,7 @@ ht = FFTW.plan_r2r(zeros(_GP_DIM), FFTW.DHT);
 
 function plot_kernel_model(p, width; plot_args=(;))
     xs = collect(1:Int(floor(width/_GP_BINSIZE)))
-    plot!(xs .* _GP_BINSIZE, (ht * kernel_model(p))[xs] ./ _GP_DIM, label=nothing, linewidth=2.5; plot_args...)
+    plot!(xs .* _GP_BINSIZE, (ht * (sqrt_kernel(p) .^ 2))[xs] ./ _GP_DIM, label=nothing, linewidth=2.5; plot_args...)
 end
 
 plot()
@@ -188,15 +191,16 @@ plot_kernel_model(starting_point, 20)
 # kernel is periodic.
 
 function plot_kernel_matrix(p)
-    xkernel = ht * kernel_model(p) ./ _GP_DIM
-    res = reduce(hcat, [circshift(xkernel, i) for i in _GP_DIM-1:-1:0])'
-    heatmap!(res)
+    xkernel = ht * (sqrt_kernel(p) .^ 2) ./ _GP_DIM
+    res = reduce(hcat, [circshift(xkernel, i) for i in 0:(_GP_DIM-1)])'
+    heatmap!(_GP_XS, _GP_XS, res; yflip=true, xmirror=true, tick_direction=:out)
 end
 
 plot()
 plot_kernel_matrix(starting_point)
+#jl png(joinpath(@__DIR__, "plots/gp-covariance-matrix.png"))
 
-# After we defined the square root of the kernel function (`kernel_model`),
+# After we defined the square root of the kernel function (`sqrt_kernel`),
 # we just follow the regular procedure of sampling from the normal distribution.
 # Since the covariance matrix in the Fourier space is diagonal, Gaussian variables
 # in each bin are independent of each other. Thus, sampling ends up rescaling
@@ -206,7 +210,7 @@ plot_kernel_matrix(starting_point)
 # we apply a Fourier transform to return back to the coordinate space.
 
 function gp_sample(p)
-    flat_gp = kernel_model(p) .* p[PARIDX.gp_latent]
+    flat_gp = sqrt_kernel(p) .* p[PARIDX.gp_latent]
     (ht * flat_gp) ./ _GP_DIM
 end;
 
@@ -215,7 +219,7 @@ end;
 # application of the Hartley transform to be differentiatiable.
 
 function gp_sample(dp::Vector{ForwardDiff.Dual{T, V, N}}) where {T,V,N}
-    flat_gp_duals = kernel_model(dp) .* dp[PARIDX.gp_latent]
+    flat_gp_duals = sqrt_kernel(dp) .* dp[PARIDX.gp_latent]
     val_res = ht*ForwardDiff.value.(flat_gp_duals) ./ _GP_DIM
     psize = size(ForwardDiff.partials(flat_gp_duals[1]), 1)
     ps = x -> ForwardDiff.partials.(flat_gp_duals, x)
@@ -249,7 +253,7 @@ function agg_lambdas(lambdas)
 end;
 
 # Finally, we define the model by using the building blocks defined above:
-# * `gp_sample` sample from the Gaussian process with defined `kernel_model` covariance
+# * `gp_sample` sample from the Gaussian process with defined `sqrt_kernel` covariance
 # * `poisson_gp_link` ensures Gaussian process is positive
 # * `agg_lambdas` integrates Gaussian process over each data bin to turn it into a Poisson rate for each bin
 # * `model` maps parameters into the product of the Poisson distribution's counting events in each bin.
@@ -283,13 +287,13 @@ function _mean(p; full=false)
 end;
 
 function plot_mean(p, label="mean"; plot_args=(;), full=false)
-    plot!(_mean(p; full=full)..., label=label, linewidth=2; plot_args...)
+    plot!(_mean(p; full=full)...; label=label, linewidth=3, plot_args...)
 end;
 
-function plot_prior_samples(num_samples)
+function plot_prior_samples(num_samples; mean_plot_args=(;))
     for _ in 1:num_samples
         p = randn(last(PARIDX).stop)
-        plot_mean(p, nothing)
+        plot_mean(p, nothing; plot_args=mean_plot_args)
     end
 end;
 
@@ -302,31 +306,31 @@ function plot_kernel_prior_samples(num_samples, width)
 end;
 
 function plot_data(; scatter_args=(;), smooth_args=(;))
-    scatter!(_GP_XS[_DATA_IDXS .+ (GP_GRAIN_FACTOR ÷ 2)], data, la=0, markersize=2., markerstrokewidth=0, label="data"; scatter_args...)
+    bar!(_GP_XS[_DATA_IDXS .+ (GP_GRAIN_FACTOR ÷ 2)], data, color=:deepskyblue2, la=0, markersize=2., markerstrokewidth=0, alpha=0.4, label="data"; scatter_args...)
     smooth_step = 4
     smooth_xs = _GP_XS[_DATA_IDXS .+ (GP_GRAIN_FACTOR ÷ 2)][(smooth_step+1):(end-smooth_step)]
     smooth_data = [sum(data[i-smooth_step:i+smooth_step])/(2*smooth_step+1) for i in (smooth_step+1):(size(data, 1)-smooth_step)]
-    plot!(smooth_xs, smooth_data, linewidth=2, linealpha=1, ls=:dash, label="smooth data"; smooth_args...)
+    plot!(smooth_xs, smooth_data, color=:deeppink3, linewidth=3, linealpha=1, ls=:dash, label="smooth data"; smooth_args...)
 end;
 
-function plot_mgvi_samples(params)
-    for sample in eachcol(params.samples)
+function plot_mgvi_samples(samples)
+    for sample in eachcol(samples)
         if any(isnan.(sample))
             print("nan found in samples", "\n")
             continue
         end
-        plot!(_mean(Vector(sample))..., linealpha=0.5, linewidth=1, label=nothing)
+        plot!(_mean(Vector(sample))..., linealpha=0.5, linewidth=2, label=nothing)
     end
     plot!()
 end;
 
-function plot_kernel_mgvi_samples(params, width)
-    for sample in eachcol(params.samples)
+function plot_kernel_mgvi_samples(samples, width)
+    for sample in eachcol(samples)
         if any(isnan.(sample))
             print("nan found in samples", "\n")
             continue
         end
-        plot_kernel_model(sample, width; plot_args=(linealpha=0.5, linewidth=1, label=nothing))
+        plot_kernel_model(sample, width; plot_args=(linealpha=0.5, linewidth=2, label=nothing))
     end
     plot!()
 end;
@@ -379,9 +383,10 @@ end;
 # We expect the set of lines to populate the regions where there are data.
 
 plot()
-plot_prior_samples(200)
-plot_data()
+plot_data(;scatter_args=(;alpha=0.7))
+plot_prior_samples(200, mean_plot_args=(;alpha=0.5))
 plot!(ylim=[0, 8])
+#jl png(joinpath(@__DIR__, "plots/poisson-dynamic-range.png"))
 
 # We also plot prior samples for the kernel in the coordinate space. The plot below
 # shows that the kernel is flexible in the amplitude while the correlation length
@@ -389,6 +394,7 @@ plot!(ylim=[0, 8])
 
 plot()
 plot_kernel_prior_samples(200, 20)
+#jl png(joinpath(@__DIR__, "plots/gp-kernel-dynamic-range.png"))
 
 # Now that we see that the Gaussian process is potentially able to fit the data,
 # we plot the initial guess (`starting_point`) to see where we should start from.
@@ -396,10 +402,13 @@ plot_kernel_prior_samples(200, 20)
 # * data points
 # * smoothed data with a moving average of 9 years
 # * Poisson rate for each bin
+# * MGVI samples around the mean. At the later stages they can be used to estimate MGVI's uncertainty
 
 plot()
-plot_mean(starting_point, "starting_point")
 plot_data()
+plot_mean(starting_point, "starting point"; plot_args=(;color=:darkorange2))
+plot_mgvi_samples(produce_posterior_samples(starting_point, 6))
+#jl png(joinpath(@__DIR__, "plots/res-starting-point.png"))
 
 # We also want to introduce the `full` plot that shows not only the data region,
 # but includes the region with the padding we added with `GP_PADDING`. We will use
@@ -407,9 +416,17 @@ plot_data()
 # the data.
 
 plot()
-plot_mean(starting_point, "full gp"; full=true)
-plot_mean(starting_point, "starting_point")
 plot_data()
+plot_mean(starting_point, "full gp"; full=true, plot_args=(;color=:pink))
+plot_mean(starting_point, "starting point"; plot_args=(;color=:darkorange2))
+
+# Below we also plot the kernel and MGVI samples that represent
+# the possible variation of the kernel shape around the mean:
+
+plot()
+plot_kernel_model(starting_point, 20; plot_args=(;label="kernel model"))
+plot_kernel_mgvi_samples(produce_posterior_samples(starting_point, 6), 20)
+#jl png(joinpath(@__DIR__, "plots/kernel-starting-point.png"))
 
 # Let's make a first iteration of the MGVI. For purposes of displaying the convergence curve, we limit `Optim.option` to 1 iteration so that
 # MGVI will coverge more slowly.
@@ -427,21 +444,21 @@ first_iteration = mgvi_kl_optimize_step(Random.GLOBAL_RNG,
 # After one iteration the Poisson rate doesn't seem to get much closer to the data.
 
 plot()
-plot_mean(first_iteration.result, "first_iteration")
 plot_data()
+plot_mean(first_iteration.result, "first iteration"; plot_args=(;color=:darkorange2))
+plot_mgvi_samples(first_iteration.samples)
 #-
 plot()
 plot_data()
-plot_mean(first_iteration.result, "full gp"; full=true)
-plot_mean(first_iteration.result, "first_iteration")
+plot_mean(first_iteration.result, "full gp"; full=true, plot_args=(;color=:pink))
+plot_mean(first_iteration.result, "first iteration"; plot_args=(;color=:darkorange2))
 
-# We also would like to have a look at the kernel. Below we plot it together
-# with the MGVI samples that represent the possible variation of the kernel
-# shape around the mean:
+# Kernel and its MGVI samples changed significantly
+# in comparison to the `starting_point` even after the first iteration:
 
 plot()
 plot_kernel_model(first_iteration.result, 20; plot_args=(;label="kernel model"))
-plot_kernel_mgvi_samples(first_iteration, 20)
+plot_kernel_mgvi_samples(first_iteration.samples, 20)
 
 # In order to visualize convergence we prepare a few functions to compute,
 # store and plot the average posterior likelihood of.
@@ -468,7 +485,7 @@ for i in 1:30
     tmp_iteration = mgvi_kl_optimize_step(Random.GLOBAL_RNG,
                                           model, data,
                                           next_iteration.result;
-                                          num_residuals=8,
+                                          num_residuals=3,
                                           jacobian_func=FwdRevADJacobianFunc,
                                           residual_sampler=ImplicitResidualSampler,
                                           optim_options=Optim.Options(iterations=1, show_trace=false),
@@ -482,6 +499,7 @@ end;
 
 plot(yscale=:log)
 show_avg_likelihood(avg_likelihood_series)
+#jl png(joinpath(@__DIR__, "plots/convergence.png"))
 
 # Below we plot the result of the fit. Together with the data and Poisson rate, we also plot
 # MGVI residuals. These are samples from the Gaussian posterior, sampled with respect to the posterior's
@@ -489,9 +507,10 @@ show_avg_likelihood(avg_likelihood_series)
 # how confident we are about the prediction.
 
 plot(ylim=[0,8])
-plot_mgvi_samples(next_iteration)
-plot_mean(next_iteration.result, "many_iterations", plot_args=(color=:deepskyblue2, linewidth=3.5))
-plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:deeppink3, linewidth=3))
+plot_data()
+plot_mgvi_samples(next_iteration.samples)
+plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
+#jl png(joinpath(@__DIR__, "plots/res-many-iter.png"))
 
 # To present credibility intervals we also plot credibility bands. We sample 400 residual samples
 # from MGVI and then plot quantiles for each data bin. This should give us a feeling of how compatible
@@ -499,25 +518,27 @@ plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:de
 
 plot(ylim=[0,8])
 plot_posterior_bands(next_iteration.result, 400)
-plot_mean(next_iteration.result, "many_iterations", plot_args=(color=:deepskyblue2, linewidth=3.5))
-plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:deeppink3, linewidth=3))
+plot_data()
+plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
+#jl png(joinpath(@__DIR__, "plots/res-bands.png"))
 
 # We also make sure boundary conditions do not interfere with the data. Here is the Gaussian process
 # plot with the paddings included:
 
 plot()
 plot_data()
-plot_mean(next_iteration.result; full=true)
-plot_mean(next_iteration.result, "many_iterations")
+plot_mean(next_iteration.result; full=true, plot_args=(;color=:pink))
+plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
 
 # Let's have a look at the kernel again. We expect the variation of samples
 # to become narrower:
 
 plot()
 plot_kernel_model(next_iteration.result, 20; plot_args=(;label="kernel model"))
-plot_kernel_mgvi_samples(next_iteration, 20)
+plot_kernel_mgvi_samples(next_iteration.samples, 20)
+#jl png(joinpath(@__DIR__, "plots/kernel-many-iter.png"))
 
-# ## Maximum A-Posteriori estimation
+# ## Maximum a posteriori estimation
 
 # We build a MAP as a cross check of MGVI results. We simply optimize the posterior likelihood by using `Optim`
 # without any particular tuning settings:
@@ -528,14 +549,15 @@ max_posterior = Optim.optimize(x -> -MGVI.posterior_loglike(model, x, data), sta
 # MAP also has finer structure around 1875 and 1835.
 
 plot()
-plot_mean(Optim.minimizer(max_posterior), "map")
-plot_mean(next_iteration.result, "mgvi mean")
 plot_data()
+plot_mean(next_iteration.result, "mgvi mean"; plot_args=(;color=:darkorange2))
+plot_mean(Optim.minimizer(max_posterior), "map")
+#jl png(joinpath(@__DIR__, "plots/map.png"))
 
 # We also can see the difference at the left edge of the data region. While MGVI smoothed the data,
 # the MAP predicted a consequent peak:
 
 plot()
 plot_data()
-plot_mean(Optim.minimizer(max_posterior), "full gp"; full=true)
+plot_mean(Optim.minimizer(max_posterior), "full gp"; full=true, plot_args=(;color=:darkorange2))
 plot_mean(next_iteration.result, "mgvi full gp"; full=true)

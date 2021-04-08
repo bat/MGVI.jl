@@ -26,17 +26,17 @@ end
 
 Literate.notebook(joinpath(GENERATED_SRC, "advanced_tutorial_lit.jl"),
                   GENERATED_SRC; name="advanced_tutorial", execute=false)
-Literate.markdown(joinpath(GENERATED_SRC, "advanced_tutorial_lit.jl"),
-                  GENERATED_SRC; name="advanced_tutorial", execute=EXECUTE_MD, preprocess=dir_replace)
 Literate.script(joinpath(GENERATED_SRC, "advanced_tutorial_lit.jl"),
                 GENERATED_SRC; name="advanced_tutorial")
+Literate.markdown(joinpath(GENERATED_SRC, "advanced_tutorial_lit.jl"),
+                  GENERATED_SRC; name="advanced_tutorial", execute=EXECUTE_MD, preprocess=dir_replace)
 
 Literate.notebook(joinpath(GENERATED_SRC, "tutorial_lit.jl"),
                   GENERATED_SRC; name="tutorial", execute=false)
-Literate.markdown(joinpath(GENERATED_SRC, "tutorial_lit.jl"),
-                  GENERATED_SRC; name="tutorial", execute=EXECUTE_MD)
 Literate.script(joinpath(GENERATED_SRC, "tutorial_lit.jl"),
                 GENERATED_SRC; name="tutorial")
+Literate.markdown(joinpath(GENERATED_SRC, "tutorial_lit.jl"),
+                  GENERATED_SRC; name="tutorial", execute=EXECUTE_MD)
 
 makedocs(
     sitename = "MGVI",
