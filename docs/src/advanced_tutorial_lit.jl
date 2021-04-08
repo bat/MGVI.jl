@@ -287,7 +287,7 @@ function _mean(p; full=false)
 end;
 
 function plot_mean(p, label="mean"; plot_args=(;), full=false)
-    plot!(_mean(p; full=full)..., label=label, linewidth=2; plot_args...)
+    plot!(_mean(p; full=full)...; label=label, linewidth=2, plot_args...)
 end;
 
 function plot_prior_samples(num_samples; mean_plot_args=(;))
@@ -306,11 +306,11 @@ function plot_kernel_prior_samples(num_samples, width)
 end;
 
 function plot_data(; scatter_args=(;), smooth_args=(;))
-    bar!(_GP_XS[_DATA_IDXS .+ (GP_GRAIN_FACTOR ÷ 2)], data, la=0, markersize=2., markerstrokewidth=0, alpha=0.4, label="data"; scatter_args...)
+    bar!(_GP_XS[_DATA_IDXS .+ (GP_GRAIN_FACTOR ÷ 2)], data, color=:deepskyblue2, la=0, markersize=2., markerstrokewidth=0, alpha=0.4, label="data"; scatter_args...)
     smooth_step = 4
     smooth_xs = _GP_XS[_DATA_IDXS .+ (GP_GRAIN_FACTOR ÷ 2)][(smooth_step+1):(end-smooth_step)]
     smooth_data = [sum(data[i-smooth_step:i+smooth_step])/(2*smooth_step+1) for i in (smooth_step+1):(size(data, 1)-smooth_step)]
-    plot!(smooth_xs, smooth_data, linewidth=2, linealpha=1, ls=:dash, label="smooth data"; smooth_args...)
+    plot!(smooth_xs, smooth_data, color=:deeppink3, linewidth=2, linealpha=1, ls=:dash, label="smooth data"; smooth_args...)
 end;
 
 function plot_mgvi_samples(samples)
@@ -408,7 +408,7 @@ plot!()
 
 plot()
 plot_data()
-plot_mean(starting_point, "starting_point")
+plot_mean(starting_point, "starting point"; plot_args=(;color=:darkorange2))
 plot_mgvi_samples(produce_posterior_samples(starting_point, 6))
 png(joinpath(@__DIR__, "plots/res-starting-point.png"))
 plot!()
@@ -420,8 +420,8 @@ plot!()
 
 plot()
 plot_data()
-plot_mean(starting_point, "full gp"; full=true)
-plot_mean(starting_point, "starting_point")
+plot_mean(starting_point, "full gp"; full=true, plot_args=(;color=:pink))
+plot_mean(starting_point, "starting point"; plot_args=(;color=:darkorange2))
 
 # Below we also plot the kernel and MGVI samples that represent
 # the possible variation of the kernel shape around the mean:
@@ -449,12 +449,13 @@ first_iteration = mgvi_kl_optimize_step(Random.GLOBAL_RNG,
 
 plot()
 plot_data()
-plot_mean(first_iteration.result, "first_iteration")
+plot_mean(first_iteration.result, "first iteration"; plot_args=(;color=:darkorange2))
+plot_mgvi_samples(first_iteration.samples)
 #-
 plot()
 plot_data()
-plot_mean(first_iteration.result, "full gp"; full=true)
-plot_mean(first_iteration.result, "first_iteration")
+plot_mean(first_iteration.result, "full gp"; full=true, plot_args=(;color=:pink))
+plot_mean(first_iteration.result, "first iteration"; plot_args=(;color=:darkorange2))
 
 # Kernel and its MGVI samples changed significantly
 # in comparison to the `starting_point` even after the first iteration:
@@ -511,9 +512,9 @@ plot!()
 # how confident we are about the prediction.
 
 plot(ylim=[0,8])
-plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:deeppink3, linewidth=3))
+plot_data()
 plot_mgvi_samples(next_iteration.samples)
-plot_mean(next_iteration.result, "many_iterations", plot_args=(color=:deepskyblue2, linewidth=3.5))
+plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
 png(joinpath(@__DIR__, "plots/res-many-iter.png"))
 plot!()
 
@@ -523,8 +524,8 @@ plot!()
 
 plot(ylim=[0,8])
 plot_posterior_bands(next_iteration.result, 400)
-plot_data(scatter_args=(;color=:blue2, marker_size=3.5), smooth_args=(;color=:deeppink3, linewidth=3))
-plot_mean(next_iteration.result, "many_iterations", plot_args=(color=:deepskyblue2, linewidth=3.5))
+plot_data()
+plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
 png(joinpath(@__DIR__, "plots/res-bands.png"))
 plot!()
 
@@ -533,8 +534,8 @@ plot!()
 
 plot()
 plot_data()
-plot_mean(next_iteration.result; full=true)
-plot_mean(next_iteration.result, "many_iterations")
+plot_mean(next_iteration.result; full=true, plot_args=(;color=:pink))
+plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
 
 # Let's have a look at the kernel again. We expect the variation of samples
 # to become narrower:
@@ -557,8 +558,8 @@ max_posterior = Optim.optimize(x -> -MGVI.posterior_loglike(model, x, data), sta
 
 plot()
 plot_data()
+plot_mean(next_iteration.result, "mgvi mean"; plot_args=(;color=:darkorange2))
 plot_mean(Optim.minimizer(max_posterior), "map")
-plot_mean(next_iteration.result, "mgvi mean")
 png(joinpath(@__DIR__, "plots/map.png"))
 plot!()
 
@@ -567,5 +568,5 @@ plot!()
 
 plot()
 plot_data()
-plot_mean(Optim.minimizer(max_posterior), "full gp"; full=true)
+plot_mean(Optim.minimizer(max_posterior), "full gp"; full=true, plot_args=(;color=:darkorange2))
 plot_mean(next_iteration.result, "mgvi full gp"; full=true)
