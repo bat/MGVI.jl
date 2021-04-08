@@ -24,7 +24,8 @@ using Optim
 using StatsBase
 
 using Plots
-Plots.default(legendfontsize=10, tickfontsize=10, grid=false, dpi=120, size=(500, 300))
+#!jl Plots.default(legendfontsize=10, tickfontsize=10, grid=false, dpi=120, size=(500, 300))
+#jl Plots.default(legendfontsize=24, tickfontsize=24, grid=false, dpi=100, size=(1300, 700))
 
 using FFTW
 
@@ -197,8 +198,7 @@ end
 
 plot()
 plot_kernel_matrix(starting_point)
-png(joinpath(@__DIR__, "plots/gp-covariance-matrix.png"))
-plot!()
+#jl png(joinpath(@__DIR__, "plots/gp-covariance-matrix.png"))
 
 # After we defined the square root of the kernel function (`sqrt_kernel`),
 # we just follow the regular procedure of sampling from the normal distribution.
@@ -287,7 +287,7 @@ function _mean(p; full=false)
 end;
 
 function plot_mean(p, label="mean"; plot_args=(;), full=false)
-    plot!(_mean(p; full=full)...; label=label, linewidth=2, plot_args...)
+    plot!(_mean(p; full=full)...; label=label, linewidth=3, plot_args...)
 end;
 
 function plot_prior_samples(num_samples; mean_plot_args=(;))
@@ -310,7 +310,7 @@ function plot_data(; scatter_args=(;), smooth_args=(;))
     smooth_step = 4
     smooth_xs = _GP_XS[_DATA_IDXS .+ (GP_GRAIN_FACTOR ÷ 2)][(smooth_step+1):(end-smooth_step)]
     smooth_data = [sum(data[i-smooth_step:i+smooth_step])/(2*smooth_step+1) for i in (smooth_step+1):(size(data, 1)-smooth_step)]
-    plot!(smooth_xs, smooth_data, color=:deeppink3, linewidth=2, linealpha=1, ls=:dash, label="smooth data"; smooth_args...)
+    plot!(smooth_xs, smooth_data, color=:deeppink3, linewidth=3, linealpha=1, ls=:dash, label="smooth data"; smooth_args...)
 end;
 
 function plot_mgvi_samples(samples)
@@ -319,7 +319,7 @@ function plot_mgvi_samples(samples)
             print("nan found in samples", "\n")
             continue
         end
-        plot!(_mean(Vector(sample))..., linealpha=0.5, linewidth=1, label=nothing)
+        plot!(_mean(Vector(sample))..., linealpha=0.5, linewidth=2, label=nothing)
     end
     plot!()
 end;
@@ -330,7 +330,7 @@ function plot_kernel_mgvi_samples(samples, width)
             print("nan found in samples", "\n")
             continue
         end
-        plot_kernel_model(sample, width; plot_args=(linealpha=0.5, linewidth=1, label=nothing))
+        plot_kernel_model(sample, width; plot_args=(linealpha=0.5, linewidth=2, label=nothing))
     end
     plot!()
 end;
@@ -386,8 +386,7 @@ plot()
 plot_data(;scatter_args=(;alpha=0.7))
 plot_prior_samples(200, mean_plot_args=(;alpha=0.5))
 plot!(ylim=[0, 8])
-png(joinpath(@__DIR__, "plots/poisson-dynamic-range.png"))
-plot!()
+#jl png(joinpath(@__DIR__, "plots/poisson-dynamic-range.png"))
 
 # We also plot prior samples for the kernel in the coordinate space. The plot below
 # shows that the kernel is flexible in the amplitude while the correlation length
@@ -395,8 +394,7 @@ plot!()
 
 plot()
 plot_kernel_prior_samples(200, 20)
-png(joinpath(@__DIR__, "plots/gp-kernel-dynamic-range.png"))
-plot!()
+#jl png(joinpath(@__DIR__, "plots/gp-kernel-dynamic-range.png"))
 
 # Now that we see that the Gaussian process is potentially able to fit the data,
 # we plot the initial guess (`starting_point`) to see where we should start from.
@@ -410,8 +408,7 @@ plot()
 plot_data()
 plot_mean(starting_point, "starting point"; plot_args=(;color=:darkorange2))
 plot_mgvi_samples(produce_posterior_samples(starting_point, 6))
-png(joinpath(@__DIR__, "plots/res-starting-point.png"))
-plot!()
+#jl png(joinpath(@__DIR__, "plots/res-starting-point.png"))
 
 # We also want to introduce the `full` plot that shows not only the data region,
 # but includes the region with the padding we added with `GP_PADDING`. We will use
@@ -429,8 +426,7 @@ plot_mean(starting_point, "starting point"; plot_args=(;color=:darkorange2))
 plot()
 plot_kernel_model(starting_point, 20; plot_args=(;label="kernel model"))
 plot_kernel_mgvi_samples(produce_posterior_samples(starting_point, 6), 20)
-png(joinpath(@__DIR__, "plots/kernel-starting-point.png"))
-plot!()
+#jl png(joinpath(@__DIR__, "plots/kernel-starting-point.png"))
 
 # Let's make a first iteration of the MGVI. For purposes of displaying the convergence curve, we limit `Optim.option` to 1 iteration so that
 # MGVI will coverge more slowly.
@@ -503,8 +499,7 @@ end;
 
 plot(yscale=:log)
 show_avg_likelihood(avg_likelihood_series)
-png(joinpath(@__DIR__, "plots/convergence.png"))
-plot!()
+#jl png(joinpath(@__DIR__, "plots/convergence.png"))
 
 # Below we plot the result of the fit. Together with the data and Poisson rate, we also plot
 # MGVI residuals. These are samples from the Gaussian posterior, sampled with respect to the posterior's
@@ -515,8 +510,7 @@ plot(ylim=[0,8])
 plot_data()
 plot_mgvi_samples(next_iteration.samples)
 plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
-png(joinpath(@__DIR__, "plots/res-many-iter.png"))
-plot!()
+#jl png(joinpath(@__DIR__, "plots/res-many-iter.png"))
 
 # To present credibility intervals we also plot credibility bands. We sample 400 residual samples
 # from MGVI and then plot quantiles for each data bin. This should give us a feeling of how compatible
@@ -526,8 +520,7 @@ plot(ylim=[0,8])
 plot_posterior_bands(next_iteration.result, 400)
 plot_data()
 plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
-png(joinpath(@__DIR__, "plots/res-bands.png"))
-plot!()
+#jl png(joinpath(@__DIR__, "plots/res-bands.png"))
 
 # We also make sure boundary conditions do not interfere with the data. Here is the Gaussian process
 # plot with the paddings included:
@@ -543,8 +536,7 @@ plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorang
 plot()
 plot_kernel_model(next_iteration.result, 20; plot_args=(;label="kernel model"))
 plot_kernel_mgvi_samples(next_iteration.samples, 20)
-png(joinpath(@__DIR__, "plots/kernel-many-iter.png"))
-plot!()
+#jl png(joinpath(@__DIR__, "plots/kernel-many-iter.png"))
 
 # ## Maximum a posteriori estimation
 
@@ -560,8 +552,7 @@ plot()
 plot_data()
 plot_mean(next_iteration.result, "mgvi mean"; plot_args=(;color=:darkorange2))
 plot_mean(Optim.minimizer(max_posterior), "map")
-png(joinpath(@__DIR__, "plots/map.png"))
-plot!()
+#jl png(joinpath(@__DIR__, "plots/map.png"))
 
 # We also can see the difference at the left edge of the data region. While MGVI smoothed the data,
 # the MAP predicted a consequent peak:
