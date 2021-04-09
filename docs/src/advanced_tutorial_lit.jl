@@ -24,6 +24,7 @@ using Optim
 using StatsBase
 
 using Plots
+using Plots.PlotMeasures
 #!jl Plots.default(legendfontsize=10, tickfontsize=10, grid=false, dpi=120, size=(500, 300))
 #jl Plots.default(legendfontsize=24, tickfontsize=24, grid=false, dpi=100, size=(1300, 700))
 
@@ -32,7 +33,7 @@ using FFTW
 import ForwardDiff
 #-
 Random.seed!(84612);
-mkpath(joinpath(@__DIR__, "plots"));
+#jl mkpath(joinpath(@__DIR__, "plots"));
 
 # ## Load data
 
@@ -193,7 +194,7 @@ plot_kernel_model(starting_point, 20)
 function plot_kernel_matrix(p)
     xkernel = ht * (sqrt_kernel(p) .^ 2) ./ _GP_DIM
     res = reduce(hcat, [circshift(xkernel, i) for i in 0:(_GP_DIM-1)])'
-    heatmap!(_GP_XS, _GP_XS, res; yflip=true, xmirror=true, tick_direction=:out)
+    heatmap!(_GP_XS, _GP_XS, res; yflip=true, xmirror=true, tick_direction=:out, top_margin=20px, right_margin=30px)
 end
 
 plot()
