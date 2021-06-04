@@ -1,7 +1,6 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
 using Distributions
-using DistributionsAD
 using LinearAlgebra
 import Zygote
 
