@@ -55,6 +55,6 @@ end
 
 function unshaped_params(d::TuringDenseMvNormal)
     μ = d.m
-    σ = d.C.L*d.C.U
+    σ = convert(AbstractMatrix, d.C)
     vcat(μ, _uppertriang_to_vec(σ))
 end
