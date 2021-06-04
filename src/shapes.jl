@@ -52,9 +52,3 @@ function unshaped_params(d::MvNormal)
     μ, σ = params(d)
     vcat(μ, _uppertriang_to_vec(σ))
 end
-
-function unshaped_params(d::TuringDenseMvNormal)
-    μ = d.m
-    σ = convert(AbstractMatrix, d.C)
-    vcat(μ, _uppertriang_to_vec(σ))
-end
