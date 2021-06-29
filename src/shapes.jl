@@ -42,7 +42,7 @@ function ChainRulesCore.rrule(::typeof(MGVI._uppertriang_to_vec), m::AbstractMat
         for j in 1:n
             pb_res[j, 1:j] .= x[j*(j-1)÷2+1:j*(j+1)÷2]
         end
-        ChainRulesCore.NO_FIELDS, pb_res
+        ChainRulesCore.NoTangent(), pb_res
     end
 
     res, _uppertriang_to_vec_pullback
