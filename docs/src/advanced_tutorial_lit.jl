@@ -17,11 +17,13 @@
 
 using MGVI
 
-using Distributions
+using FillArrays
 using DelimitedFiles
+using LinearAlgebra
 using Random
-using Optim
 using StatsBase
+using Distributions
+using Optim
 
 using Plots
 using Plots.PlotMeasures
@@ -108,6 +110,7 @@ end;
 
 _GP_XS, _GP_BINSIZE, _DATA_IDXS = produce_bins();
 _GP_DIM = length(_GP_XS);
+_GP_HARMONIC_DIST = 1/_GP_DIM/_GP_BINSIZE;
 
 # ## Model parameters
 
@@ -142,7 +145,22 @@ starting_point = randn(last(PARIDX).stop);
 
 # ## Model implementation
 
-k = collect(0:(_GP_DIM)÷2 -1);
+function map_idx(idx::Real, idx_range::AbstractUnitRange{<:Integer})
+    i = idx - minimum(idx_range)
+    n = length(eachindex(idx_range))
+    n_2 = n >> 1
+    ifelse(i <= n_2, i, i - n)
+end
+
+function dist_k(idx::CartesianIndex, ax::NTuple{N,<:AbstractUnitRange{<:Integer}}, harmonic_distances::NTuple{N,<:Real}) where N
+    mapped_idx = map(map_idx, Tuple(idx), ax)
+    norm(map(*, mapped_idx, harmonic_distances))
+end
+
+function dist_array(dims::NTuple{N,<:Real}, harmonic_distances::NTuple{N,<:Real}) where N
+    cart_idxs = CartesianIndices(map(Base.OneTo, dims))
+    dist_k.(cart_idxs, Ref(axes(cart_idxs)), Ref(harmonic_distances))
+end;
 
 # A Gaussian process's covariance in the Fourier space is represented with a diagonal matrix. Values
 # on the diagonal follow a squared exponential function with parameters depending on priors.
@@ -150,6 +168,11 @@ k = collect(0:(_GP_DIM)÷2 -1);
 # in the coordinate space. This property restricts covariance to have a finite correlation length in the coordinate
 # space.
 #
+# The kernel in the Fourier space is defined on the domain of wave numbers `k`. We model the mirror-symmetrical kernel
+# by imposing the mirror symmetry on the vector of the wave numbers. (See `map_idx` for the symmetry implementation)
+
+k = dist_array((_GP_DIM,), (_GP_HARMONIC_DIST,));
+
 # MGVI assumes that all priors are distributed as standard normals `N(0, 1)`; thus,
 # to modify the shapes of the priors, we explicitly rescale them at the model implementation phase.
 #
@@ -159,13 +182,15 @@ k = collect(0:(_GP_DIM)÷2 -1);
 # Actually, for the sake of numeric stability we model already square root of the covariance.
 # This can be traced by missing `sqrt` in the next level, where we sample from the Gaussian process.
 
+function amplitude_spectrum(d::Real, ampl::Real, corrlen::Real)
+    ampl * sqrt(2 * π * corrlen) * exp( -π^2 * d^2 * corrlen^2)
+end;
+
 function sqrt_kernel(p)
     kernel_A_c, kernel_l_c = p[PARIDX.gp_hyper]
-    kernel_A = 60*exp(kernel_A_c*0.9)*GP_GRAIN_FACTOR
-    kernel_l = 0.025*exp(kernel_l_c/15)/(GP_GRAIN_FACTOR^0.3)
-    positive_modes = kernel_A .* sqrt(2 * π * kernel_l) .* exp.( -π^2 .* k.^2 .* kernel_l^2)
-    negative_modes = positive_modes[end:-1:1]
-    [positive_modes; negative_modes]
+    kernel_A = 2*exp(kernel_A_c*0.9)*GP_GRAIN_FACTOR
+    kernel_l = 12*exp(kernel_l_c/15)/(GP_GRAIN_FACTOR^0.3)
+    amplitude_spectrum.(k, kernel_A, kernel_l)
 end;
 
 # As a Fourier transform we choose the Discrete Hartley Transform, which ensures that Fourier
@@ -180,7 +205,7 @@ ht = FFTW.plan_r2r(zeros(_GP_DIM), FFTW.DHT);
 
 function plot_kernel_model(p, width; plot_args=(;))
     xs = collect(1:Int(floor(width/_GP_BINSIZE)))
-    plot!(xs .* _GP_BINSIZE, (ht * (sqrt_kernel(p) .^ 2))[xs] ./ _GP_DIM, label=nothing, linewidth=2.5; plot_args...)
+    plot!(xs .* _GP_BINSIZE, (ht * (sqrt_kernel(p) .^ 2))[xs] .* _GP_HARMONIC_DIST, label=nothing, linewidth=2.5; plot_args...)
 end
 
 plot()
@@ -192,7 +217,7 @@ plot_kernel_model(starting_point, 20)
 # kernel is periodic.
 
 function plot_kernel_matrix(p)
-    xkernel = ht * (sqrt_kernel(p) .^ 2) ./ _GP_DIM
+    xkernel = ht * (sqrt_kernel(p) .^ 2) .* _GP_HARMONIC_DIST
     res = reduce(hcat, [circshift(xkernel, i) for i in 0:(_GP_DIM-1)])'
     heatmap!(_GP_XS, _GP_XS, res; yflip=true, xmirror=true, tick_direction=:out, top_margin=20px, right_margin=30px)
 end
@@ -212,7 +237,7 @@ plot_kernel_matrix(starting_point)
 
 function gp_sample(p)
     flat_gp = sqrt_kernel(p) .* p[PARIDX.gp_latent]
-    (ht * flat_gp) ./ _GP_DIM
+    (ht * flat_gp) .* _GP_HARMONIC_DIST
 end;
 
 # Together with the implementation of `gp_sample` we also need
@@ -221,10 +246,10 @@ end;
 
 function gp_sample(dp::Vector{ForwardDiff.Dual{T, V, N}}) where {T,V,N}
     flat_gp_duals = sqrt_kernel(dp) .* dp[PARIDX.gp_latent]
-    val_res = ht*ForwardDiff.value.(flat_gp_duals) ./ _GP_DIM
+    val_res = ht*ForwardDiff.value.(flat_gp_duals) .* _GP_HARMONIC_DIST
     psize = size(ForwardDiff.partials(flat_gp_duals[1]), 1)
     ps = x -> ForwardDiff.partials.(flat_gp_duals, x)
-    val_ps = map((x -> ht*ps(x) ./ _GP_DIM), 1:psize)
+    val_ps = map((x -> ht*ps(x) .* _GP_HARMONIC_DIST), 1:psize)
     ForwardDiff.Dual{T}.(val_res, val_ps...)
 end;
 
