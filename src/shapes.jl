@@ -28,14 +28,20 @@ function unshaped_params(dp::Product)
     reduce(vcat, map(unshaped_params, dp.v))
 end
 
+
 function _uppertriang_to_vec(m::AbstractMatrix)
+    # ToDo: Improve implementation
     reduce(vcat, [m[1:i, i] for i in 1:size(m, 1)])
 end
 
 function ChainRulesCore.rrule(::typeof(MGVI._uppertriang_to_vec), m::AbstractMatrix)
     res = MGVI._uppertriang_to_vec(m)
 
-    function _uppertriang_to_vec_pullback(x)
+   # ToDo: Use ChainRulesCore.ProjectTo (requires ChainRulesCore >= v0.10.11).
+
+    function _uppertriang_to_vec_pullback(thunked_x)
+        x = unthunk(thunked_x)
+        # ToDo: Improve implementation
         triang_n = size(res, 1)
         n = size(m, 1)
         pb_res = zero(m)
@@ -47,6 +53,7 @@ function ChainRulesCore.rrule(::typeof(MGVI._uppertriang_to_vec), m::AbstractMat
 
     res, _uppertriang_to_vec_pullback
 end
+
 
 function unshaped_params(d::MvNormal)
     μ, σ = params(d)

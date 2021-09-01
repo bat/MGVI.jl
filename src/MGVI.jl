@@ -28,6 +28,9 @@ using StaticArrays
 using ValueShapes
 import Zygote
 
+using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
+
+
 include("custom_linear_maps.jl")
 include("shapes.jl")
 include("jacobian_maps.jl")
