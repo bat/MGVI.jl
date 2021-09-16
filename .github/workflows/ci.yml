@@ -6,7 +6,8 @@ on:
       - master
       - dev
     tags: '*'
-  pull_request:
+  # RESTORE before merge
+  #pull_request:
   release:
 
 jobs:
