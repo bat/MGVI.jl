@@ -46,7 +46,6 @@ Random.seed!(84612);
 # Now we define several model properties:
 # * `DATA_DIM` is the shape of the dataset
 # * `DATA_XLIM` specifies the time range of the data
-# * `GP_GRAIN_FACTOR` determines the numbers of finer bins which a data bin is split into.
 #    This is useful when there are several datasets defined on different grids.
 # * `GP_PADDING` adds empty paddings to the dataset. We use a Fourier transform to sample from the Gaussian process
 #    with a finite correlation length. `GP_PADDING` helps us to ensure that periodic boundary conditions
@@ -56,27 +55,25 @@ DATA_DIM = (200, 200);
 
 DATA_XLIM = ((-1., 1.), (0., 2.));
 
-GP_GRAIN_FACTOR = (2, 3);
 GP_PADDING = (2., 1.);
 
 #
 
-function produce_bins_1d(data_xlim, data_dim, gp_grain_factor, gp_padding)
-    data_binsize = (data_xlim[2] - data_xlim[1])/data_dim
-    gp_binsize = data_binsize/gp_grain_factor
-    gp_dim = Integer(((data_xlim[2] - data_xlim[1]) + 2*gp_padding) ÷ gp_binsize)
+function produce_bins_1d(data_xlim, data_dim, gp_padding)
+    binsize = (data_xlim[2] - data_xlim[1])/data_dim
+    gp_dim = Integer(((data_xlim[2] - data_xlim[1]) + 2*gp_padding) ÷ binsize)
     gp_left_bin_offset = gp_right_bin_offset = (gp_dim - data_dim) ÷ 2
-    if (2*gp_left_bin_offset + data_dim*gp_grain_factor) % 2 == 1
+    if (2*gp_left_bin_offset + data_dim) % 2 == 1
         gp_left_bin_offset += 1
     end
-    gp_left_xlim = data_xlim[1] - gp_left_bin_offset*gp_binsize
-    gp_right_xlim = data_xlim[2] + gp_right_bin_offset*gp_binsize
-    gp_left_xs = collect(gp_left_xlim + gp_binsize/2:gp_binsize:data_xlim[1])
-    gp_right_xs = collect(data_xlim[2] + gp_binsize/2:gp_binsize:gp_right_xlim)
-    gp_data_xs = collect(data_xlim[1] + gp_binsize/2:gp_binsize:data_xlim[2])
+    gp_left_xlim = data_xlim[1] - gp_left_bin_offset*binsize
+    gp_right_xlim = data_xlim[2] + gp_right_bin_offset*binsize
+    gp_left_xs = collect(gp_left_xlim + binsize/2:binsize:data_xlim[1])
+    gp_right_xs = collect(data_xlim[2] + binsize/2:binsize:gp_right_xlim)
+    gp_data_xs = collect(data_xlim[1] + binsize/2:binsize:data_xlim[2])
     gp_xs = [gp_left_xs; gp_data_xs; gp_right_xs]
-    data_idxs = collect(gp_left_bin_offset+1:gp_grain_factor:gp_left_bin_offset+data_dim*gp_grain_factor)
-    gp_xs, gp_binsize, data_idxs
+    data_idxs = collect(gp_left_bin_offset+1:gp_left_bin_offset+data_dim)
+    gp_xs, binsize, data_idxs
 end;
 
 function produce_bins()
@@ -84,7 +81,7 @@ function produce_bins()
     all_gp_binsize = []
     all_data_idxs = []
     for i in 1:size(DATA_DIM, 1)
-        gp_xs, gp_binsize, data_idxs = produce_bins_1d(DATA_XLIM[i], DATA_DIM[i], GP_GRAIN_FACTOR[i], GP_PADDING[i])
+        gp_xs, gp_binsize, data_idxs = produce_bins_1d(DATA_XLIM[i], DATA_DIM[i], GP_PADDING[i])
         push!(all_gp_xs, gp_xs)
         push!(all_gp_binsize, gp_binsize)
         push!(all_data_idxs, data_idxs)
@@ -283,59 +280,17 @@ function poisson_gp_link(fs)
     exp.(fs)
 end;
 
-# Now when we have a function representing the Poisson rate density,
-# we have to integrate it over each data bin to define the Poisson rate in these bins.
-# Function `agg_lambdas` does precisely that. When `GP_GRAIN_FACTOR = 1`, this function
-# just multiplies the value of the Gaussian process in the bin by the `_GP_BINSIZE`.
-# When we have more GP bins per data bin (`GP_GRAIN_FACTOR > 1`), then we apply
-# rectangular quadrature to integrate over the bin.
-
-function forward_agg(data, origin_idx, block_size)
-    sum(data[Base.UnitRange.(origin_idx, origin_idx .+ block_size)...])
-end;
-
-function agg_lambdas(lambdas)
-    gps = [forward_agg(lambdas, block_idx, GP_GRAIN_FACTOR) for block_idx in Iterators.product(_DATA_IDXS...)] .* prod(_GP_BINSIZE)
-    xs = getindex.(_GP_XS, map(p -> p[1] .+ p[2], zip(_DATA_IDXS, GP_GRAIN_FACTOR .÷ 2)))
-    xs, gps
-end;
-
-# zygote fails on Iterators.product:
-# https://github.com/FluxML/Zygote.jl/pull/785
-# code borrowed from here:
-# https://github.com/FluxML/Zygote.jl/issues/421#issuecomment-727635455
-
-Zygote.@adjoint function Iterators.product(xs...)
-  back(::AbstractArray{Nothing}) = nothing
-  back(dy::NamedTuple{(:iterators,)}) = dy.iterators
-  function back(dy::AbstractArray)
-    d = 1
-    ntuple(length(xs)) do n
-      first(dy)[n] === nothing && return nothing
-      nd = _ndims(xs[n])
-      dims = ntuple(i -> i<d ? i : i+nd, ndims(dy)-nd)
-      d += nd
-      init = zero.(first(dy)[n]) # allows for tuples, which accum can add:
-      red = mapreduce(StaticGetter{n}(), accum, dy; dims=dims, init=init)
-      return reshape(red, axes(xs[n]))
-    end
-  end
-  Iterators.product(xs...), back
-end
-
 #
 
 # Finally, we define the model by using the building blocks defined above:
 # * `gp_sample` sample from the Gaussian process with defined `sqrt_kernel` covariance
 # * `poisson_gp_link` ensures Gaussian process is positive
-# * `agg_lambdas` integrates Gaussian process over each data bin to turn it into a Poisson rate for each bin
 # * `model` maps parameters into the product of the Poisson distribution's counting events in each bin.
 
 function model(params)
     fs = gp_sample(params)
-    fine_lambdas = poisson_gp_link(fs)
-    xs, lambdas = agg_lambdas(fine_lambdas)
-    Product(Poisson.(lambdas)[:])
+    lambdas = poisson_gp_link(fs)
+    Product(Poisson.(lambdas*prod(_GP_BINSIZE))[:])
 end;
 
 true_params = randn(last(PARIDX).stop);
@@ -393,5 +348,3 @@ show_avg_likelihood(avg_likelihood_series)
 for i in avg_likelihood_series
     print(i, "\n")
 end
-
-
