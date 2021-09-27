@@ -18,6 +18,7 @@ using FillArrays
 using DelimitedFiles
 using LinearAlgebra
 using Random
+using ValueShapes
 using StatsBase
 using Distributions
 using Optim
@@ -128,9 +129,20 @@ end;
 #
 # Function `assemble_paridx` is responsible for constructing such a NamedTuple from the parameter specification.
 
-PARIDX = assemble_paridx(gp_hyper=1:4, gp_latent=1:prod(_GP_DIM));
+#PARIDX_SHAPE = assemble_paridx(gp_hyper=1:4, gp_latent=1:prod(_GP_DIM));
+PARAMS = NamedTupleDist(
+    ξ = BAT.StandardMvNormal(prod(_GP_DIM)),
+    zero_mode_mean = Normal(0, 1),
+    zero_mode_std = Uniform(0, 2),
+    offset = Uniform(-3, -1),
+    slope = Uniform(-3, -1)
+)
 
-starting_point = randn(last(PARIDX).stop);
+PARAMS_BWD = BAT.DistributionTransform(Normal, PARAMS)
+PARAMS_FWD = inv(PARAMS_BWD)
+
+starting_point = rand(PARAMS);
+starting_point_norm = PARAMS_BWD(starting_point);
 
 #
 
@@ -177,17 +189,10 @@ heatmap(k)
 # Actually, for the sake of numeric stability we model already square root of the covariance.
 # This can be traced by missing `sqrt` in the next level, where we sample from the Gaussian process.
 
-function amplitude_spectrum(d::Real, zero_mode_std::Real, slope::Real, offset::Real)
-    # ampl * sqrt(2 * π * corrlen) * exp( -π^2 * d^2 * corrlen^2)
-    ifelse(d ≈ 0, promote(zero_mode_std, exp(offset + slope * log(d)))...)
-end;
-
 function sqrt_kernel(p)
-    _, kernel_zero_mode_std_c, kernel_slope_c, kernel_offset_c = p[PARIDX.gp_hyper]
-    kernel_zero_mode_std = exp(kernel_zero_mode_std_c)*0.5 + 0.2
-    kernel_slope = kernel_slope_c/5 - 2
-    kernel_offset = kernel_offset_c/5 - 2
-    amplitude_spectrum.(k, kernel_zero_mode_std, kernel_slope, kernel_offset)
+    corr = exp.(p.offset .+ p.slope .* log.(k[2:end]))
+    corr = vcat(p.zero_mode_std, corr)
+    reshape(corr, size(k))
 end;
 
 #
@@ -248,28 +253,23 @@ plot_kernel_matrix(starting_point)
 zero_mode_matrix = zeros(_GP_DIM)
 zero_mode_matrix[1,1] = 1;
 
-function gp_sample(p)
-    zero_mode_mean = p[PARIDX.gp_hyper][1]
-    flat_gp = sqrt_kernel(p) .* reshape(p[PARIDX.gp_latent], _GP_DIM)
-    flat_gp = flat_gp + zero_mode_matrix*exp(zero_mode_mean/10+0.3)*60
-    pixel_volume = prod(_HARMONIC_DIST)
-    (ht * flat_gp) .* pixel_volume
-end;
+function apply_ht(ht::FFTW.r2rFFTWPlan, dp)
+    ht * dp
+end
 
-# Together with the implementation of `gp_sample` we also need
-# to define its version of the `Dual`s. This will allow our
-# application of the Hartley transform to be differentiatiable.
-
-function gp_sample(dp::Vector{ForwardDiff.Dual{T, V, N}}) where {T,V,N}
-    pixel_volume = prod(_HARMONIC_DIST)
-    zero_mode_mean = dp[PARIDX.gp_hyper][1]
-    flat_gp_duals = sqrt_kernel(dp) .* reshape(dp[PARIDX.gp_latent], _GP_DIM)
-    flat_gp_duals = flat_gp_duals + zero_mode_matrix*exp(zero_mode_mean/10+0.3)*60
-    val_res = (ht*ForwardDiff.value.(flat_gp_duals)) .* pixel_volume
-    psize = size(ForwardDiff.partials(flat_gp_duals[1]), 1)
-    ps = x -> ForwardDiff.partials.(flat_gp_duals, x)
-    val_ps = map((x -> ht*ps(x) .* pixel_volume), 1:psize)
+function apply_ht(ht::FFTW.r2rFFTWPlan, dp::Array{ForwardDiff.Dual{T, V, N}}) where {T,V,N}
+    val_res = ht *  ForwardDiff.value.(dp)
+    psize = size(ForwardDiff.partials(dp[1]), 1)
+    ps = x -> ForwardDiff.partials.(dp, x)
+    val_ps = map((x -> ht*ps(x)), 1:psize)
     ForwardDiff.Dual{T}.(val_res, val_ps...)
+end
+
+function gp_sample(p)
+    flat_gp = sqrt_kernel(p) .* reshape(p.ξ, _GP_DIM)
+    flat_gp = flat_gp + zero_mode_matrix*p.zero_mode_mean
+    pixel_volume = prod(_HARMONIC_DIST)
+    apply_ht(ht, flat_gp) .* pixel_volume
 end;
 
 # Gaussian process realization is meant to serve as a Poisson rate of the Poisson
@@ -287,19 +287,21 @@ end;
 # * `poisson_gp_link` ensures Gaussian process is positive
 # * `model` maps parameters into the product of the Poisson distribution's counting events in each bin.
 
-function model(params)
+function model(standard_params)
+    params = PARAMS_FWD(standard_params)[]
     fs = gp_sample(params)
     lambdas = poisson_gp_link(fs)
     Product(Poisson.(lambdas*prod(_GP_BINSIZE))[:])
 end;
 
-true_params = randn(last(PARIDX).stop);
+true_params = rand(PARAMS);
+true_params_norm = PARAMS_BWD(true_params)
 
-model(true_params)
+model(true_params_norm)
 
 true_params
 
-data = rand(model(true_params));
+data = rand(model(true_params_norm));
 
 heatmap(reshape(data, DATA_DIM))
 
@@ -319,7 +321,7 @@ end;
 
 first_iteration = mgvi_kl_optimize_step(Random.GLOBAL_RNG,
                                         model, data,
-                                        starting_point;
+                                        starting_point_norm;
                                         num_residuals=3,
                                         jacobian_func=FwdRevADJacobianFunc,
                                         residual_sampler=ImplicitResidualSampler,
