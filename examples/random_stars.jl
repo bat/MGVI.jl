@@ -31,6 +31,7 @@ using FFTW
 
 import ForwardDiff
 import Zygote
+import BAT
 
 #
 
@@ -109,27 +110,10 @@ _HARMONIC_DIST
 # Gaussian process, we also need a parameter per bin that will represent the particular
 # realization of the GP in the bin.
 
-function assemble_paridx(;kwargs...)
-    pos = 0
-    res = []
-    for (k, v) in kwargs
-        new_start, new_stop = v.start+pos, v.stop+pos
-        push!(res, (k, (v.start+pos):(v.stop+pos)))
-        pos = new_stop
-    end
-    (;res...)
-end;
-
 # MGVI is an iterative procedure, so we will need to introduce an initial guess for the state of the model.
-# We create a vector with size equal to the count of all parameters' `starting_point` and a NamedTuple
-# `PARDIX` that assigns names to the sub-regions in this vector. In the correct case:
-# * `gp_hyper` is two hyperparameters of the Gaussian process stored in the first two cells of the parameter vector
-# * `gp_latent` `_GP_DIM` are parameters used to define the particular realization of the gaussian process,
-#    stored at indices between `3` to `2 + _GP_DIM`.
-#
-# Function `assemble_paridx` is responsible for constructing such a NamedTuple from the parameter specification.
 
-#PARIDX_SHAPE = assemble_paridx(gp_hyper=1:4, gp_latent=1:prod(_GP_DIM));
+# We define a named tuple of distributions `PARAMS` that represents priors on the fitted parameters:
+
 PARAMS = NamedTupleDist(
     ξ = BAT.StandardMvNormal(prod(_GP_DIM)),
     zero_mode_mean = Normal(0, 1),
@@ -288,7 +272,7 @@ end;
 # * `model` maps parameters into the product of the Poisson distribution's counting events in each bin.
 
 function model(standard_params)
-    params = PARAMS_FWD(standard_params)[]
+    params = PARAMS_FWD(standard_params)
     fs = gp_sample(params)
     lambdas = poisson_gp_link(fs)
     Product(Poisson.(lambdas*prod(_GP_BINSIZE))[:])
