@@ -275,7 +275,8 @@ function model(standard_params)
     params = PARAMS_FWD(standard_params)
     fs = gp_sample(params)
     lambdas = poisson_gp_link(fs)
-    Product(Poisson.(lambdas*prod(_GP_BINSIZE))[:])
+    agg_lambdas = (lambdas*prod(_GP_BINSIZE))[_DATA_IDXS...]
+    Product(Poisson.(agg_lambdas)[:])
 end;
 
 true_params = rand(PARAMS);
