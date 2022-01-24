@@ -1,67 +1,58 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
-#
-function _unshaped(x::Number)
-    [x]
-end
-
-function _unshaped(x::Tuple)
-    vcat(x...)
-end
-
-function _unshaped(x::NamedTuple)
-    vcat(values(x)...)
-end
-
-function _unshaped(x::AbstractVector)
-    x
-end
-
-function unshaped_params(d::Distribution)
-    vcat(map(_unshaped, params(d))...)
-end
-
-function unshaped_params(ntd::NamedTupleDist)
-    vcat(map(unshaped_params, values(ntd))...)
-end
-
-function unshaped_params(dp::Product)
-    reduce(vcat, map(unshaped_params, dp.v))
-end
 
 
-function _uppertriang_to_vec(m::AbstractMatrix)
+const DiagMatLike{T} = Union{Diagonal{T}, PDiagMat{T}}
+
+
+flat_params(x::Real) = _svector((x,))
+flat_params(x::StaticVector{N,T}) where {N,T<:Real} = x
+flat_params(x::NTuple{N,T}) where {N,T<:Real} = _svector(x)
+flat_params(x::Tuple) where {N,T<:Real} = vcat(map(flat_params, x)...)
+flat_params(x::NamedTuple) = flat_params(values(x))
+flat_params(x::AbstractVector{<:Real}) = x
+flat_params(x::AbstractVector{<:AbstractVector{<:Real}}) = _flatten_vec_of_vec(x)
+flat_params(x::AbstractVector{<:NTuple{N,<:Real}}) where N = _flatten_vec_of_vec(x)
+flat_params(x::AbstractVector) = _flatten_vec_of_vec(flat_params.(x))
+flat_params(A::DiagMatLike{<:Real}) = diag(A)
+flat_params(A::PDMat{<:Real}) = flat_params(UpperTriangular(A.mat))
+
+
+function flat_params(A::UpperTriangular{<:Real})
+    m = A.data
     # ToDo: Improve implementation
     reduce(vcat, [m[1:i, i] for i in 1:size(m, 1)])
 end
 
-function ChainRulesCore.rrule(::typeof(MGVI._uppertriang_to_vec), m::AbstractMatrix)
-    res = MGVI._uppertriang_to_vec(m)
-
-   # ToDo: Use ChainRulesCore.ProjectTo (requires ChainRulesCore >= v0.10.11).
-
-    function _uppertriang_to_vec_pullback(thunked_x)
+function ChainRulesCore.rrule(::typeof(flat_params), A::UpperTriangular{<:Real})
+    function _unshaped_pullback_uptri(thunked_x)
         x = unthunk(thunked_x)
         # ToDo: Improve implementation
-        triang_n = size(res, 1)
-        n = size(m, 1)
-        pb_res = zero(m)
-        for j in 1:n
-            pb_res[j, 1:j] .= x[j*(j-1)÷2+1:j*(j+1)÷2]
+        data = A.data
+        ΔA_data = zero(A.data)
+        for j in axes(ΔA_data, 1)
+            ΔA_data[j, 1:j] = view(x, j*(j-1)÷2+1:j*(j+1)÷2)
         end
-        ChainRulesCore.NoTangent(), pb_res
+        return ChainRulesCore.NoTangent(), ProjectTo(A)(data)
     end
 
-    res, _uppertriang_to_vec_pullback
+    flat_params(A), _unshaped_pullback_uptri
 end
 
 
-function unshaped_params(d::MvNormal)
-    μ, σ = params(d)
-    vcat(μ, _uppertriang_to_vec(σ))
+function flat_params(d::Distribution)
+    flat_params(params(d))
 end
 
-function unshaped_params(d::TuringDenseMvNormal)
+function flat_params(ntd::NamedTupleDist)
+    flat_params(values(ntd))
+end
+
+function flat_params(dp::Distributions.Product)
+    flat_params(params.(dp.v))
+end
+
+function flat_params(d::TuringDenseMvNormal)
     μ = d.m
-    σ = d.C.L*d.C.U
-    vcat(μ, _uppertriang_to_vec(σ))
+    Σ = d.C.L*d.C.U
+    vcat(flat_params(μ), flat_params(Σ))
 end

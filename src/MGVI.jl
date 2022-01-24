@@ -29,7 +29,7 @@ using StaticArrays
 using ValueShapes
 import Zygote
 
-using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
+using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, ProjectTo, AbstractThunk, unthunk
 
 
 include("util.jl")

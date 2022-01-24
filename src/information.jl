@@ -4,7 +4,7 @@ function fisher_information(dist::Normal)
     _, σval = params(dist)
     inv_σ = inv(σval)
     inv_σ_2 = inv_σ * inv_σ
-    res = SVector(inv_σ_2, 2*inv_σ_2)
+    res = _svector((inv_σ_2, 2*inv_σ_2))
     PDLinMapWithChol(Diagonal(res))
 end
 
@@ -50,13 +50,13 @@ end
 function fisher_information(dist::Exponential)
     λ = params(dist)[1]
     inv_l = inv(λ)
-    res = SVector(inv_l * inv_l,)
+    res = _svector((inv_l * inv_l,))
     PDLinMapWithChol(Diagonal(res))
 end
 
 function fisher_information(dist::Poisson)
     λ = params(dist)[1]
-    res = SVector(inv(λ),)
+    res = _svector((inv(λ),))
     PDLinMapWithChol(Diagonal(res))
 end
 
@@ -72,7 +72,7 @@ function fisher_information(d::NamedTupleDist)
     _blockdiag(λinformations)
 end
 
-_dists_flat_params_getter(dist_generator) = par::Vector -> (par |> dist_generator |> unshaped_params)
+_dists_flat_params_getter(dist_generator) = par::Vector -> (par |> dist_generator |> flat_params)
 
 function fisher_information_and_jac(f::Function, p::AbstractVector;
                                     jacobian_func::Type{JF}) where JF<:AbstractJacobianFunc
