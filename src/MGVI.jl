@@ -31,6 +31,7 @@ import Zygote
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
 
 
+include("util.jl")
 include("custom_linear_maps.jl")
 include("shapes.jl")
 include("jacobian_maps.jl")

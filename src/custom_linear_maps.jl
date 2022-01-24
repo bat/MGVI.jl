@@ -94,9 +94,9 @@ function _blockdiag(As::Tuple{Vararg{<:DiagPDLinMapWithChol}}) where T
     )
 end
 
-blockdiag(As::PDLinMapWithChol...) = _blockdiag(As)
-
 function _blockdiag(A::AbstractVector{<:DiagPDLinMapWithChol})
-    d = reduce(vcat, map(x -> parent(x).lmap.diag, A))
+    d = _flatten_vec_of_vec(map(x -> diag(parent(x).lmap), A))
     PDLinMapWithChol(Diagonal(d))
 end
+
+blockdiag(As::PDLinMapWithChol...) = _blockdiag(As)
