@@ -32,6 +32,7 @@ Test.@testset "test_cmp_residual_samplers" begin
     implicit_samples = rand(Random.GLOBAL_RNG, implicit_rs, num_of_test_samples)
     B1 = BartlettTest(full_samples_1', implicit_samples')
 
-    Test.@test B1.L′ > B0.L′
+    Test.@test B1.L′ > B0.L′/10
+    Test.@test B1.L′ < B0.L′*10
 
 end
