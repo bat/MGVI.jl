@@ -21,6 +21,7 @@ import ForwardDiff
 using LinearMaps
 using IterativeSolvers
 using Optim
+using PDMats
 using PositiveFactorizations
 import SparseArrays: blockdiag
 using SparseArrays
