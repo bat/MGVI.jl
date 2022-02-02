@@ -9,7 +9,8 @@ function fisher_information(dist::Normal)
 end
 
 function fisher_information(dist::MvNormal)
-    μval, σval = params(dist)
+    μval, Σ = params(dist)
+    σval = without_chol(Σ)
     invσ = inv(σval)
 
     μdof = length(μval)
@@ -38,7 +39,7 @@ function fisher_information(dist::MvNormal)
     end
 
     sqrt_meanpart = cholesky(PositiveFactorizations.Positive, invσ).L
-    meanpart_map = PDLinMapWithChol(invσ.mat, sqrt_meanpart)
+    meanpart_map = PDLinMapWithChol(invσ, sqrt_meanpart)
 
     sym_covpart = Symmetric(covpart)
     sqrt_covpart = cholesky(PositiveFactorizations.Positive, sym_covpart).L

@@ -1,9 +1,6 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
 
-const DiagMatLike{T} = Union{Diagonal{T}, PDiagMat{T}}
-
-
 flat_params(x::Real) = _svector((x,))
 flat_params(x::StaticVector{N,T}) where {N,T<:Real} = x
 flat_params(x::NTuple{N,T}) where {N,T<:Real} = _svector(x)
@@ -13,8 +10,8 @@ flat_params(x::AbstractVector{<:Real}) = x
 flat_params(x::AbstractVector{<:AbstractVector{<:Real}}) = _flatten_vec_of_vec(x)
 flat_params(x::AbstractVector{<:NTuple{N,<:Real}}) where N = _flatten_vec_of_vec(x)
 flat_params(x::AbstractVector) = _flatten_vec_of_vec(flat_params.(x))
-flat_params(A::DiagMatLike{<:Real}) = diag(A)
-flat_params(A::PDMat{<:Real}) = flat_params(UpperTriangular(A.mat))
+flat_params(A::DiagMatLike{<:Real}) = get_diagonal(A)
+flat_params(A::PDMat{<:Real}) = flat_params(UpperTriangular(without_chol(A)))
 
 
 function flat_params(A::UpperTriangular{<:Real})

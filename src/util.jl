@@ -1,6 +1,30 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
 
+const DiagMatLike{T} = Union{Diagonal{T}, PDiagMat{T}}
+
+# get_diagonal is only defined for diagonal matrices, unlike LinearAlgebra.diag:
+get_diagonal(A::DiagMatLike) = diag(A)
+
+
+without_chol(A::AbstractMatrix) = A
+without_chol(A::PDMat) = A.mat
+without_chol(A::PDiagMat) = Diagonal(diag(A))
+without_chol(A::PDSparseMat) = A.mat
+without_chol(A::ScalMat) = Diagonal(Fill(A.value, A.dim))
+
+without_chol_pullback(thunked_Δy) = (NoTangent(), thunked_Δy)
+function ChainRulesCore.rrule(::typeof(without_chol), A::AbstractMatrix)
+    return without_chol(A), without_chol_pullback
+end
+
+
+cholesky_L(A::AbstractMatrix) = cholesky(A).L
+cholesky_L(A::AbstractSparseMatrix) = sparse(cholesky(A).L)
+cholesky_L(A::DiagMatLike) = Diagonal(sqrt.(get_diagonal(A)))
+
+
+
 # Workaround for missing SVector() pullback in Zygote:
 _svector(x::NTuple{N,T}) where {N,T<:Real} = SVector(x)
 

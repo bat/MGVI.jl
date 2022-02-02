@@ -63,7 +63,7 @@ Test.@testset "test_fisher_information_combinations" begin
                            b=Product([Normal(0.1, 0.2), Normal(0.3, 0.1)]),
                            c=MvNormal([0.2, 0.3], [2. 0.1; 0.1 4.5]))
     res = MGVI.fisher_information(dists)
-    truth = blockdiag((parent ∘ MGVI.fisher_information).(values(dists))...)
+    truth = blockdiag((MGVI.without_chol ∘ MGVI.fisher_information).(values(dists))...)
     Test.@test norm(Matrix(res) - Matrix(truth)) < epsilon
 
 end
