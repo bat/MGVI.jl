@@ -17,6 +17,7 @@ using SparseArrays
 using Base.Iterators
 using Distributions
 using DistributionsAD
+using FillArrays
 import ForwardDiff
 using LinearMaps
 using IterativeSolvers
