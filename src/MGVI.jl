@@ -30,7 +30,7 @@ using ValueShapes
 import Zygote
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, ProjectTo, AbstractThunk, unthunk
-
+import Statistics: mean
 
 include("util.jl")
 include("custom_linear_maps.jl")
@@ -39,5 +39,6 @@ include("jacobian_maps.jl")
 include("information.jl")
 include("residual_samplers.jl")
 include("mgvi_impl.jl")
+include("newtoncg.jl")
 
 end # module

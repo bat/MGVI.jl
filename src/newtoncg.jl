@@ -1,29 +1,17 @@
-import Statistics: mean
 using LineSearches
-using MGVI: inverse_covariance, 
-            fisher_information_and_jac, 
-            AbstractJacobianFunc
-const newtoncg_options = (
-    jac_method=FwdRevADJacobianFunc, 
-    α=0.1,
-    steps=4, 
-    i₀=5, 
-    i₁=10, 
-    ls=StrongWolfe()
-)
-export newtoncg_options, NewtonCG, inverse_covariance
+using Parameters
 
-function inverse_covariance(
-        ξ::AbstractVector, fwd_model::Function, 
-        jac_method::Type{JF}) where JF <: AbstractJacobianFunc
-    fisher_at_ξ, jac_at_ξ = fisher_information_and_jac(fwd_model, ξ;
-                                             jacobian_func=jac_method)
-    adjoint(jac_at_ξ) * fisher_at_ξ * jac_at_ξ + I
+export _optimize, NewtonCG
+
+@with_kw struct NewtonCG
+    α::Float64=0.1
+    steps::Int64=4
+    i₀::Int64=5
+    i₁::Int64=10
+    linesearcher=StrongWolfe{Float64}()
+    verbose::Bool=false
 end
 
-#
-#  inspired by https://github.com/JuliaNLSolvers/LineSearches.jl
-# 
 function linesearch_args(
         f, ∇f, x::AbstractVector, Δx::AbstractVector, f_x, ∇f_x)
     # build univariate functions
@@ -53,23 +41,20 @@ function (f::∇KL_)(x::AbstractVector)
     f.∇kl(x)
 end
 
-function NewtonCG(
-        kl::Function, ∇kl!::Function, ξ̅⁰::AbstractVector, Δξ_s::AbstractArray, 
-        fwd_model::Function; jac_method::Type{JF}=FwdRevADJacobianFunc, α=0.1,
-        steps::Int=4, i₀ =5, i₁=200, ls=StrongWolfe(), verbose=false
-        ) where JF <: AbstractJacobianFunc
+function _optimize(optimizer::NewtonCG, optim_options, kl::Function, 
+        ∇kl!::Function, Σ̅⁻¹::LinearMap, ξ̅⁰::AbstractVector)
+    # fetch parameters from optimizer struct
+    α = optimizer.α
+    steps = optimizer.steps
+    i₀ = optimizer.i₀
+    i₁ = optimizer.i₁
+    ls = optimizer.linesearcher
+    verbose = optimizer.verbose
     # logging information
     kl_calls=0
     ∇kl_calls=0
     cg_iterations=Int64[]
     Δkl_history=Float64[]
-
-    # function to build the inverse covariance at position ξ
-    Σ⁻¹(ξ) = inverse_covariance(ξ, fwd_model, jac_method)
-
-    # build the statistic mean of all fisher metricies using our 
-    # residual samples Δξ_s and current estimate ξ̅ⁿ
-    Σ̅⁻¹ = mean(Σ⁻¹.(collect.(eachcol(ξ̅⁰ .+ Δξ_s))))
 
     # gradient function of our kl
     ∇kl(ξ) = ∇kl!(similar(ξ), ξ)
@@ -147,4 +132,13 @@ function NewtonCG(
         Δkl_history=Δkl_history,
         rel_reduction=rel_reduction
     )
+end
+
+#
+# _optimize dispatch for Optim.optimizer
+#
+function _optimize(optimizer::Optim.AbstractOptimizer, 
+        optim_options::Optim.Options, kl::Function, ∇kl!::Function, 
+        curvature::LinearMap, ξ::AbstractVector)
+    optimize(kl, ∇kl!, ξ, optimizer, optim_options)
 end

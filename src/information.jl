@@ -47,6 +47,13 @@ function fisher_information(dist::MvNormal)
     blockdiag(meanpart_map, covpart_map)
 end
 
+function fisher_information(dist::DiagNormal)
+    Σ⁻¹ = inv(Diagonal(dist.Σ))
+    mean_fisher_map = PDLinMapWithChol(Σ⁻¹)
+    cov_fisher_map = PDLinMapWithChol(2*Σ⁻¹)
+    blockdiag(mean_fisher_map, cov_fisher_map)
+end
+
 function fisher_information(dist::Exponential)
     λ = params(dist)[1]
     inv_l = inv(λ)
@@ -83,4 +90,12 @@ end
 
 function fisher_information_in_parspace(λ_fisher::LinearMap, jac::LinearMap)
     adjoint(jac) * λ_fisher * jac
+end
+
+function inverse_covariance(
+    ξ::AbstractVector, fwd_model::Function, 
+    jac_method::Type{JF}) where JF <: AbstractJacobianFunc
+fisher_at_ξ, jac_at_ξ = fisher_information_and_jac(fwd_model, ξ;
+                                         jacobian_func=jac_method)
+adjoint(jac_at_ξ) * fisher_at_ξ * jac_at_ξ + I
 end

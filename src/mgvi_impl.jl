@@ -104,8 +104,8 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
                                residual_sampler::Type{RS},
                                num_residuals::Integer=3,
                                residual_sampler_options::NamedTuple=rs_default_options,
-                               optim_solver::Optim.AbstractOptimizer=optim_default_solver,
-                               optim_options::Optim.Options=optim_default_options
+                               optim_solver=optim_default_solver,
+                               optim_options=optim_default_options
                               ) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
     est_res_sampler = _create_residual_sampler(forward_model, init_param_point;
                                                residual_sampler=residual_sampler,
@@ -113,10 +113,12 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
                                                residual_sampler_options=residual_sampler_options)
     residual_samples = rand(rng, est_res_sampler, num_residuals)
     kl(params::AbstractVector) = mgvi_kl(forward_model, data, residual_samples, params)
-    mgvi_kl_grad! =  _gradient_for_optim(kl)
-    res = optimize(kl, mgvi_kl_grad!,
-                   init_param_point, optim_solver, optim_options)
-    updated_p = Optim.minimizer(res)
+    ∇kl! =  _gradient_for_optim(kl)
+    Σ⁻¹(ξ) = inverse_covariance(ξ, forward_model, jacobian_func)
+    Σ̅⁻¹ = mean(Σ⁻¹.(collect.(eachcol(init_param_point .+ residual_samples))))
+    res = _optimize(
+        optim_solver, optim_options, kl, ∇kl!, Σ̅⁻¹, init_param_point)
+    updated_p = res.minimizer
 
     (result=updated_p, optimized=res, samples=hcat(updated_p .+ residual_samples, updated_p .- residual_samples))
 end
