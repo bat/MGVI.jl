@@ -7,9 +7,38 @@ export _optimize, NewtonCG
     α::Float64=0.1
     steps::Int64=4
     i₀::Int64=5
-    i₁::Int64=10
+    i₁::Int64=50
     linesearcher=StrongWolfe{Float64}()
-    verbose::Bool=false
+end
+
+mutable struct NewtonCGResults{O, Tx, Tf, M} <: Optim.OptimizationResults
+    method::O
+    initial_x::Tx
+    minimizer::Tx
+    initial_f::Tf
+    minimum::Tf
+    iterations::Int
+    trace::M
+    f_calls::Int
+    g_calls::Int
+    cg_iterations::Int
+    absolute_reduction::Tf
+end
+
+function Base.show(io::IO, r::NewtonCGResults)
+    println(io, "NewtonCG Results:")
+    println(io, "------------------------------")
+    println(io, "f value start: $(r.initial_f)")
+    println(io, "f value end: $(r.minimum)")
+    println(io, "absolute reduction: $(r.absolute_reduction)")
+    println(io, "------------------------------")
+    println(io, "f calls: $(r.f_calls)")
+    println(io, "∇f calls: $(r.g_calls)")
+    println(io, "------------------------------")
+    f_hist, cg_hist = r.trace
+    for (fₙ, cg_iter, n) in zip(f_hist, cg_hist, 0:r.iterations)
+        println(io, "n: $n   fₙ: $fₙ    cg_iter: $cg_iter")
+    end
 end
 
 function linesearch_args(
@@ -22,60 +51,59 @@ function linesearch_args(
 end
 
 mutable struct KL_
-    kl::Function
+    f::Function
     count::Int
 end
 
 mutable struct ∇KL_
-    ∇kl::Function 
+    ∇f::Function 
     count::Int
 end
 
-function (f::KL_)(x::AbstractVector)
-    f.count += 1
-    f.kl(x)
+function (F::KL_)(x::AbstractVector)
+    F.count += 1
+    F.f(x)
 end
 
-function (f::∇KL_)(x::AbstractVector)
-    f.count += 1
-    f.∇kl(x)
+function (F::∇KL_)(x::AbstractVector)
+    F.count += 1
+    F.∇f(x)
 end
 
-function _optimize(optimizer::NewtonCG, optim_options, kl::Function, 
-        ∇kl!::Function, Σ̅⁻¹::LinearMap, ξ̅⁰::AbstractVector)
+function _optimize(f::Function, ∇f!::Function, Σ̅⁻¹::Function, 
+        x₀::AbstractVector, optimizer::NewtonCG, optim_options)
     # fetch parameters from optimizer struct
     α = optimizer.α
     steps = optimizer.steps
     i₀ = optimizer.i₀
     i₁ = optimizer.i₁
     ls = optimizer.linesearcher
-    verbose = optimizer.verbose
     # logging information
-    kl_calls=0
-    ∇kl_calls=0
     cg_iterations=Int64[]
-    Δkl_history=Float64[]
+    f_history=Float64[]
 
-    # gradient function of our kl
-    ∇kl(ξ) = ∇kl!(similar(ξ), ξ)
+    # gradient function of f
+    ∇f(x) = ∇f!(similar(x), x)
 
-    kl = KL_(kl, 0)
-    ∇kl = ∇KL_(∇kl, 0)
+    f = KL_(f, 0)
+    ∇f = ∇KL_(∇f, 0)
     
-    # value of kl divergence before any optimization steps
-    kl⁰ = klⁿ⁻¹ = kl(ξ̅⁰)
+    # value of f before any optimization steps
+    f⁰ = fⁿ⁻¹ = f(x₀)
+    push!(f_history, f⁰)
+    push!(cg_iterations, i₀)
 
-    klⁿ = Δklⁿ = zero(kl⁰)
-    ξ̅ⁿ = ξ̅⁰
+    fⁿ = Δfⁿ = zero(f⁰)
+    xₙ = x₀
     for n in 1:steps
         # preallocate/reset vector of descent
-        Δξ̅ = zero(ξ̅ⁿ)
-        ∇kl_at_ξ̅ⁿ = ∇kl(ξ̅ⁿ)
+        Δx = zero(xₙ)
+        ∇f_at_xₙ = ∇f(xₙ)
 
         # initialize cg_iterator with our mean fisher metric as the
-        # hessian and our gradient of our kl at ξ̅ⁿ as our gradient
-        # A = Σ̅⁻¹, b = ∇kl(ξ̅ⁿ)
-        cgiterator = cg_iterator!(Δξ̅, Σ̅⁻¹, ∇kl_at_ξ̅ⁿ, initially_zero=true)
+        # hessian and our gradient of f at xₙ as our gradient
+        # A = Σ̅⁻¹, b = ∇f(xₙ)
+        cgiterator = cg_iterator!(Δx, Σ̅⁻¹(xₙ), ∇f_at_xₙ, initially_zero=true)
         if n == 1
             # do i₀ iterations of cg
             for (iteration, residual) in enumerate(cgiterator)
@@ -84,61 +112,43 @@ function _optimize(optimizer::NewtonCG, optim_options, kl::Function,
                 end
             end
         else
-            klᵏ⁻¹ = klⁿ⁻¹
+            fᵏ⁻¹ = fⁿ⁻¹
             # do at most i₁ cg iterations or move on if our improvement
             # is below α*100 percent of our previous NewtonCG step
             for (k, residual) in enumerate(cgiterator)
-                klᵏ = kl(ξ̅ⁿ - Δξ̅)
-                if k >= i₁ || abs(klᵏ - klᵏ⁻¹) < α*Δklⁿ
+                fᵏ = f(xₙ - Δx)
+                if k >= i₁ || abs(fᵏ - fᵏ⁻¹) < α*Δfⁿ
                     push!(cg_iterations, k)
                     break
                 end
-                klᵏ⁻¹ = klᵏ
+                fᵏ⁻¹ = fᵏ
             end
         end
-        # finish NewtonCG step with line search in -Δξ̅ direction
-        β, klⁿ = ls(linesearch_args(kl, ∇kl, ξ̅ⁿ, -Δξ̅, klⁿ⁻¹, ∇kl_at_ξ̅ⁿ)...)
-        ξ̅ⁿ -= β*Δξ̅
-        Δklⁿ = abs(klⁿ - klⁿ⁻¹)
-        push!(Δkl_history, Δklⁿ)
-        klⁿ⁻¹ = klⁿ
+        # finish NewtonCG step with line search in -Δx direction
+        β, fⁿ = ls(linesearch_args(f, ∇f, xₙ, -Δx, fⁿ⁻¹, ∇f_at_xₙ)...)
+        xₙ -= β*Δx
+        Δfⁿ = abs(fⁿ - fⁿ⁻¹)
+        fⁿ⁻¹ = fⁿ
+        push!(f_history, fⁿ)
     end
-    kl_calls = kl.count
-    ∇kl_calls = ∇kl.count
-    rel_reduction = sum(Δkl_history) / kl⁰
-    if verbose
-        println("NewtonCG Results:")
-        println("------------------------------")
-        println("kl value start: $kl⁰")
-        println("kl value end: $klⁿ")
-        println("relative reduction: $rel_reduction")
-        println("------------------------------")
-        println("kl calls: $(kl_calls)")
-        println("∇kl calls: $(∇kl_calls)")
-        println("------------------------------")
-        println("1.step: $(i₀) cg iterations Δkl_1 $(Δkl_history[1])")
-        for i in 2:steps
-            print("$i.step: $(cg_iterations[i-1]) cg iterations")
-            println(" Δkl_$i $(Δkl_history[i])")
-        end
-    end
-    return (
-        minimizer=ξ̅ⁿ,
-        minimum=klⁿ,
-        kl_start=kl⁰,
-        kl_calls=kl_calls,
-        ∇kl_calls=∇kl_calls,
-        cg_iterations=cg_iterations,
-        Δkl_history=Δkl_history,
-        rel_reduction=rel_reduction
+    trace = (f_history=f_history, cg_iterations=cg_iterations)
+    NewtonCGResults{typeof(optimizer), typeof(x₀), typeof(f⁰), typeof(trace)}(
+        optimizer,
+        x₀,
+        xₙ,
+        f⁰,
+        fⁿ,
+        steps,
+        trace,
+        f.count,
+        ∇f.count,
+        sum(cg_iterations),
+        abs(fⁿ - f⁰)
     )
 end
 
-#
-# _optimize dispatch for Optim.optimizer
-#
-function _optimize(optimizer::Optim.AbstractOptimizer, 
-        optim_options::Optim.Options, kl::Function, ∇kl!::Function, 
-        curvature::LinearMap, ξ::AbstractVector)
-    optimize(kl, ∇kl!, ξ, optimizer, optim_options)
+function _optimize(f::Function, ∇f!::Function, curvature::Function, 
+        x₀::AbstractVector, optimizer::Optim.AbstractOptimizer, 
+        optim_options::Optim.Options)
+    optimize(f, ∇f!, x₀, optimizer, optim_options)
 end

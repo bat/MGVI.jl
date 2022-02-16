@@ -38,7 +38,7 @@ include("shapes.jl")
 include("jacobian_maps.jl")
 include("information.jl")
 include("residual_samplers.jl")
-include("mgvi_impl.jl")
 include("newtoncg.jl")
+include("mgvi_impl.jl")
 
 end # module
