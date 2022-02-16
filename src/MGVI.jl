@@ -29,9 +29,10 @@ using SparseArrays
 using StaticArrays
 using ValueShapes
 import Zygote
+using DocStringExtensions
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, ProjectTo, AbstractThunk, unthunk
-
+import Statistics: mean
 
 include("util.jl")
 include("custom_linear_maps.jl")
@@ -39,6 +40,7 @@ include("shapes.jl")
 include("jacobian_maps.jl")
 include("information.jl")
 include("residual_samplers.jl")
+include("newtoncg.jl")
 include("mgvi_impl.jl")
 
 end # module
