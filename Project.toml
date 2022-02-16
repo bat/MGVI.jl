@@ -19,8 +19,10 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 
 [compat]
+DocStringExtensions = "0.8"
 ChainRulesCore = "0.9.44, 0.10, 1"
 Distributions = "0.23, 0.24, 0.25"
 DistributionsAD = "0.6"

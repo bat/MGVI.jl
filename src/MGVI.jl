@@ -28,6 +28,7 @@ using SparseArrays
 using StaticArrays
 using ValueShapes
 import Zygote
+using DocStringExtensions
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, ProjectTo, AbstractThunk, unthunk
 import Statistics: mean

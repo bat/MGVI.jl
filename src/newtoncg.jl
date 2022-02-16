@@ -3,11 +3,32 @@ using Parameters
 
 export _optimize, NewtonCG
 
+"""
+    struct NewtonCG
+
+Constructors:
+
+* '''$(FUNCTIONNAME)(; fields...)'''
+
+$(TYPEDFIELDS)
+
+"""
 @with_kw struct NewtonCG
+    "amount of previous NewtonCG improvement guarding the lower
+    bound to the improvement between consecutive cg iterations from 
+    the second NewtonCG step on"
     α::Float64=0.1
+
+    "Number of total NewtonCG steps"
     steps::Int64=4
+
+    "maximum number of cg iterations in the first NewtonCG step"
     i₀::Int64=5
+
+    "maximum number of cg iterations from the second NewtonCG step on"
     i₁::Int64=50
+
+    "LineSearcher that will be used after cg iterations are finished"
     linesearcher=StrongWolfe{Float64}()
 end
 
@@ -50,24 +71,16 @@ function linesearch_args(
     return (f_uni, df, f_and_df, 1.0, f_x, dot(∇f_x, Δx))
 end
 
-mutable struct KL_
+struct EvalCount
     f::Function
-    count::Int
+    counter::Base.Threads.Atomic{Int}
 end
 
-mutable struct ∇KL_
-    ∇f::Function 
-    count::Int
-end
+EvalCount(f::Function) = EvalCount(f, Base.Threads.Atomic{Int}(0))
 
-function (F::KL_)(x::AbstractVector)
-    F.count += 1
+function (F::EvalCount)(x::AbstractVector)
+    Base.Threads.atomic_add!(F.counter, 1)
     F.f(x)
-end
-
-function (F::∇KL_)(x::AbstractVector)
-    F.count += 1
-    F.∇f(x)
 end
 
 function _optimize(f::Function, ∇f!::Function, Σ̅⁻¹::Function, 
@@ -85,8 +98,8 @@ function _optimize(f::Function, ∇f!::Function, Σ̅⁻¹::Function,
     # gradient function of f
     ∇f(x) = ∇f!(similar(x), x)
 
-    f = KL_(f, 0)
-    ∇f = ∇KL_(∇f, 0)
+    f = EvalCount(f)
+    ∇f = EvalCount(∇f)
     
     # value of f before any optimization steps
     f⁰ = fⁿ⁻¹ = f(x₀)
@@ -140,8 +153,8 @@ function _optimize(f::Function, ∇f!::Function, Σ̅⁻¹::Function,
         fⁿ,
         steps,
         trace,
-        f.count,
-        ∇f.count,
+        f.counter[],
+        ∇f.counter[],
         sum(cg_iterations),
         abs(fⁿ - f⁰)
     )
