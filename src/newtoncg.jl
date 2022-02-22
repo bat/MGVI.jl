@@ -1,7 +1,5 @@
-using LineSearches
-using Parameters
+# This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
-export _optimize, NewtonCG
 
 """
     struct NewtonCG
@@ -31,6 +29,7 @@ $(TYPEDFIELDS)
     "LineSearcher that will be used after cg iterations are finished"
     linesearcher=StrongWolfe{Float64}()
 end
+
 
 mutable struct NewtonCGResults{O, Tx, Tf, M} <: Optim.OptimizationResults
     method::O

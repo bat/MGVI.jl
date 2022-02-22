@@ -19,9 +19,11 @@ using Distributions
 using DistributionsAD
 using FillArrays
 import ForwardDiff
+using LineSearches
 using LinearMaps
 using IterativeSolvers
 using Optim
+using Parameters
 using PDMats
 using PositiveFactorizations
 import SparseArrays: blockdiag
