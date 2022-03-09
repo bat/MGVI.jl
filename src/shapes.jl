@@ -7,6 +7,7 @@ flat_params(x::NTuple{N,T}) where {N,T<:Real} = _svector(x)
 flat_params(x::Tuple) where {N,T<:Real} = vcat(map(flat_params, x)...)
 flat_params(x::NamedTuple) = flat_params(values(x))
 flat_params(x::AbstractVector{<:Real}) = x
+flat_params(x::AbstractArray{<:Real}) = vec(x)
 flat_params(x::AbstractVector{<:AbstractVector{<:Real}}) = _flatten_vec_of_vec(x)
 flat_params(x::AbstractVector{<:NTuple{N,<:Real}}) where N = _flatten_vec_of_vec(x)
 flat_params(x::AbstractVector) = _flatten_vec_of_vec(flat_params.(x))
