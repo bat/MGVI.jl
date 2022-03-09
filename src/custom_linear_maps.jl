@@ -68,14 +68,14 @@ Base.:(*)(A::LinearMap, B::PDLinMapWithChol) = A * without_chol(B)
 Base.:(*)(A::PDLinMapWithChol, B::LinearMap) = without_chol(A) * B
 Base.:(*)(A::PDLinMapWithChol, B::PDLinMapWithChol) = without_chol(A) * without_chol(B)
 
-function _blockdiag(As::Tuple{Vararg{<:PDLinMapWithChol}})
+function _blockdiag(As::NTuple{N,PDLinMapWithChol}) where N
     PDLinMapWithChol(blockdiag(map(without_chol, As)...), blockdiag(map(cholesky_L, As)...))
 end
 
 const DiagLinearMap{T} = LinearMaps.WrappedMap{T,<:Diagonal}
 const DiagPDLinMapWithChol = PDLinMapWithChol{T,<:DiagLinearMap,<:DiagLinearMap} where T
 
-function _blockdiag(As::Tuple{Vararg{<:DiagPDLinMapWithChol}}) where T
+function _blockdiag(As::NTuple{N, DiagPDLinMapWithChol}) where N
     PDLinMapWithChol(
         LinearMap(Diagonal(vcat(map(A -> get_diagonal(without_chol(A).lmap), As)...)), issymmetric = true, ishermitian = true, isposdef = true),
         LinearMap(Diagonal(vcat(map(A -> get_diagonal(cholesky_L(A).lmap), As)...)), issymmetric = true, ishermitian = true, isposdef = true)
