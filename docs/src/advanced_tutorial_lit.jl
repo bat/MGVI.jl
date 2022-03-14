@@ -24,6 +24,7 @@ using Random
 using StatsBase
 using Distributions
 using Optim
+using ForwardDiffPullbacks
 
 using Plots
 using Plots.PlotMeasures
@@ -288,7 +289,7 @@ function model(params)
     fs = gp_sample(params)
     fine_lambdas = poisson_gp_link(fs)
     _, lambdas = agg_lambdas(fine_lambdas)
-    Product(Poisson.(lambdas))
+    Product(fwddiff(Poisson).(lambdas))
 end;
 
 # ## Visualization utilities
