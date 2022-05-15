@@ -19,7 +19,7 @@ Test.@testset "test_cmp_residual_samplers" begin
     Random.seed!(42)
     num_of_test_samples = 60
 
-    fisher, jac = MGVI.fisher_information_and_jac(model, true_params; jacobian_func=FullJacobianFunc)
+    fisher, jac = MGVI.fisher_information_and_jac(model, true_params, FullJacobianFunc)
 
     full_rs = FullResidualSampler(fisher, jac)
     full_samples_1 = rand(Random.GLOBAL_RNG, full_rs, num_of_test_samples)

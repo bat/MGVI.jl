@@ -1,5 +1,16 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
+
+function fisher_information_and_jac(
+    fwd_model::Function, ξ::AbstractVector,
+    jac_method::Type{JF}
+) where JF<:AbstractJacobianFunc
+    ℐ_λ = fisher_information(fwd_model(ξ))
+    dλ_dξ= jac_method(flat_params ∘ fwd_model)(ξ)
+    ℐ_λ, dλ_dξ
+end
+
+
 const rs_default_options=NamedTuple()
 const optim_default_options = Optim.Options()
 const optim_default_solver = LBFGS()
@@ -9,8 +20,8 @@ function _create_residual_sampler(f::Function, center_p::Vector;
                                   jacobian_func::Type{JF}=FwdDerJacobianFunc,
                                   residual_sampler_options::NamedTuple
                                  ) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
-    fisher, jac = fisher_information_and_jac(f, center_p; jacobian_func=jacobian_func)
-    residual_sampler(fisher, jac; residual_sampler_options...)
+    ℐ_λ, dλ_dξ = fisher_information_and_jac(f, center_p, jacobian_func)
+    residual_sampler(ℐ_λ, dλ_dξ; residual_sampler_options...)
 end
 
 function posterior_loglike(model, p, data)
@@ -114,7 +125,7 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
     residual_samples = rand(rng, est_res_sampler, num_residuals)
     kl(params::AbstractVector) = mgvi_kl(forward_model, data, residual_samples, params)
     ∇kl! =  _gradient_for_optim(kl)
-    Σ⁻¹(ξ) = inverse_covariance(ξ, forward_model, jacobian_func)
+    Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, jacobian_func)
     Σ̅⁻¹(ξ) = mean(Σ⁻¹.(collect.(eachcol(ξ .+ residual_samples))))
     res = _optimize(
         kl, ∇kl!, Σ̅⁻¹, init_param_point, optim_solver, optim_options)
@@ -124,3 +135,9 @@ function mgvi_kl_optimize_step(rng::AbstractRNG,
 end
 
 export mgvi_kl_optimize_step
+
+
+function _inv_cov_est(fwd_model::Function, ξ::AbstractVector, jac_method::Type{JF}) where JF <: AbstractJacobianFunc
+    ℐ_λ, dλ_dξ = fisher_information_and_jac(fwd_model, ξ, jac_method)
+    dλ_dξ' * ℐ_λ * dλ_dξ + I
+end

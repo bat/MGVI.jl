@@ -34,7 +34,7 @@ Test.@testset "test_jacobians_consistency" begin
     epsilon = 1E-5
     Random.seed!(145)
 
-    _flat_model = MGVI._dists_flat_params_getter(ModelPolyfit.model)
+    _flat_model = MGVI.flat_params ∘ ModelPolyfit.model
     true_params = ModelPolyfit.true_params
 
     full_jac = FullJacobianFunc(_flat_model)(true_params)

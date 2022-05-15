@@ -79,24 +79,3 @@ function fisher_information(d::NamedTupleDist)
     λinformations = map(fisher_information, dists)
     _blockdiag(λinformations)
 end
-
-_dists_flat_params_getter(dist_generator) = par::Vector -> (par |> dist_generator |> flat_params)
-
-function fisher_information_and_jac(f::Function, p::AbstractVector;
-                                    jacobian_func::Type{JF}) where JF<:AbstractJacobianFunc
-    flat_func = _dists_flat_params_getter(f)
-    jac = jacobian_func(flat_func)(p)
-    fisher_information(f(p)), jac
-end
-
-function fisher_information_in_parspace(λ_fisher::LinearMap, jac::LinearMap)
-    adjoint(jac) * λ_fisher * jac
-end
-
-function inverse_covariance(
-        ξ::AbstractVector, fwd_model::Function, 
-        jac_method::Type{JF}) where JF <: AbstractJacobianFunc
-    fisher_at_ξ, jac_at_ξ = fisher_information_and_jac(fwd_model, ξ;
-                                            jacobian_func=jac_method)
-    adjoint(jac_at_ξ) * fisher_at_ξ * jac_at_ξ + I
-end

@@ -28,7 +28,7 @@ Test.@testset "test_normal_mvnormal_jac" begin
         n2 = Normal(μ2, σ2)
         Product([n1, n2])
     end
-    _flat_normal_model = MGVI._dists_flat_params_getter(normal_model)
+    _flat_normal_model = MGVI.flat_params ∘ normal_model
 
     # NOTE: models are not the same. Σ[1, 1] = σ1^2, while here we assign σ1.
     # We do this because in this way it is easier to compare jacobians.
@@ -38,7 +38,7 @@ Test.@testset "test_normal_mvnormal_jac" begin
         μ1, σ1, μ2, σ2 = _common_params(p)
         MvNormal([μ1, μ2], [σ1 0.;0. σ2])
     end
-    _flat_mvnormal_model = MGVI._dists_flat_params_getter(mvnormal_model)
+    _flat_mvnormal_model = MGVI.flat_params ∘ mvnormal_model
 
     normal_full_jac = FullJacobianFunc(_flat_normal_model)(true_params)
     normal_fwdder_jac = FwdDerJacobianFunc(_flat_normal_model)(true_params)
