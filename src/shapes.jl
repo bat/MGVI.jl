@@ -4,7 +4,7 @@
 flat_params(x::Real) = _svector((x,))
 flat_params(x::StaticVector{N,T}) where {N,T<:Real} = x
 flat_params(x::NTuple{N,T}) where {N,T<:Real} = _svector(x)
-flat_params(x::Tuple) where {N,T<:Real} = vcat(map(flat_params, x)...)
+flat_params(x::Tuple) where {N} = vcat(map(flat_params, x)...)
 flat_params(x::NamedTuple) = flat_params(values(x))
 flat_params(x::AbstractVector{<:Real}) = x
 flat_params(x::AbstractArray{<:Real}) = vec(x)
