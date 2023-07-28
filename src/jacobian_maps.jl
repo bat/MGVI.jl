@@ -129,7 +129,7 @@ function (jf::FwdRevADJacobianFunc)(x::AbstractVector{T}) where T
     y = f(x)
     jvp = ForwardDiffJVP(f, x)
     vjp = ZygoteVJP(f, x)
-    LinearMap{T}(jvp, vjp, size(y, 1), size(x, 1), isposdef=false, issymmetric=false, ishermitian=false)
+    FunctionMap{T,false}(jvp, vjp, size(y, 1), size(x, 1), isposdef=false, issymmetric=false, ishermitian=false)
 end
 
 
@@ -158,5 +158,5 @@ function (jf::FwdDerJacobianFunc)(x::AbstractVector{T}) where T
     y = f(x)
     jvp = ForwardDiffJVP(f, x)
     vjp = ForwardDiffVJP(f, x)
-    LinearMap{T}(jvp, vjp, size(y, 1), size(x, 1), isposdef=false, issymmetric=false, ishermitian=false)
+    FunctionMap{T,false}(jvp, vjp, size(y, 1), size(x, 1), isposdef=false, issymmetric=false, ishermitian=false)
 end
