@@ -289,7 +289,7 @@ function model(params)
     fs = gp_sample(params)
     fine_lambdas = poisson_gp_link(fs)
     _, lambdas = agg_lambdas(fine_lambdas)
-    Product(fwddiff(Poisson).(lambdas))
+    product_distribution(fwddiff(Poisson).(lambdas))
 end;
 
 # ## Visualization utilities

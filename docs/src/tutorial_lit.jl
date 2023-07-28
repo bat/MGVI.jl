@@ -26,8 +26,8 @@ function _mean(x_grid, p)
 end
 
 function model(p)
-    dist1 = Product(Normal.(_mean(_x1_grid, p), p[5]^2*60))
-    dist2 = Product(Normal.(_mean(_x2_grid, p), p[5]^2*60))
+    dist1 = product_distribution(Normal.(_mean(_x1_grid, p), p[5]^2*60))
+    dist2 = product_distribution(Normal.(_mean(_x2_grid, p), p[5]^2*60))
     NamedTupleDist(a=dist1,
                    b=dist2)
 end

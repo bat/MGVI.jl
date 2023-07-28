@@ -50,20 +50,19 @@ Test.@testset "test_fisher_information_combinations" begin
 
     epsilon = 1E-5
 
-    # test Product(Univariates)
+    # test product_distribution(Univariates)
     μ1, σ1 = 0.1, 0.2
     μ2, σ2 = 0.1, 0.3
     dists = [Normal(μ1, σ1), Normal(μ2, σ2)]
-    res = MGVI.fisher_information(Product(dists))
+    res = MGVI.fisher_information(Distributions.Product{Continuous, Normal{Float64}, Vector{Normal{Float64}}}(dists))
     truth = blockdiag(MGVI.fisher_information.(dists)...)
     Test.@test norm(Matrix(res) - Matrix(truth)) < epsilon
 
     # test NamedTupleDist
     dists = NamedTupleDist(a=Normal(0.1, 0.2),
-                           b=Product([Normal(0.1, 0.2), Normal(0.3, 0.1)]),
+                           b=Distributions.Product{Continuous, Normal{Float64}, Vector{Normal{Float64}}}([Normal(0.1, 0.2), Normal(0.3, 0.1)]),
                            c=MvNormal([0.2, 0.3], [2. 0.1; 0.1 4.5]))
     res = MGVI.fisher_information(dists)
     truth = blockdiag((MGVI.without_chol ∘ MGVI.fisher_information).(values(dists))...)
     Test.@test norm(Matrix(res) - Matrix(truth)) < epsilon
-
 end

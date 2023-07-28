@@ -26,7 +26,7 @@ Test.@testset "test_normal_mvnormal_jac" begin
         μ1, σ1, μ2, σ2 = _common_params(p)
         n1 = Normal(μ1, σ1)
         n2 = Normal(μ2, σ2)
-        Product([n1, n2])
+        product_distribution([n1, n2])
     end
     _flat_normal_model = MGVI.flat_params ∘ normal_model
 
@@ -90,7 +90,7 @@ Test.@testset "test_normal_mvnormal_logpdf_der" begin
         μ1, σ1, μ2, σ2 = _common_params(p)
         n1 = Normal(μ1, σ1)
         n2 = Normal(μ2, σ2)
-        Product([n1, n2])
+        product_distribution([n1, n2])
     end
 
     # est_res_sampler = MGVI._create_residual_sampler(normal_model, true_params;
