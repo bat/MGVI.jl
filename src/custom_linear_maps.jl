@@ -1,6 +1,12 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
 
+"""
+    struct MGVI.PDLinMapWithChol{T} <: LinearMaps.LinearMap{T}
+
+A `LinearMap` that stores both a map and the lower-tringangular map
+of its Cholesky decomposition.
+"""
 struct PDLinMapWithChol{
     T,
     PMap<:LinearMaps.LinearMap{T},

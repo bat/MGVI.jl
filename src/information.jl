@@ -1,5 +1,14 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
+"""
+    MGVI.fisher_information(distribution::Distributions.Distribution)
+
+Get the fisher information matrix/operator (as a `LinearMap`) for the given
+`distribution`.
+"""
+function fisher_information end
+
+
 function fisher_information(dist::Normal)
     _, σval = params(dist)
     inv_σ = inv(σval)

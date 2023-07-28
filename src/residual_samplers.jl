@@ -1,113 +1,125 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
-"""
-    abstract type AbstractResidualSampler <: Sampleable{Multivariate, Continuous} end
 
-Generate zero-mean samples from Gaussian posterior, assuming priors are standard gaussians.
-
-# Example
-```julia
-rng = MersenneTwister(145)
-rs = FullResidualSampler(λ_information, jac_dλ_dθ)
-samples = rand(rng, rs, 10)  # generate 10 samples
-```
-"""
-abstract type AbstractResidualSampler <: Sampleable{Multivariate, Continuous} end
-
-"""
-    FullResidualSampler(λ_information, jac_dλ_dθ)
-
-Gaussian posterior's covariance approximated by the Fisher Information
-
-**Caution: This sampler constructs the covariance matrix explicitly, so memory
-use grows quadratically with the number of model parameters**
-
-The Fisher information in canonical coordinates and Jacobian of the coordinate transformation
-are provided as arguments. Since `` J \\cdot I_{canon} \\cdot J^T `` does not depend on the definition of canonical coordinates,
-we omit description of what canonical coordinates are.
-
-# Arguments
-
-* `λ_information::LinearMap`: Fisher Information in canonical coordinates. Coordinates are chosen in the way
-  that this matrix is very simple, and diagonal for the univariate distributions
-* `jac_dλ_fθ::LinearMap`: Coordinate transformation jacobian between canonical coordinates and
-  coordinates of the model
-"""
-struct FullResidualSampler <: AbstractResidualSampler
-    λ_information::LinearMap
-    jac_dλ_dθ::LinearMap
+function _fisher_information_and_jac(fwd_model::Function, ξ::AbstractVector, OP, context::MGVIContext)
+    ℐ_λ = fisher_information(fwd_model(ξ))
+    _, dλ_dξ = with_jacobian(flat_params ∘ fwd_model, ξ, OP, context.ad)
+    ℐ_λ, dλ_dξ
 end
 
-Base.length(rs::FullResidualSampler) = size(rs.jac_dλ_dθ, 2)
 
-function Distributions._rand!(rng::AbstractRNG, s::FullResidualSampler, x::AbstractVector{T}) where T<:Real
-    θ_information = s.jac_dλ_dθ' * s.λ_information * s.jac_dλ_dθ
-    root_covariance = cholesky(PositiveFactorizations.Positive, inv(Matrix(θ_information) + I)).L
-    x[:] = root_covariance * randn(eltype(root_covariance), size(root_covariance, 1))
-end
 
 """
-    ImplicitResidualSampler(λ_information, jac_dλ_dθ; cg_params=NamedTuple())
+    abstract type LinearSolverAlg
 
-Memory efficient Gaussian posterior's covariance approximated by the Fisher Information
+Abstract supertype for linear solver algorithms.
+"""
+abstract type LinearSolverAlg end
+
+
+"""
+    struct MatrixInversion <: LinearSolverAlg
+
+Solve linear systems by direct matrix inversion.
+
+Note: Will instantiate implicit matrices/operators in memory explicitly.
+"""
+struct MatrixInversion <: LinearSolverAlg end
+
+
+
+"""
+    struct IterativeSolversCG <: LinearSolverAlg
+
+Solve linear systems using `IterativeSolvers.gc`.
+"""
+
+struct IterativeSolversCG{OPTS<:NamedTuple} <: LinearSolverAlg
+    cgopts::OPTS
+end
+
+IterativeSolversCG() = IterativeSolversCG(NamedTuple())
+
+
+
+"""
+    struct ResidualSampler
+
+Generates zero-centered samples from the posterior's covariance approximated
+by the Fisher information.
 
 This sampler uses Conjugate Gradients to iteratively invert  the Fisher information,
 never instantiating the covariance in memory explicitly.
 
-# Arguments
+The Fisher information in canonical coordinates and Jacobian of the coordinate transformation
+are provided as arguments.
 
-* `λ_information::LinearMap`: Fisher Information in canonical coordinates.
-* `jac_dλ_fθ::LinearMap`: Coordinate transformation jacobian between canonical coordinates and
-* `cg_params::NamedTuple`: Keyword arguments passed to `cg`. Useful for enabling verbose mode
-  or to set accuracy/number of iterations
+Constructor:
+
+```julia
+ResidualSampler(f_model::Function, center_point::Vector{<:Real}, solver::MGVI.LinearSolverAlg, context::MGVIContext)
+```
+
+Call `MGVI.sample_residuals(s::ResidualSampler[, n::Integer])` to generate a
+single or `n` samples.
 """
-struct ImplicitResidualSampler <: AbstractResidualSampler
-    λ_information::LinearMap
-    jac_dλ_dθ::LinearMap
-    cg_params::NamedTuple
+struct ResidualSampler{F,RV<:AbstractVector{<:Real},SLV<:LinearSolverAlg,OPL<:LinearMap,OPJ<:LinearMap,CTX<:MGVIContext}
+    f_model::F
+    center_point::RV
+    solver::SLV
+    λ_information::OPL
+    jac_dλ_dθ::OPJ
+    context::CTX
+end
+export ResidualSampler
+
+
+_get_operator_type(::MatrixInversion) = Matrix
+_get_operator_type(::IterativeSolversCG) = LinearMap
+
+function ResidualSampler(f_model::Function, center_point::Vector{<:Real}, solver::LinearSolverAlg, context::MGVIContext)
+    OP = _get_operator_type(solver)
+    ℐ_λ, dλ_dξ = _fisher_information_and_jac(f_model, center_point, OP, context)
+    ResidualSampler(f_model, center_point, solver, convert(LinearMap, ℐ_λ), convert(LinearMap, dλ_dξ), context)
 end
 
-const _default_cg_params=NamedTuple()
 
-ImplicitResidualSampler(λ_information::LinearMap,
-                        jac_dλ_dθ::LinearMap;
-                        cg_params::NamedTuple=_default_cg_params) = ImplicitResidualSampler(λ_information,
-                                                                                            jac_dλ_dθ,
-                                                                                            cg_params)
-
-Base.length(rs::ImplicitResidualSampler) = size(rs.jac_dλ_dθ, 2)
-
-function _implicit_rand_impl_args(s::ImplicitResidualSampler)
-    ℐ_λ = s.λ_information
-    dλ_dθ = s.jac_dλ_dθ
-    num_λs = size(dλ_dθ, 1)
-    num_θs = size(dλ_dθ, 2)
-    sqrt_Id = cholesky_L(ℐ_λ)
-    Σ⁻¹_θ_est = dλ_dθ' * ℐ_λ * dλ_dθ + I
-    (num_λs, num_θs, sqrt_Id, Σ⁻¹_θ_est)
-end
-
-function _implicit_rand_impl!(rng::AbstractRNG, s::ImplicitResidualSampler, x::AbstractVector{T},
-                              num_λs, num_θs, root_Id, Σ⁻¹_θ_est) where T<:Real
-    dλ_dθ = s.jac_dλ_dθ
-    sample_n = randn(rng, num_λs)
-    sample_eta = randn(rng, num_θs)
-    Δφ = dλ_dθ' * (root_Id * sample_n) + sample_eta
-    x[:] = cg(Σ⁻¹_θ_est, Δφ; s.cg_params...)  # Δξ
-end
-
-function Distributions._rand!(rng::AbstractRNG, s::ImplicitResidualSampler, x::AbstractVector{T}) where T<:Real
-    args = _implicit_rand_impl_args(s)
-    _implicit_rand_impl!(rng, s, x, args...)
-end
-
-function Distributions._rand!(rng::AbstractRNG, s::ImplicitResidualSampler, A::DenseMatrix{T}) where T<:Real
-    args = _implicit_rand_impl_args(s)
-    for i = 1:size(A,2)
-        _implicit_rand_impl!(rng, s, view(A,:,i), args...)
+function sample_residuals(s::ResidualSampler, n::Integer)
+    m = size(s.jac_dλ_dθ, 2)
+    A = allocate_array(s.context.gen, (m, n))
+    Base.Threads.@threads for i in 1:size(A,2)
+        view(A, :, i) .= sample_residuals(s)
     end
     return A
 end
 
-export FullResidualSampler,
-       ImplicitResidualSampler
+
+function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:MatrixInversion})
+    genctx = s.context.gen
+
+    ℐ_λ = s.λ_information
+    dλ_dθ = s.jac_dλ_dθ
+    n_λ, n_θ = size(dλ_dθ)
+
+    Σ⁻¹_θ_est = dλ_dθ' * ℐ_λ * dλ_dθ + I
+    Σ⁻¹_θ_est_matrix = allocate_array(genctx, (n_θ, n_θ))
+    mul!(Σ⁻¹_θ_est_matrix, Σ⁻¹_θ_est, one(eltype(Σ⁻¹_θ_est_matrix)))
+    root_covariance = cholesky(PositiveFactorizations.Positive, inv(Σ⁻¹_θ_est_matrix)).L
+    root_covariance * randn(genctx, size(root_covariance, 1))
+end
+
+
+function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:IterativeSolversCG})
+    genctx = s.context.gen
+
+    ℐ_λ = s.λ_information
+    dλ_dθ = s.jac_dλ_dθ
+    n_λ, n_θ = size(dλ_dθ)
+    Σ⁻¹_θ_est = dλ_dθ' * ℐ_λ * dλ_dθ + I
+
+    dλ_dθ = s.jac_dλ_dθ
+    sample_n = randn(genctx, n_λ)
+    sample_eta = randn(genctx, n_θ)
+    Δφ = dλ_dθ' * (cholesky_L(ℐ_λ) * sample_n) + sample_eta
+    IterativeSolvers.cg(Σ⁻¹_θ_est, Δφ; s.solver.cgopts...)  # Δξ
+end

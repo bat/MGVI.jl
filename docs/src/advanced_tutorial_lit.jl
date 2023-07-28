@@ -33,7 +33,11 @@ using Plots.PlotMeasures
 
 using FFTW
 
-import ForwardDiff
+import ForwardDiff, Zygote
+using AutoDiffOperators
+
+context = MGVIContext(ADModule(:Zygote))
+
 #-
 Random.seed!(84612);
 #jl mkpath(joinpath(@__DIR__, "plots"));
@@ -369,13 +373,12 @@ function produce_posterior_samples(p, num_residuals)
         batch_size = num_residuals ÷ 2
     end
 
-    est_res_sampler = MGVI._create_residual_sampler(model, p;
-                                                    residual_sampler=ImplicitResidualSampler,
-                                                    jacobian_func=FwdRevADJacobianFunc,
-                                                    residual_sampler_options=(;cg_params=(;abstol=1E-2)))
+    est_res_sampler = MGVI.ResidualSampler(
+        model, p, MGVI.IterativeSolversCG((abstol=1E-2,)), context
+    )
     batches = []
     for _ in 1:(num_residuals ÷ batch_size ÷ 2)
-        batch_residual_samples = MGVI.rand(Random.GLOBAL_RNG, est_res_sampler, batch_size)
+        batch_residual_samples = MGVI.sample_residuals(est_res_sampler, batch_size)
         push!(batches, p .+ batch_residual_samples)
         push!(batches, p .- batch_residual_samples)
     end
@@ -458,14 +461,12 @@ plot_kernel_mgvi_samples(produce_posterior_samples(starting_point, 6), 20)
 # Let's make a first iteration of the MGVI. For purposes of displaying the convergence curve, we limit `Optim.option` to 1 iteration so that
 # MGVI will coverge more slowly.
 
-first_iteration = mgvi_kl_optimize_step(Random.GLOBAL_RNG,
-                                        model, data,
-                                        starting_point;
-                                        num_residuals=3,
-                                        jacobian_func=FwdRevADJacobianFunc,
-                                        residual_sampler=ImplicitResidualSampler,
-                                        optim_options=Optim.Options(iterations=1, show_trace=false),
-                                        residual_sampler_options=(;cg_params=(;abstol=1E-2,verbose=false)));
+first_iteration = mgvi_optimize_step(
+    model, data, starting_point, context;
+    num_residuals = 3,
+    linear_solver = MGVI.IterativeSolversCG((;maxiter=10)),
+    optim_solver = MGVI.NewtonCG()
+);
 
 # We again plot data and the Poisson rate. We again show the Gaussian process with padding.
 # After one iteration the Poisson rate doesn't seem to get much closer to the data.
@@ -509,14 +510,12 @@ next_iteration = first_iteration;
 avg_likelihood_series = [];
 push!(avg_likelihood_series, compute_avg_likelihood(model, next_iteration.samples, data));
 for i in 1:30
-    tmp_iteration = mgvi_kl_optimize_step(Random.GLOBAL_RNG,
-                                          model, data,
-                                          next_iteration.result;
-                                          num_residuals=3,
-                                          jacobian_func=FwdRevADJacobianFunc,
-                                          residual_sampler=ImplicitResidualSampler,
-                                          optim_options=Optim.Options(iterations=1, show_trace=false),
-                                          residual_sampler_options=(;cg_params=(;abstol=1E-2,verbose=false)))
+    tmp_iteration = mgvi_optimize_step(
+        model, data, next_iteration.result, context;
+        num_residuals = 3,
+        linear_solver = MGVI.IterativeSolversCG((;abstol=1E-2,verbose=false)),
+        optim_solver = MGVI.NewtonCG()
+    )
     global next_iteration = tmp_iteration
     push!(avg_likelihood_series, compute_avg_likelihood(model, next_iteration.samples, data))
 end;
@@ -570,7 +569,7 @@ plot_kernel_mgvi_samples(next_iteration.samples, 20)
 # We build a MAP as a cross check of MGVI results. We simply optimize the posterior likelihood by using `Optim`
 # without any particular tuning settings:
 
-max_posterior = Optim.optimize(x -> -MGVI.posterior_loglike(model, x, data), starting_point, LBFGS(), Optim.Options(show_trace=false, g_tol=1E-10, iterations=300));
+max_posterior = Optim.optimize(x -> -MGVI.posterior_loglike(model, x, data), starting_point, LBFGS(), Optim.Options(show_trace=false, g_tol=1E-6, iterations=30));
 
 # We observe that the bump in the middle (around 1910) is caught by the MAP while it is less pronounced in the MGVI fit.
 # MAP also has finer structure around 1875 and 1835.

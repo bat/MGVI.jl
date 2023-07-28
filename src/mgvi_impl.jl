@@ -1,29 +1,6 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
 
-function fisher_information_and_jac(
-    fwd_model::Function, ξ::AbstractVector,
-    jac_method::Type{JF}
-) where JF<:AbstractJacobianFunc
-    ℐ_λ = fisher_information(fwd_model(ξ))
-    dλ_dξ= jac_method(flat_params ∘ fwd_model)(ξ)
-    ℐ_λ, dλ_dξ
-end
-
-
-const rs_default_options=NamedTuple()
-const optim_default_options = Optim.Options()
-const optim_default_solver = LBFGS()
-
-function _create_residual_sampler(f::Function, center_p::Vector;
-                                  residual_sampler::Type{RS}=ImplicitResidualSampler,
-                                  jacobian_func::Type{JF}=FwdDerJacobianFunc,
-                                  residual_sampler_options::NamedTuple
-                                 ) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
-    ℐ_λ, dλ_dξ = fisher_information_and_jac(f, center_p, jacobian_func)
-    residual_sampler(ℐ_λ, dλ_dξ; residual_sampler_options...)
-end
-
 function posterior_loglike(model, p, data)
     logpdf(model(p), data) - dot(p, p)/2
 end
@@ -38,20 +15,15 @@ function mgvi_kl(f::Function, data, residual_samples::AbstractMatrix{<:Real}, ce
     res/size(residual_samples, 2)/2
 end
 
-function _gradient_for_optim(kl::Function)
-    (res::AbstractVector, x::AbstractVector) -> begin
-        res .= Zygote.gradient(kl, x)[1]
-    end
-end
 
 """
-    mgvi_kl_optimize_step(rng, forward_model, data, init_param_point;
-                          jacobian_func=jacobian_func,
-                          residual_sampler=residual_sampler,
-                          [num_residuals=3,]
-                          [residual_sampler_options=NamedTuple(),]
-                          [optim_solver=LBFGS(),]
-                          [optim_options=Optim.Options()])
+    function mgvi_optimize_step(
+        forward_model::Function, data, init_param_point::AbstractVector{<:Real}, context::MGVIContext;
+        num_residuals::Integer = 3,
+        lcenter_pointinear_solver::LinearSolverAlg = IterativeSolversCG(),
+        optim_solver::Union{Optim.AbstractOptimizer,MGVI.NewtonCG} = MGVI.NewtonCG(),
+        optim_options::Union{Optim.Options, Nothing} = Optim.Options(),
+    )
 
 Performs one MGVI iteration.
 
@@ -61,39 +33,28 @@ The covariance is approximated with the inverse Fisher information valuated at
 used to estimate and minimize the KL divergence between the true posterior and the
 approximation.
 
-# Arguments
-
-* `rng::AbstractRNG`: instance of the random number generator
-* `forward_model::Function`: turns model parameters into an instance of Distribution
-* `data::AbstractVector`: data on which model's pdf is evaluated
-* `init_param_point::Vector`: initial estimate of the model parameters
-* `jacobian_func::Type{<:AbstractJacobianFunc}`: method to calculate the Jacobian
-  of the forward model
-* `residual_sampler::Type{<:AbstractResidualSampler}`: method to draw samples from
-  the approximation
-* `num_residuals::Integer = 3`: number of samples used to estimate the KL divergence
-* `residual_sampler_options::NamedTuple = NamedTuple()`: further options to pass to the
-  residual sampler. Important is `cg_params` that is passed to the CG solver used inside of ImplicitResidualSampler
-* `optim_solver::Optim.AbstractOptimizer = LBFGS()`: optimizer used for minimizing KL divergence
-* `optim_options::Optim.Options = Optim.Options()`: options to pass to the KL optimizer
+Note: The prior is implicit, it is a standard (uncorrelated) multivariate
+normal distribution of the same dimensionality as `init_param_point`.
 
 # Example
 
 ```julia
 using Random, Distributions, MGVI
+import Zygote
+
+context = MGVIContext(ADModule(:Zygote))
 
 model(x::AbstractVector) = Normal(x[1], 0.2)
 true_param = [2.0]
 data = rand(model(true_param), 1)[1]
 init_param = [1.3]
 
-res = mgvi_kl_optimize_step(Random.GlobalRNG, model, data, init_param;
-                            jacobian_func=FwdRevADJacobianFunc,
-                            residual_sampler=ImplicitResidualSampler,
-                            num_residuals=5,
-                            residual_sampler_options=(;cg_params=(;maxiter=10, verbose=true))),
-                            optim_solver=LBFGS(;m=5),
-                            optim_options=Optim.Options(iterations=7, show_trace=true))
+res = mgvi_optimize_step(
+    model, data, init_param, context;
+    num_residuals = 5,
+    linear_solver = MGVI.IterativeSolversCG(),
+    optim_solver = MGVI.NewtonCG(),
+)
 
 next_param_point = res.result
 
@@ -102,42 +63,32 @@ Optim.summary(optim_optimized_object)
 
 samples_from_est_covariance = res.samples
 ```
-
-# See also
-
-* Residual samplers: [`AbstractResidualSampler`](@ref), [`ImplicitResidualSampler`](@ref), [`FullResidualSampler`](@ref)
-* Jacobian functions: [`AbstractJacobianFunc`](@ref), [`FwdRevADJacobianFunc`](@ref), [`FwdDerJacobianFunc`](@ref)
-
 """
-function mgvi_kl_optimize_step(rng::AbstractRNG,
-                               forward_model::Function, data, init_param_point::AbstractVector;
-                               jacobian_func::Type{JF},
-                               residual_sampler::Type{RS},
-                               num_residuals::Integer=3,
-                               residual_sampler_options::NamedTuple=rs_default_options,
-                               optim_solver::Union{Optim.AbstractOptimizer, NewtonCG}=optim_default_solver,
-                               optim_options::Union{Optim.Options, Nothing}=optim_default_options
-                              ) where RS <: AbstractResidualSampler where JF <: AbstractJacobianFunc
-    est_res_sampler = _create_residual_sampler(forward_model, init_param_point;
-                                               residual_sampler=residual_sampler,
-                                               jacobian_func=jacobian_func,
-                                               residual_sampler_options=residual_sampler_options)
-    residual_samples = rand(rng, est_res_sampler, num_residuals)
+function mgvi_optimize_step end
+export mgvi_optimize_step
+
+function mgvi_optimize_step(
+    forward_model::Function, data, init_point::AbstractVector{<:Real}, context::MGVIContext;
+    num_residuals::Integer = 3,
+    linear_solver::LinearSolverAlg = IterativeSolversCG(),
+    optim_solver::Union{Optim.AbstractOptimizer,NewtonCG} = MGVI.NewtonCG(),
+    optim_options::Union{Optim.Options, Nothing} = Optim.Options(),
+)
+    res_sampler = ResidualSampler(forward_model, init_point, linear_solver, context)
+    residual_samples = sample_residuals(res_sampler, num_residuals)
     kl(params::AbstractVector) = mgvi_kl(forward_model, data, residual_samples, params)
-    ∇kl! =  _gradient_for_optim(kl)
-    Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, jacobian_func)
+    ∇kl! = gradient!_func(kl, context.ad)
+    OP = _get_operator_type(linear_solver)
+    Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, OP, context)
     Σ̅⁻¹(ξ) = mean(Σ⁻¹.(collect.(eachcol(ξ .+ residual_samples))))
     res = _optimize(
-        kl, ∇kl!, Σ̅⁻¹, init_param_point, optim_solver, optim_options)
-    updated_p = res.minimizer
+        kl, ∇kl!, Σ̅⁻¹, init_point, optim_solver, optim_options)
+    updated_point = res.minimizer
 
-    (result=updated_p, optimized=res, samples=hcat(updated_p .+ residual_samples, updated_p .- residual_samples))
+    (result=updated_point, optimized=res, samples=hcat(updated_point .+ residual_samples, updated_point .- residual_samples))
 end
 
-export mgvi_kl_optimize_step
-
-
-function _inv_cov_est(fwd_model::Function, ξ::AbstractVector, jac_method::Type{JF}) where JF <: AbstractJacobianFunc
-    ℐ_λ, dλ_dξ = fisher_information_and_jac(fwd_model, ξ, jac_method)
+function _inv_cov_est(fwd_model::Function, ξ::AbstractVector, OP, context::MGVIContext)
+    ℐ_λ, dλ_dξ = _fisher_information_and_jac(fwd_model, ξ, OP, context)
     dλ_dξ' * ℐ_λ * dλ_dξ + I
 end

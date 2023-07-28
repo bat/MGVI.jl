@@ -6,9 +6,10 @@ using MGVI
 using Distributions
 using LinearAlgebra
 using Random
-using ForwardDiff
+using AutoDiffOperators, LinearMaps
+import ForwardDiff, Zygote
 
-if :ModelPolyfit ∉ names(Main)
+if isdefined(Main, :ModelPolyfit)
     include("test_models/model_polyfit.jl")
     import .ModelPolyfit
 end
@@ -20,12 +21,12 @@ Test.@testset "test_jacobians_consistency" begin
         x = rand(6); l = rand(4); r = rand(6)
         J_ref = ForwardDiff.jacobian(f, x)
         
-        J1 = @inferred FullJacobianFunc(f)(x)
-        J2 = @inferred FwdRevADJacobianFunc(f)(x)
-        J3 = @inferred FwdDerJacobianFunc(f)(x)
+        _, J1 = @inferred with_jacobian(f, x, Matrix, ADModule(:ForwardDiff))
+        _, J2 = @inferred with_jacobian(f, x, LinearMap, ADModule(:Zygote))
+        _, J3 = @inferred with_jacobian(f, x, LinearMap, ADModule(:ForwardDiff))
 
         for J in (J1, J2, J3)
-            @test @inferred(Array(J)) ≈ J_ref
+            @test @inferred(Matrix(J)) ≈ J_ref
             @test @inferred(J' * l) ≈ J_ref' * l
             @test @inferred(J * r) ≈ J_ref * r
         end
@@ -37,18 +38,13 @@ Test.@testset "test_jacobians_consistency" begin
     _flat_model = MGVI.flat_params ∘ ModelPolyfit.model
     true_params = ModelPolyfit.true_params
 
-    full_jac = FullJacobianFunc(_flat_model)(true_params)
-    fwdder_jac = FwdDerJacobianFunc(_flat_model)(true_params)
-    fwdrevad_jac = FwdRevADJacobianFunc(_flat_model)(true_params)
+    _, full_jac = @inferred with_jacobian(_flat_model, true_params, Matrix, ADModule(:ForwardDiff))
+    _, fwdder_jac = @inferred with_jacobian(_flat_model, true_params, LinearMap, ADModule(:ForwardDiff))
+    _, fwdrevad_jac = @inferred with_jacobian(_flat_model, true_params, LinearMap, ADModule(:Zygote))
 
     for i in 1:min(size(full_jac)...)
-
         vec = rand(size(full_jac, 2))
-
-        Test.@test norm(fwdder_jac*vec - full_jac*vec) < epsilon
-
-        Test.@test norm(fwdrevad_jac*vec - full_jac*vec) < epsilon
-
+        @test norm(fwdder_jac*vec - full_jac*vec) < epsilon
+        @test norm(fwdrevad_jac*vec - full_jac*vec) < epsilon
     end
-
 end

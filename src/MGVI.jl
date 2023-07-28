@@ -9,6 +9,7 @@ An implementation of the Metric Gaussian Variational Inference algorithm.
 """
 module MGVI
 
+import AutoDiffOperators: ADSelector, with_jacobian, gradient!_func
 import ChainRulesCore
 using Distributed
 using LinearAlgebra
@@ -18,7 +19,7 @@ using Base.Iterators
 using Distributions
 using DistributionsAD
 using FillArrays
-import ForwardDiff
+using HeterogeneousComputing: GenContext, allocate_array
 using LineSearches
 using LinearMaps
 using IterativeSolvers
@@ -30,16 +31,15 @@ import SparseArrays: blockdiag
 using SparseArrays
 using StaticArrays
 using ValueShapes
-import Zygote
 using DocStringExtensions
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, ProjectTo, AbstractThunk, unthunk
 import Statistics: mean
 
 include("util.jl")
+include("mgvi_context.jl")
 include("custom_linear_maps.jl")
 include("shapes.jl")
-include("jacobian_maps.jl")
 include("information.jl")
 include("residual_samplers.jl")
 include("newtoncg.jl")

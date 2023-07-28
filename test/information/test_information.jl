@@ -42,12 +42,10 @@ Test.@testset "test_fisher_values" begin
     test_mvnormal(1)  # test mvnormal 1d
     test_mvnormal(2)  # test mvnormal 2d
     test_mvnormal(3)  # test mvnormal 3d
-
-
 end
 
-Test.@testset "test_fisher_information_combinations" begin
 
+Test.@testset "test_fisher_information_combinations" begin
     epsilon = 1E-5
 
     # test product_distribution(Univariates)

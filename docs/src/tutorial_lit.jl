@@ -8,6 +8,8 @@ using Random
 using ValueShapes
 using LinearAlgebra
 using Optim
+using AutoDiffOperators
+import Zygote
 
 # We want to fit a 3-degree polynomial using two data sets (`a` and `b`). MGVI requires a model
 # expressed as a function of the model parameters and returning an instance of the Distribution.
@@ -16,6 +18,8 @@ using Optim
 #
 #
 # We assume errors are normally distributed with unknown covariance, which has to be learned as well.
+
+context = MGVIContext(ADModule(:Zygote))
 
 const _x1_grid = [Float64(i)/10 for i in 1:25]
 const _x2_grid = [Float64(i)/10 + 0.1 for i in 1:15]
@@ -83,14 +87,12 @@ init_plots()
 # The output contains an updated parameter estimate (`first_iteration.result`),
 # which we can compare to the true parameters.
 
-first_iteration = mgvi_kl_optimize_step(rng,
-                                        model, data,
-                                        starting_point;
-                                        jacobian_func=FwdRevADJacobianFunc,
-                                        residual_sampler=ImplicitResidualSampler,
-                                        optim_options=Optim.Options(iterations=10, show_trace=true),
-                                        residual_sampler_options=(;cg_params=(;maxiter=10)))
-pprintln(hcat(first_iteration.result, true_params))
+first_iteration = mgvi_optimize_step(
+    model, data, starting_point, context;
+    linear_solver=MGVI.IterativeSolversCG((;maxiter=10)),
+    optim_options=Optim.Options(iterations=10, show_trace=true),
+)
+@info hcat(first_iteration.result, true_params)
 p
 #-
 plot_iteration = (params, label) -> let
@@ -122,19 +124,17 @@ init_plots()
 plt = scatter()
 next_iteration = first_iteration
 for i in 1:5
-    pprintln(minimum(next_iteration.optimized))
-    pprintln(hcat(next_iteration.result, true_params))
-    global next_iteration = mgvi_kl_optimize_step(rng,
-                                                  model, data,
-                                                  next_iteration.result;
-                                                  jacobian_func=FwdRevADJacobianFunc,
-                                                  residual_sampler=ImplicitResidualSampler,
-                                                  optim_options=Optim.Options(iterations=10, show_trace=true),
-                                                  residual_sampler_options=(;cg_params=(;maxiter=10)))
+    @info minimum(next_iteration.optimized)
+    @info hcat(next_iteration.result, true_params)
+    global next_iteration = mgvi_optimize_step(
+        model, data, next_iteration.result, context;
+        linear_solver=MGVI.IterativeSolversCG((;maxiter=10)),
+        optim_options=Optim.Options(iterations=10, show_trace=true)
+    )
     plot_iteration_light(next_iteration, i)
 end
-pprintln(minimum(next_iteration.optimized))
-pprintln(hcat(next_iteration.result, true_params))
+@info minimum(next_iteration.optimized)
+@info hcat(next_iteration.result, true_params)
 plt
 
 # Finally, let's plot the last estimate and compare it to the truth. Also, notice, that gray dots represent samples from
