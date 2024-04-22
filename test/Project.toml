@@ -1,8 +1,10 @@
 [deps]
 AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 AutoDiffOperators = "6e1301d5-4f4d-4fb5-9679-7191e22f0e0e"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 DistributionsAD = "ced4e74d-a319-5a8a-b0ac-84af2272839c"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 HeterogeneousComputing = "2182be2a-124f-4a91-8389-f06db5907a21"

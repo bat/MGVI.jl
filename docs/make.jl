@@ -16,8 +16,8 @@ GENERATED_DOCS = joinpath(GENERATED, "docs")
 
 EXECUTE_MD = true
 
-mkdir(GENERATED)
-cp(SRC, GENERATED_SRC)
+mkpath(GENERATED)
+cp(SRC, GENERATED_SRC, force = true)
 
 function dir_replace(content)
     content = replace(content, "@__DIR__" => '"' * GENERATED_SRC * '"')
@@ -56,14 +56,12 @@ makedocs(
         "LICENSE" => "LICENSE.md",
     ],
     doctest = ("fixdoctests" in ARGS) ? :fix : true,
-    linkcheck = ("linkcheck" in ARGS),
-    strict = !("nonstrict" in ARGS),
+    linkcheck = !("nonstrict" in ARGS),
+    warnonly = ("nonstrict" in ARGS),
 )
 
 deploydocs(
-    root = GENERATED,
-    target = "docs",
     repo = "github.com/bat/MGVI.jl.git",
     forcepush = true,
-    push_preview = true
+    push_preview = true,
 )
