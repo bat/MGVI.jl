@@ -1,6 +1,6 @@
 name = "MGVI"
 uuid = "fdae7790-d271-4276-880d-f72bbddf129c"
-version = "0.3.1"
+version = "0.3.2"
 
 [deps]
 AutoDiffOperators = "6e1301d5-4f4d-4fb5-9679-7191e22f0e0e"
