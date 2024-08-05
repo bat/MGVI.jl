@@ -1,5 +1,5 @@
 #md # # Tutorial
-#md # Notebook [download](tutorial.ipynb) [nbviewer](@__NBVIEWER_ROOT_URL__/tutorial.ipynb) [source](tutorial.jl)
+#md # Notebook [download](tutorial.ipynb) [source](tutorial.jl)
 
 using MGVI
 #

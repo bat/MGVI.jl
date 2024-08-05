@@ -1,5 +1,5 @@
 #md # # Advanced Tutorial
-#md # Notebook [download](advanced_tutorial.ipynb) [nbviewer](@__NBVIEWER_ROOT_URL__/advanced_tutorial.ipynb) [source](advanced_tutorial.jl)
+#md # Notebook [download](advanced_tutorial.ipynb) [source](advanced_tutorial.jl)
 
 # ## Introduction
 
