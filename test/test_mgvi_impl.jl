@@ -13,7 +13,7 @@ if !isdefined(Main, :ModelPolyfit)
 end
 
 Test.@testset "test_mgvi_optimize_step" begin
-    context = MGVIContext(ADModule(:Zygote))
+    context = MGVIContext(ADSelector(Zygote))
 
     model = ModelPolyfit.model
     true_params = ModelPolyfit.true_params

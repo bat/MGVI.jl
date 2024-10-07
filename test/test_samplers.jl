@@ -14,7 +14,7 @@ if :ModelPolyfit ∉ names(Main)
 end
 
 Test.@testset "test_cmp_residual_samplers" begin
-    context = MGVIContext(ADModule(:Zygote))
+    context = MGVIContext(ADSelector(Zygote))
 
     model = ModelPolyfit.model
     true_params = ModelPolyfit.true_params

@@ -42,7 +42,7 @@ normal distribution of the same dimensionality as `init_param_point`.
 using Random, Distributions, MGVI
 import Zygote
 
-context = MGVIContext(ADModule(:Zygote))
+context = MGVIContext(ADSelector(Zygote))
 
 model(x::AbstractVector) = Normal(x[1], 0.2)
 true_param = [2.0]

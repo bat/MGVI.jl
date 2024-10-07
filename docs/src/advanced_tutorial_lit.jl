@@ -36,7 +36,7 @@ using FFTW
 import ForwardDiff, Zygote
 using AutoDiffOperators
 
-context = MGVIContext(ADModule(:Zygote))
+context = MGVIContext(ADSelector(Zygote))
 
 #-
 Random.seed!(84612);

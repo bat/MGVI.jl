@@ -19,7 +19,7 @@ import Zygote
 #
 # We assume errors are normally distributed with unknown covariance, which has to be learned as well.
 
-context = MGVIContext(ADModule(:Zygote))
+context = MGVIContext(ADSelector(Zygote))
 
 const _x1_grid = [Float64(i)/10 for i in 1:25]
 const _x2_grid = [Float64(i)/10 + 0.1 for i in 1:15]

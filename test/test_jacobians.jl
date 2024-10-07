@@ -21,9 +21,9 @@ Test.@testset "test_jacobians_consistency" begin
         x = rand(6); l = rand(4); r = rand(6)
         J_ref = ForwardDiff.jacobian(f, x)
         
-        _, J1 = @inferred with_jacobian(f, x, Matrix, ADModule(:ForwardDiff))
-        _, J2 = @inferred with_jacobian(f, x, LinearMap, ADModule(:Zygote))
-        _, J3 = @inferred with_jacobian(f, x, LinearMap, ADModule(:ForwardDiff))
+        _, J1 = @inferred with_jacobian(f, x, Matrix, ADSelector(ForwardDiff))
+        _, J2 = @inferred with_jacobian(f, x, LinearMap, ADSelector(Zygote))
+        _, J3 = @inferred with_jacobian(f, x, LinearMap, ADSelector(ForwardDiff))
 
         for J in (J1, J2, J3)
             @test @inferred(Matrix(J)) ≈ J_ref
@@ -38,9 +38,9 @@ Test.@testset "test_jacobians_consistency" begin
     _flat_model = MGVI.flat_params ∘ ModelPolyfit.model
     true_params = ModelPolyfit.true_params
 
-    _, full_jac = @inferred with_jacobian(_flat_model, true_params, Matrix, ADModule(:ForwardDiff))
-    _, fwdder_jac = @inferred with_jacobian(_flat_model, true_params, LinearMap, ADModule(:ForwardDiff))
-    _, fwdrevad_jac = @inferred with_jacobian(_flat_model, true_params, LinearMap, ADModule(:Zygote))
+    _, full_jac = @inferred with_jacobian(_flat_model, true_params, Matrix, ADSelector(ForwardDiff))
+    _, fwdder_jac = @inferred with_jacobian(_flat_model, true_params, LinearMap, ADSelector(ForwardDiff))
+    _, fwdrevad_jac = @inferred with_jacobian(_flat_model, true_params, LinearMap, ADSelector(Zygote))
 
     for i in 1:min(size(full_jac)...)
         vec = rand(size(full_jac, 2))
