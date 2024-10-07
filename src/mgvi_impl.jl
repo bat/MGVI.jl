@@ -20,7 +20,7 @@ end
     function mgvi_optimize_step(
         forward_model::Function, data, init_param_point::AbstractVector{<:Real}, context::MGVIContext;
         num_residuals::Integer = 3,
-        lcenter_pointinear_solver::LinearSolverAlg = IterativeSolversCG(),
+        lcenter_pointinear_solver::LinearSolverAlg = KrylovJL_CG(),
         optim_solver::Union{Optim.AbstractOptimizer,MGVI.NewtonCG} = MGVI.NewtonCG(),
         optim_options::Union{Optim.Options, Nothing} = Optim.Options(),
     )
@@ -70,22 +70,19 @@ export mgvi_optimize_step
 function mgvi_optimize_step(
     forward_model::Function, data, init_point::AbstractVector{<:Real}, context::MGVIContext;
     num_residuals::Integer = 3,
-    linear_solver::LinearSolverAlg = IterativeSolversCG(),
+    linear_solver::LinearSolverLike = KrylovJL_CG(),
     optim_solver::Union{Optim.AbstractOptimizer,NewtonCG} = MGVI.NewtonCG(),
-    optim_options::Union{Optim.Options, Nothing} = Optim.Options(),
+    optim_options::NamedTuple = (;)
 )
     res_sampler = ResidualSampler(forward_model, init_point, linear_solver, context)
     residual_samples = sample_residuals(res_sampler, num_residuals)
     kl(params::AbstractVector) = mgvi_kl(forward_model, data, residual_samples, params)
-    ∇kl! = gradient!_func(kl, context.ad)
     OP = _get_operator_type(linear_solver)
     Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, OP, context)
     Σ̅⁻¹(ξ) = mean(Σ⁻¹.(collect.(eachcol(ξ .+ residual_samples))))
-    res = _optimize(
-        kl, ∇kl!, Σ̅⁻¹, init_point, optim_solver, optim_options)
-    updated_point = res.minimizer
+    updated_point, res = _optimize(kl, context.ad, Σ̅⁻¹, init_point, optim_solver, optim_options)
 
-    (result=updated_point, optimized=res, samples=hcat(updated_point .+ residual_samples, updated_point .- residual_samples))
+    (result=updated_point, info=res, samples=hcat(updated_point .+ residual_samples, updated_point .- residual_samples))
 end
 
 function _inv_cov_est(fwd_model::Function, ξ::AbstractVector, OP, context::MGVIContext)

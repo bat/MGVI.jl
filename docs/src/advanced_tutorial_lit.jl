@@ -35,6 +35,7 @@ using FFTW
 
 import ForwardDiff, Zygote
 using AutoDiffOperators
+using LinearSolve: 
 
 context = MGVIContext(ADSelector(Zygote))
 
@@ -380,7 +381,7 @@ function produce_posterior_samples(p, num_residuals)
     end
 
     est_res_sampler = MGVI.ResidualSampler(
-        model, p, MGVI.IterativeSolversCG((abstol=1E-2,)), context
+        model, p, KrylovJL_CG((atol=1E-2,)), context
     )
     batches = []
     for _ in 1:(num_residuals ÷ batch_size ÷ 2)
@@ -485,7 +486,7 @@ plot_kernel_mgvi_samples(produce_posterior_samples(starting_point, 6), 20)
 first_iteration = mgvi_optimize_step(
     model, data, starting_point, context;
     num_residuals = 3,
-    linear_solver = MGVI.IterativeSolversCG((;maxiter=10)),
+    linear_solver = KrylovJL_CG((;itmax=10)),
     optim_solver = MGVI.NewtonCG()
 );
 
@@ -547,7 +548,7 @@ for i in 1:30
     tmp_iteration = mgvi_optimize_step(
         model, data, next_iteration.result, context;
         num_residuals = 3,
-        linear_solver = MGVI.IterativeSolversCG((;abstol=1E-2,verbose=false)),
+        linear_solver = KrylovJL_CG((;atol=1E-2,verbose=false)),
         optim_solver = MGVI.NewtonCG()
     )
     global next_iteration = tmp_iteration
