@@ -215,6 +215,10 @@ end
 
 plot()
 plot_kernel_model(starting_point, 20)
+#jl savefig("advtut-plot1.pdf")
+#md savefig("advtut-plot1.pdf")
+#md savefig("advtut-plot1.svg"); nothing # hide
+#md # [![Plot](advtut-plot1.svg)](advtut-plot1.pdf)
 
 # To make it even more visual, we also plot the structure of the covariance matrix as a heatmap.
 # We see that the finite correlation length shows up as a band around the diagonal. We also
@@ -229,7 +233,9 @@ end
 
 plot()
 plot_kernel_matrix(starting_point)
-#jl png(joinpath(@__DIR__, "plots/gp-covariance-matrix.png"))
+#jl savefig("advtut-plot2.png")
+#md savefig("advtut-plot2.png")
+#md # [![Plot](advtut-plot2.png)](advtut-plot2.png)
 
 # After we defined the square root of the kernel function (`sqrt_kernel`),
 # we just follow the regular procedure of sampling from the normal distribution.
@@ -416,7 +422,9 @@ plot()
 plot_data(;scatter_args=(;alpha=0.7))
 plot_prior_samples(200, mean_plot_args=(;alpha=0.5))
 plot!(ylim=[0, 8])
-#jl png(joinpath(@__DIR__, "plots/poisson-dynamic-range.png"))
+#jl savefig("advtut-plot3.png")
+#md savefig("advtut-plot3.png")
+#md # [![Plot](advtut-plot3.png)](advtut-plot3.png)
 
 # We also plot prior samples for the kernel in the coordinate space. The plot below
 # shows that the kernel is flexible in the amplitude while the correlation length
@@ -424,7 +432,10 @@ plot!(ylim=[0, 8])
 
 plot()
 plot_kernel_prior_samples(200, 20)
-#jl png(joinpath(@__DIR__, "plots/gp-kernel-dynamic-range.png"))
+#jl savefig("advtut-plot4.pdf")
+#md savefig("advtut-plot4.pdf")
+#md savefig("advtut-plot4.svg"); nothing # hide
+#md # [![Plot](advtut-plot4.svg)](advtut-plot4.pdf)
 
 # Now that we see that the Gaussian process is potentially able to fit the data,
 # we plot the initial guess (`starting_point`) to see where we should start from.
@@ -438,7 +449,10 @@ plot()
 plot_data()
 plot_mean(starting_point, "starting point"; plot_args=(;color=:darkorange2))
 plot_mgvi_samples(produce_posterior_samples(starting_point, 6))
-#jl png(joinpath(@__DIR__, "plots/res-starting-point.png"))
+#jl savefig("advtut-plot5.pdf")
+#md savefig("advtut-plot5.pdf")
+#md savefig("advtut-plot5.svg"); nothing # hide
+#md # [![Plot](advtut-plot5.svg)](advtut-plot5.pdf)
 
 # We also want to introduce the `full` plot that shows not only the data region,
 # but includes the region with the padding we added with `GP_PADDING`. We will use
@@ -449,6 +463,10 @@ plot()
 plot_data()
 plot_mean(starting_point, "full gp"; full=true, plot_args=(;color=:pink))
 plot_mean(starting_point, "starting point"; plot_args=(;color=:darkorange2))
+#jl savefig("advtut-plot6.pdf")
+#md savefig("advtut-plot6.pdf")
+#md savefig("advtut-plot6.svg"); nothing # hide
+#md # [![Plot](advtut-plot6.svg)](advtut-plot6.pdf)
 
 # Below we also plot the kernel and MGVI samples that represent
 # the possible variation of the kernel shape around the mean:
@@ -456,7 +474,10 @@ plot_mean(starting_point, "starting point"; plot_args=(;color=:darkorange2))
 plot()
 plot_kernel_model(starting_point, 20; plot_args=(;label="kernel model"))
 plot_kernel_mgvi_samples(produce_posterior_samples(starting_point, 6), 20)
-#jl png(joinpath(@__DIR__, "plots/kernel-starting-point.png"))
+#jl savefig("advtut-plot7.pdf")
+#md savefig("advtut-plot7.pdf")
+#md savefig("advtut-plot7.svg"); nothing # hide
+#md # [![Plot](advtut-plot7.svg)](advtut-plot7.pdf)
 
 # Let's make a first iteration of the MGVI. For purposes of displaying the convergence curve, we limit `Optim.option` to 1 iteration so that
 # MGVI will coverge more slowly.
@@ -475,11 +496,20 @@ plot()
 plot_data()
 plot_mean(first_iteration.result, "first iteration"; plot_args=(;color=:darkorange2))
 plot_mgvi_samples(first_iteration.samples)
+#jl savefig("advtut-plot8.pdf")
+#md savefig("advtut-plot8.pdf")
+#md savefig("advtut-plot8.svg"); nothing # hide
+#md # [![Plot](advtut-plot8.svg)](advtut-plot8.pdf)
+
 #-
 plot()
 plot_data()
 plot_mean(first_iteration.result, "full gp"; full=true, plot_args=(;color=:pink))
 plot_mean(first_iteration.result, "first iteration"; plot_args=(;color=:darkorange2))
+#jl savefig("advtut-plot9.pdf")
+#md savefig("advtut-plot9.pdf")
+#md savefig("advtut-plot9.svg"); nothing # hide
+#md # [![Plot](advtut-plot9.svg)](advtut-plot9.pdf)
 
 # Kernel and its MGVI samples changed significantly
 # in comparison to the `starting_point` even after the first iteration:
@@ -487,6 +517,10 @@ plot_mean(first_iteration.result, "first iteration"; plot_args=(;color=:darkoran
 plot()
 plot_kernel_model(first_iteration.result, 20; plot_args=(;label="kernel model"))
 plot_kernel_mgvi_samples(first_iteration.samples, 20)
+#jl savefig("advtut-plot10.pdf")
+#md savefig("advtut-plot10.pdf")
+#md savefig("advtut-plot10.svg"); nothing # hide
+#md # [![Plot](advtut-plot10.svg)](advtut-plot10.pdf)
 
 # In order to visualize convergence we prepare a few functions to compute,
 # store and plot the average posterior likelihood of.
@@ -525,7 +559,10 @@ end;
 
 plot(yscale=:log)
 show_avg_likelihood(avg_likelihood_series)
-#jl png(joinpath(@__DIR__, "plots/convergence.png"))
+#jl savefig("advtut-plot11.pdf")
+#md savefig("advtut-plot11.pdf")
+#md savefig("advtut-plot11.svg"); nothing # hide
+#md # [![Plot](advtut-plot11.svg)](advtut-plot11.pdf)
 
 # Below we plot the result of the fit. Together with the data and Poisson rate, we also plot
 # MGVI residuals. These are samples from the Gaussian posterior, sampled with respect to the posterior's
@@ -536,7 +573,10 @@ plot(ylim=[0,8])
 plot_data()
 plot_mgvi_samples(next_iteration.samples)
 plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
-#jl png(joinpath(@__DIR__, "plots/res-many-iter.png"))
+#jl savefig("advtut-plot12.pdf")
+#md savefig("advtut-plot12.pdf")
+#md savefig("advtut-plot12.svg"); nothing # hide
+#md # [![Plot](advtut-plot12.svg)](advtut-plot12.pdf)
 
 # To present credibility intervals we also plot credibility bands. We sample 400 residual samples
 # from MGVI and then plot quantiles for each data bin. This should give us a feeling of how compatible
@@ -546,8 +586,10 @@ plot(ylim=[0,8])
 plot_posterior_bands(next_iteration.result, 400)
 plot_data()
 plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
-#jl png(joinpath(@__DIR__, "plots/res-bands.png"))
-
+#jl savefig("advtut-plot13.pdf")
+#md savefig("advtut-plot13.pdf")
+#md savefig("advtut-plot13.svg"); nothing # hide
+#md # [![Plot](advtut-plot13.svg)](advtut-plot13.pdf)
 # We also make sure boundary conditions do not interfere with the data. Here is the Gaussian process
 # plot with the paddings included:
 
@@ -555,6 +597,10 @@ plot()
 plot_data()
 plot_mean(next_iteration.result; full=true, plot_args=(;color=:pink))
 plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
+#jl savefig("advtut-plot14.pdf")
+#md savefig("advtut-plot14.pdf")
+#md savefig("advtut-plot14.svg"); nothing # hide
+#md # [![Plot](advtut-plot14.svg)](advtut-plot14.pdf)
 
 # Let's have a look at the kernel again. We expect the variation of samples
 # to become narrower:
@@ -562,7 +608,10 @@ plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorang
 plot()
 plot_kernel_model(next_iteration.result, 20; plot_args=(;label="kernel model"))
 plot_kernel_mgvi_samples(next_iteration.samples, 20)
-#jl png(joinpath(@__DIR__, "plots/kernel-many-iter.png"))
+#jl savefig("advtut-plot15.pdf")
+#md savefig("advtut-plot15.pdf")
+#md savefig("advtut-plot15.svg"); nothing # hide
+#md # [![Plot](advtut-plot15.svg)](advtut-plot15.pdf)
 
 # ## Maximum a posteriori estimation
 
@@ -578,7 +627,10 @@ plot()
 plot_data()
 plot_mean(next_iteration.result, "mgvi mean"; plot_args=(;color=:darkorange2))
 plot_mean(Optim.minimizer(max_posterior), "map")
-#jl png(joinpath(@__DIR__, "plots/map.png"))
+#jl savefig("advtut-plot16.pdf")
+#md savefig("advtut-plot16.pdf")
+#md savefig("advtut-plot16.svg"); nothing # hide
+#md # [![Plot](advtut-plot16.svg)](advtut-plot16.pdf)
 
 # We also can see the difference at the left edge of the data region. While MGVI smoothed the data,
 # the MAP predicted a consequent peak:
@@ -587,3 +639,7 @@ plot()
 plot_data()
 plot_mean(Optim.minimizer(max_posterior), "full gp"; full=true, plot_args=(;color=:darkorange2))
 plot_mean(next_iteration.result, "mgvi full gp"; full=true)
+#jl savefig("advtut-plot17.pdf")
+#md savefig("advtut-plot17.pdf")
+#md savefig("advtut-plot17.svg"); nothing # hide
+#md # [![Plot](advtut-plot17.svg)](advtut-plot17.pdf)

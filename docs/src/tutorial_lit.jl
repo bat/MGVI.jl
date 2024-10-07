@@ -58,7 +58,6 @@ function pprintln(obj)
 end;
 #-
 using Plots
-gr(size=(400, 300), dpi=700, fmt=:png)
 #-
 rng = MersenneTwister(157);
 
@@ -82,6 +81,11 @@ end;
 
 p = plot()
 init_plots()
+#jl savefig("tutorial-plot1.pdf")
+#md savefig("tutorial-plot1.pdf")
+#md savefig("tutorial-plot1.svg"); nothing # hide
+#md # [![Plot](tutorial-plot1.svg)](tutorial-plot1.pdf)
+
 
 # Now we are ready to run one iteration of the MGVI.
 # The output contains an updated parameter estimate (`first_iteration.result`),
@@ -94,6 +98,10 @@ first_iteration = mgvi_optimize_step(
 )
 @info hcat(first_iteration.result, true_params)
 p
+#jl savefig("tutorial-plot2.pdf")
+#md savefig("tutorial-plot2.pdf")
+#md savefig("tutorial-plot2.svg"); nothing # hide
+#md # [![Plot](tutorial-plot2.svg)](tutorial-plot2.pdf)
 #-
 plot_iteration = (params, label) -> let
     #error_mat = mgvi_kl_errors(full_model, params)
@@ -113,6 +121,10 @@ p = plot()
 init_plots()
 plot_iteration(first_iteration, "first")
 p
+#jl savefig("tutorial-3.pdf")
+#md savefig("tutorial-3.pdf")
+#md savefig("tutorial-3.svg"); nothing # hide
+#md # [![Plot](tutorial-3.svg)](tutorial-3.pdf)
 #-
 plot_iteration_light = (params, counter) -> let
     scatter!(_common_grid, _mean(params.result), markercolor=:green, markersize=3, markeralpha=2*atan(counter/18)/π, label=nothing)
@@ -136,6 +148,10 @@ end
 @info minimum(next_iteration.optimized)
 @info hcat(next_iteration.result, true_params)
 plt
+#jl savefig("tutorial-plot4.pdf")
+#md savefig("tutorial-plot4.pdf")
+#md savefig("tutorial-plot4.svg"); nothing # hide
+#md # [![Plot](tutorial-plot4.svg)](tutorial-plot4.pdf)
 
 # Finally, let's plot the last estimate and compare it to the truth. Also, notice, that gray dots represent samples from
 # the approximation.
@@ -144,3 +160,7 @@ p = plot()
 init_plots()
 plot_iteration(next_iteration, "last")
 p
+#jl savefig("tutorial-5.pdf")
+#md savefig("tutorial-5.pdf")
+#md savefig("tutorial-5.svg"); nothing # hide
+#md # [![Plot](tutorial-5.svg)](tutorial-5.pdf)
