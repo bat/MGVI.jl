@@ -10,36 +10,18 @@ end
 
 
 """
-    abstract type LinearSolverAlg
-
-Abstract supertype for linear solver algorithms.
-"""
-abstract type LinearSolverAlg end
-
-
-"""
-    struct MatrixInversion <: LinearSolverAlg
-
+    struct MatrixInversion
 Solve linear systems by direct matrix inversion.
 
 Note: Will instantiate implicit matrices/operators in memory explicitly.
 """
-struct MatrixInversion <: LinearSolverAlg end
-
+struct MatrixInversion end
 
 
 """
-    struct IterativeSolversCG <: LinearSolverAlg
-
-Solve linear systems using `IterativeSolvers.gc`.
+    LinearSolverLike = Union{LinearSolve.SciMLLinearSolveAlgorithm,MGVI.MatrixInversion}
 """
-
-struct IterativeSolversCG{OPTS<:NamedTuple} <: LinearSolverAlg
-    cgopts::OPTS
-end
-
-IterativeSolversCG() = IterativeSolversCG(NamedTuple())
-
+const LinearSolverLike = Union{LinearSolve.SciMLLinearSolveAlgorithm,MatrixInversion}
 
 
 """
@@ -57,16 +39,16 @@ are provided as arguments.
 Constructor:
 
 ```julia
-ResidualSampler(f_model::Function, center_point::Vector{<:Real}, solver::MGVI.LinearSolverAlg, context::MGVIContext)
+ResidualSampler(f_model::Function, center_point::Vector{<:Real}, solver::MGVI.LinearSolverLike, context::MGVIContext)
 ```
 
 Call `MGVI.sample_residuals(s::ResidualSampler[, n::Integer])` to generate a
 single or `n` samples.
 """
-struct ResidualSampler{F,RV<:AbstractVector{<:Real},SLV<:LinearSolverAlg,OPL<:LinearMap,OPJ<:LinearMap,CTX<:MGVIContext}
+struct ResidualSampler{F,RV<:AbstractVector{<:Real},SLV<:LinearSolverLike,OPL<:LinearMap,OPJ<:LinearMap,CTX<:MGVIContext}
     f_model::F
     center_point::RV
-    solver::SLV
+    linear_solver::SLV
     λ_information::OPL
     jac_dλ_dθ::OPJ
     context::CTX
@@ -77,10 +59,10 @@ export ResidualSampler
 _get_operator_type(::MatrixInversion) = Matrix
 _get_operator_type(::IterativeSolversCG) = LinearMap
 
-function ResidualSampler(f_model::Function, center_point::Vector{<:Real}, solver::LinearSolverAlg, context::MGVIContext)
+function ResidualSampler(f_model::Function, center_point::Vector{<:Real}, linear_solver::LinearSolverLike, context::MGVIContext)
     OP = _get_operator_type(solver)
     ℐ_λ, dλ_dξ = _fisher_information_and_jac(f_model, center_point, OP, context)
-    ResidualSampler(f_model, center_point, solver, convert(LinearMap, ℐ_λ), convert(LinearMap, dλ_dξ), context)
+    ResidualSampler(f_model, center_point, linear_solver, convert(LinearMap, ℐ_λ), convert(LinearMap, dλ_dξ), context)
 end
 
 
@@ -109,7 +91,7 @@ function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:Ma
 end
 
 
-function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:IterativeSolversCG})
+function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real}})
     genctx = s.context.gen
 
     ℐ_λ = s.λ_information
@@ -121,5 +103,8 @@ function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:It
     sample_n = randn(genctx, n_λ)
     sample_eta = randn(genctx, n_θ)
     Δφ = dλ_dθ' * (cholesky_L(ℐ_λ) * sample_n) + sample_eta
-    IterativeSolvers.cg(Σ⁻¹_θ_est, Δφ; s.solver.cgopts...)  # Δξ
+
+    prob = LinearProblem{isinplace}(Σ⁻¹_θ_est, Δφ)
+    sol = solve(prob, s.linear_solver)
+    return sol.u # Δξ
 end

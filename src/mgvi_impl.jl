@@ -40,7 +40,7 @@ normal distribution of the same dimensionality as `init_param_point`.
 
 ```julia
 using Random, Distributions, MGVI
-import Zygote
+import LinearSolve, Zygote
 
 context = MGVIContext(ADSelector(Zygote))
 
@@ -52,7 +52,7 @@ init_param = [1.3]
 res = mgvi_optimize_step(
     model, data, init_param, context;
     num_residuals = 5,
-    linear_solver = MGVI.IterativeSolversCG(),
+    linear_solver = LinearSolve.KrylovJL_CG(),
     optim_solver = MGVI.NewtonCG(),
 )
 

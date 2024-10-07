@@ -22,7 +22,6 @@ using FillArrays
 using HeterogeneousComputing: GenContext, allocate_array
 using LineSearches
 using LinearMaps
-using IterativeSolvers
 using Parameters
 using PDMats
 using PositiveFactorizations
@@ -31,6 +30,9 @@ using SparseArrays
 using StaticArrays
 using ValueShapes
 using DocStringExtensions
+
+import SciMLBase
+import LinearSolve
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, ProjectTo, AbstractThunk, unthunk
 import Statistics: mean

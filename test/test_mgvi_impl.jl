@@ -5,7 +5,7 @@ using MGVI
 
 using Random
 using AutoDiffOperators
-import Zygote
+import LinearSolve, Zygote
 
 if !isdefined(Main, :ModelPolyfit)
     include("test_models/model_polyfit.jl")
@@ -24,12 +24,12 @@ Test.@testset "test_mgvi_optimize_step" begin
 
     first_iteration = mgvi_optimize_step(
         model, data, starting_point, context;
-        linear_solver = MGVI.IterativeSolversCG()
+        linear_solver = LinearSolve.KrylovJL_CG()
     )
 
     next_iteration = first_iteration
     next_iteration = mgvi_optimize_step(
         model, data, next_iteration.result, context;
-        linear_solver = MGVI.IterativeSolversCG()
+        linear_solver = LinearSolve.KrylovJL_CG()
     )
 end
