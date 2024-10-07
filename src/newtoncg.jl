@@ -31,7 +31,7 @@ $(TYPEDFIELDS)
 end
 
 
-mutable struct NewtonCGResults{O, Tx, Tf, M} <: Optim.OptimizationResults
+mutable struct NewtonCGResults{O, Tx, Tf, M}
     method::O
     initial_x::Tx
     minimizer::Tx
@@ -82,8 +82,10 @@ function (F::EvalCount)(x::AbstractVector)
     F.f(x)
 end
 
-function _optimize(f::Function, ∇f!::Function, Σ̅⁻¹::Function, 
-        x₀::AbstractVector, optimizer::NewtonCG, optim_options)
+function _optimize(
+    f::Function, adsel::ADSelector, Σ̅⁻¹::Function, 
+    x₀::AbstractVector, optimizer::NewtonCG, optimization_opts::NamedTuple
+)
     # fetch parameters from optimizer struct
     α = optimizer.α
     steps = optimizer.steps
@@ -95,13 +97,13 @@ function _optimize(f::Function, ∇f!::Function, Σ̅⁻¹::Function,
     f_history=Float64[]
 
     # gradient function of f
-    ∇f(x) = ∇f!(similar(x), x)
+    ∇f = gradient_func(f, adsel)
 
-    f = EvalCount(f)
-    ∇f = EvalCount(∇f)
+    f_counted = EvalCount(f)
+    ∇f_counted = EvalCount(∇f)
     
     # value of f before any optimization steps
-    f⁰ = fⁿ⁻¹ = f(x₀)
+    f⁰ = fⁿ⁻¹ = f_counted(x₀)
     push!(f_history, f⁰)
     push!(cg_iterations, i₀)
 
@@ -110,7 +112,7 @@ function _optimize(f::Function, ∇f!::Function, Σ̅⁻¹::Function,
     for n in 1:steps
         # preallocate/reset vector of descent
         Δx = zero(xₙ)
-        ∇f_at_xₙ = ∇f(xₙ)
+        ∇f_at_xₙ = ∇f_counted(xₙ)
 
         # initialize cg_iterator with our mean fisher metric as the
         # hessian and our gradient of f at xₙ as our gradient
@@ -128,7 +130,7 @@ function _optimize(f::Function, ∇f!::Function, Σ̅⁻¹::Function,
             # do at most i₁ cg iterations or move on if our improvement
             # is below α*100 percent of our previous NewtonCG step
             for (k, residual) in enumerate(cgiterator)
-                fᵏ = f(xₙ - Δx)
+                fᵏ = f_counted(xₙ - Δx)
                 if k >= i₁ || abs(fᵏ - fᵏ⁻¹) < α*Δfⁿ
                     push!(cg_iterations, k)
                     break
@@ -137,14 +139,14 @@ function _optimize(f::Function, ∇f!::Function, Σ̅⁻¹::Function,
             end
         end
         # finish NewtonCG step with line search in -Δx direction
-        β, fⁿ = ls(linesearch_args(f, ∇f, xₙ, -Δx, fⁿ⁻¹, ∇f_at_xₙ)...)
+        β, fⁿ = ls(linesearch_args(f_counted, ∇f_counted, xₙ, -Δx, fⁿ⁻¹, ∇f_at_xₙ)...)
         xₙ -= β*Δx
         Δfⁿ = abs(fⁿ - fⁿ⁻¹)
         fⁿ⁻¹ = fⁿ
         push!(f_history, fⁿ)
     end
     trace = (f_history=f_history, cg_iterations=cg_iterations)
-    NewtonCGResults{typeof(optimizer), typeof(x₀), typeof(f⁰), typeof(trace)}(
+    res = NewtonCGResults{typeof(optimizer), typeof(x₀), typeof(f⁰), typeof(trace)}(
         optimizer,
         x₀,
         xₙ,
@@ -152,15 +154,14 @@ function _optimize(f::Function, ∇f!::Function, Σ̅⁻¹::Function,
         fⁿ,
         steps,
         trace,
-        f.counter[],
-        ∇f.counter[],
+        f_counted.counter[],
+        ∇f_counted.counter[],
         sum(cg_iterations),
         abs(fⁿ - f⁰)
     )
-end
 
-function _optimize(f::Function, ∇f!::Function, curvature::Function, 
-        x₀::AbstractVector, optimizer::Optim.AbstractOptimizer, 
-        optim_options::Optim.Options)
-    optimize(f, ∇f!, x₀, optimizer, optim_options)
+    x_res = oftype(x₀, xₙ)
+    f_x_res = fⁿ
+    #@assert f_x_res == f(x_res)
+    return x_res, f_x_res, res
 end

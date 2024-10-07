@@ -10,9 +10,10 @@ using Distributions
 using Random
 using ValueShapes
 using LinearAlgebra
-using Optim
-using AutoDiffOperators
+
 import Zygote
+using AutoDiffOperators
+using LinearSolve: KrylovJL_CG
 
 # We want to fit a 3-degree polynomial using two data sets (`a` and `b`). MGVI requires a model
 # expressed as a function of the model parameters and returning an instance of the Distribution.
@@ -91,65 +92,65 @@ init_plots()
 
 
 # Now we are ready to run one iteration of the MGVI.
-# The output contains an updated parameter estimate (`first_iteration.result`),
+# The output contains an updated parameter estimate (`center_point`),
 # which we can compare to the true parameters.
 
-first_iteration = mgvi_optimize_step(
-    model, data, starting_point, context;
-    linear_solver=MGVI.IterativeSolversCG((;maxiter=10)),
-    optim_options=Optim.Options(iterations=10, show_trace=true),
+config = MGVIConfig(
+    linsolver = KrylovJL_CG((;itmax=10)),
+    optimizer = MGVI.NewtonCG()
 )
-@info hcat(first_iteration.result, true_params)
+result, center_point = mgvi_step(model, data, 3, starting_point, config, context)
+@info hcat(center_point, true_params)
 p
 #jl savefig("tutorial-plot2.pdf")
 #md savefig("tutorial-plot2.pdf")
 #md savefig("tutorial-plot2.svg"); nothing # hide
 #md # [![Plot](tutorial-plot2.svg)](tutorial-plot2.pdf)
 #-
-plot_iteration = (params, label) -> let
+plot_iteration = (result, center_point, label) -> let
     #error_mat = mgvi_kl_errors(full_model, params)
     #display(error_mat)
     #errors = sqrt.(error_mat[diagind(error_mat)])
     #yerr = abs.(line(common_grid, params+errors) - line(common_grid, params-errors))
     #scatter!(common_grid, line(common_grid, params), markercolor=:green, label=label, yerr=yerr)
-    for sample in eachcol(params.samples)
+    for sample in eachcol(result.samples)
         scatter!(_common_grid, _mean(Vector(sample)), markercolor=:gray, markeralpha=0.3, markersize=2, label=nothing)
     end
-    scatter!(_common_grid, _mean(params.result), markercolor=:green, label=label)
+    scatter!(_common_grid, _mean(center_point), markercolor=:green, label=label)
 end;
 
 # Now let's also plot the curve corresponding to the new parameters after the first iteration:
 
 p = plot()
 init_plots()
-plot_iteration(first_iteration, "first")
+plot_iteration(result, center_point, "first")
 p
 #jl savefig("tutorial-3.pdf")
 #md savefig("tutorial-3.pdf")
 #md savefig("tutorial-3.svg"); nothing # hide
 #md # [![Plot](tutorial-3.svg)](tutorial-3.pdf)
 #-
-plot_iteration_light = (params, counter) -> let
-    scatter!(_common_grid, _mean(params.result), markercolor=:green, markersize=3, markeralpha=2*atan(counter/18)/π, label=nothing)
+plot_iteration_light = (center_point, counter) -> let
+    scatter!(_common_grid, _mean(center_point), markercolor=:green, markersize=3, markeralpha=2*atan(counter/18)/π, label=nothing)
 end;
 
 # From the plot above we see that one iteration is not enough. Let's do 5 more steps and plot the evolution of estimates.
 
+config = MGVIConfig(
+    linsolver = KrylovJL_CG((;itmax=10)),
+    optimizer = MGVI.NewtonCG()
+)
+
 init_plots()
 plt = scatter()
-next_iteration = first_iteration
 for i in 1:5
-    @info minimum(next_iteration.optimized)
-    @info hcat(next_iteration.result, true_params)
-    global next_iteration = mgvi_optimize_step(
-        model, data, next_iteration.result, context;
-        linear_solver=MGVI.IterativeSolversCG((;maxiter=10)),
-        optim_options=Optim.Options(iterations=10, show_trace=true)
-    )
-    plot_iteration_light(next_iteration, i)
+    @info result.mnlp
+    @info hcat(center_point, true_params)
+    global result, center_point = mgvi_step(model, data, 10, center_point, config, context)
+    plot_iteration_light(center_point, i)
 end
-@info minimum(next_iteration.optimized)
-@info hcat(next_iteration.result, true_params)
+@info minimum(result.mnlp)
+@info hcat(center_point, true_params)
 plt
 #jl savefig("tutorial-plot4.pdf")
 #md savefig("tutorial-plot4.pdf")
@@ -161,7 +162,7 @@ plt
 
 p = plot()
 init_plots()
-plot_iteration(next_iteration, "last")
+plot_iteration(result, center_point, "last")
 p
 #jl savefig("tutorial-5.pdf")
 #md savefig("tutorial-5.pdf")

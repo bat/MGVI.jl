@@ -9,21 +9,22 @@ An implementation of the Metric Gaussian Variational Inference algorithm.
 """
 module MGVI
 
-import AutoDiffOperators: ADSelector, with_jacobian, gradient!_func
+using AffineMaps: MulAdd
+using AutoDiffOperators: ADSelector, with_jacobian, gradient!_func, gradient_func
 import ChainRulesCore
 using Distributed
 using LinearAlgebra
 using Random
 using SparseArrays
 using Base.Iterators
+using DensityInterface
 using Distributions
 using DistributionsAD
 using FillArrays
 using HeterogeneousComputing: GenContext, allocate_array
+using IrrationalConstants: log2π
 using LineSearches
 using LinearMaps
-using IterativeSolvers
-using Optim
 using Parameters
 using PDMats
 using PositiveFactorizations
@@ -33,8 +34,13 @@ using StaticArrays
 using ValueShapes
 using DocStringExtensions
 
+import LinearSolve
+using LinearSolve: solve, LinearProblem, KrylovJL_CG
+
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, ProjectTo, AbstractThunk, unthunk
 import Statistics: mean
+
+using IterativeSolvers: cg_iterator!
 
 include("util.jl")
 include("mgvi_context.jl")
