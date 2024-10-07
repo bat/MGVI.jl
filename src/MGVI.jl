@@ -23,7 +23,6 @@ using HeterogeneousComputing: GenContext, allocate_array
 using LineSearches
 using LinearMaps
 using IterativeSolvers
-using Optim
 using Parameters
 using PDMats
 using PositiveFactorizations

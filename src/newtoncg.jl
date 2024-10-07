@@ -31,7 +31,7 @@ $(TYPEDFIELDS)
 end
 
 
-mutable struct NewtonCGResults{O, Tx, Tf, M} <: Optim.OptimizationResults
+mutable struct NewtonCGResults{O, Tx, Tf, M}
     method::O
     initial_x::Tx
     minimizer::Tx

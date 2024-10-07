@@ -25,6 +25,10 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 
+[weakdeps]
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
+
 [compat]
 AutoDiffOperators = "0.2"
 ChainRulesCore = "0.9.44, 0.10, 1"
@@ -39,6 +43,7 @@ LinearAlgebra = "1"
 LinearMaps = "3"
 LineSearches = "7"
 Optim = "1"
+Optimization = "3, 4"
 Parameters = "0.12, 0.13"
 PDMats = "0.11.5"
 PositiveFactorizations = "0.2"
