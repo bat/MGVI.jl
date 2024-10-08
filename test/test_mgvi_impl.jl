@@ -6,6 +6,7 @@ using MGVI
 using Random
 using AutoDiffOperators
 import LinearSolve, Zygote
+import Optimization, OptimizationOptimJL
 
 if !isdefined(Main, :ModelPolyfit)
     include("test_models/model_polyfit.jl")
@@ -26,10 +27,23 @@ Test.@testset "test_mgvi_optimize_step" begin
         model, data, starting_point, context;
         linear_solver = LinearSolve.KrylovJL_CG()
     )
-
     next_iteration = first_iteration
+
     next_iteration = mgvi_optimize_step(
         model, data, next_iteration.result, context;
-        linear_solver = LinearSolve.KrylovJL_CG()
+        linear_solver = LinearSolve.KrylovJL_CG(),
+        optim_solver = MGVI.NewtonCG()
+    )
+
+    next_iteration = mgvi_optimize_step(
+        model, data, next_iteration.result, context;
+        linear_solver = LinearSolve.KrylovJL_CG(),
+        optim_solver = Optimization.LFBGS()
+    )
+
+    next_iteration = mgvi_optimize_step(
+        model, data, next_iteration.result, context;
+        linear_solver = LinearSolve.KrylovJL_CG(),
+        optim_solver = Optim.LFBGS()
     )
 end
