@@ -21,8 +21,8 @@ end
         forward_model::Function, data, init_param_point::AbstractVector{<:Real}, context::MGVIContext;
         num_residuals::Integer = 3,
         lcenter_pointinear_solver::LinearSolverAlg = KrylovJL_CG(),
-        optim_solver::Union{Optim.AbstractOptimizer,MGVI.NewtonCG} = MGVI.NewtonCG(),
-        optim_options::Union{Optim.Options, Nothing} = Optim.Options(),
+        optim_solver = MGVI.NewtonCG(),
+        optim_options::NamedTuple = Optim.Options(),
     )
 
 Performs one MGVI iteration.
@@ -71,7 +71,7 @@ function mgvi_optimize_step(
     forward_model::Function, data, init_point::AbstractVector{<:Real}, context::MGVIContext;
     num_residuals::Integer = 3,
     linear_solver::LinearSolverLike = KrylovJL_CG(),
-    optim_solver::Union{Optim.AbstractOptimizer,NewtonCG} = MGVI.NewtonCG(),
+    optim_solver::Any = MGVI.NewtonCG(),
     optim_options::NamedTuple = (;)
 )
     res_sampler = ResidualSampler(forward_model, init_point, linear_solver, context)

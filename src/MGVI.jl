@@ -31,8 +31,8 @@ using StaticArrays
 using ValueShapes
 using DocStringExtensions
 
-import SciMLBase
 import LinearSolve
+using LinearSolve: solve, LinearProblem
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, ProjectTo, AbstractThunk, unthunk
 import Statistics: mean

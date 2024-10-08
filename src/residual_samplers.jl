@@ -56,11 +56,11 @@ end
 export ResidualSampler
 
 
-_get_operator_type(::MatrixInversion) = Matrix
-_get_operator_type(::IterativeSolversCG) = LinearMap
+@inline _get_operator_type(::MatrixInversion) = Matrix
+@inline _get_operator_type(::LinearSolve.SciMLLinearSolveAlgorithm) = LinearMap
 
 function ResidualSampler(f_model::Function, center_point::Vector{<:Real}, linear_solver::LinearSolverLike, context::MGVIContext)
-    OP = _get_operator_type(solver)
+    OP = _get_operator_type(linear_solver)
     ℐ_λ, dλ_dξ = _fisher_information_and_jac(f_model, center_point, OP, context)
     ResidualSampler(f_model, center_point, linear_solver, convert(LinearMap, ℐ_λ), convert(LinearMap, dλ_dξ), context)
 end
@@ -104,7 +104,7 @@ function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real}})
     sample_eta = randn(genctx, n_θ)
     Δφ = dλ_dθ' * (cholesky_L(ℐ_λ) * sample_n) + sample_eta
 
-    prob = LinearProblem{isinplace}(Σ⁻¹_θ_est, Δφ)
+    prob = LinearProblem{false}(Σ⁻¹_θ_est, Δφ)
     sol = solve(prob, s.linear_solver)
     return sol.u # Δξ
 end
