@@ -12,11 +12,9 @@ struct _OptimizationTargetFunc{F} <: Function
     f::F
 end
 
-_OptimizationTargetFunc(f::F) where F = _OptimizationTargetFunc{F}(f)
 _OptimizationTargetFunc(::Type{F}) where F = _OptimizationTargetFunc{Type{F}}(F)
 
 (ft::_OptimizationTargetFunc)(x, p) = ft.f(x)
-
 
 function MGVI._optimize(f::Function, adsel::ADSelector, curvature::Function, 
     x₀::AbstractVector, optimizer, optim_options::NamedTuple

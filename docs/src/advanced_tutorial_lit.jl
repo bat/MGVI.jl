@@ -480,14 +480,14 @@ plot_kernel_mgvi_samples(produce_posterior_samples(starting_point, 6), 20)
 #md savefig("advtut-plot7.svg"); nothing # hide
 #md # [![Plot](advtut-plot7.svg)](advtut-plot7.pdf)
 
-# Let's make a first iteration of the MGVI. For purposes of displaying the convergence curve, we limit `Optim.option` to 1 iteration so that
+# Let's make a first iteration of the MGVI. For purposes of displaying the convergence curve, we limit the optimization to 1 step so that
 # MGVI will coverge more slowly.
 
 first_iteration = mgvi_optimize_step(
     model, data, starting_point, context;
     num_residuals = 3,
     linear_solver = KrylovJL_CG((;itmax=10)),
-    optim_solver = MGVI.NewtonCG()
+    optim_solver = MGVI.NewtonCG(steps = 1)
 );
 
 # We again plot data and the Poisson rate. We again show the Gaussian process with padding.

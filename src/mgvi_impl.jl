@@ -70,8 +70,8 @@ export mgvi_optimize_step
 function mgvi_optimize_step(
     forward_model::Function, data, init_point::AbstractVector{<:Real}, context::MGVIContext;
     num_residuals::Integer = 3,
-    linear_solver::LinearSolverLike = KrylovJL_CG(),
-    optim_solver::Any = MGVI.NewtonCG(),
+    linear_solver = KrylovJL_CG(),
+    optim_solver = MGVI.NewtonCG(),
     optim_options::NamedTuple = (;)
 )
     res_sampler = ResidualSampler(forward_model, init_point, linear_solver, context)

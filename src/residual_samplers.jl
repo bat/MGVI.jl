@@ -19,12 +19,6 @@ struct MatrixInversion end
 
 
 """
-    LinearSolverLike = Union{LinearSolve.SciMLLinearSolveAlgorithm,MGVI.MatrixInversion}
-"""
-const LinearSolverLike = Union{LinearSolve.SciMLLinearSolveAlgorithm,MatrixInversion}
-
-
-"""
     struct ResidualSampler
 
 Generates zero-centered samples from the posterior's covariance approximated
@@ -39,13 +33,16 @@ are provided as arguments.
 Constructor:
 
 ```julia
-ResidualSampler(f_model::Function, center_point::Vector{<:Real}, solver::MGVI.LinearSolverLike, context::MGVIContext)
+ResidualSampler(f_model::Function, center_point::Vector{<:Real}, linear_solver, context::MGVIContext)
 ```
+
+linear_solver must be a solver supported by [`LinearSolve`](https://github.com/SciML/LinearSolve.jl) or
+[`MGVI.MatrixInversion`](@ref). Use `MatrixInversion` only for low-dimensional problems.
 
 Call `MGVI.sample_residuals(s::ResidualSampler[, n::Integer])` to generate a
 single or `n` samples.
 """
-struct ResidualSampler{F,RV<:AbstractVector{<:Real},SLV<:LinearSolverLike,OPL<:LinearMap,OPJ<:LinearMap,CTX<:MGVIContext}
+struct ResidualSampler{F,RV<:AbstractVector{<:Real},SLV,OPL<:LinearMap,OPJ<:LinearMap,CTX<:MGVIContext}
     f_model::F
     center_point::RV
     linear_solver::SLV
@@ -57,9 +54,9 @@ export ResidualSampler
 
 
 @inline _get_operator_type(::MatrixInversion) = Matrix
-@inline _get_operator_type(::LinearSolve.SciMLLinearSolveAlgorithm) = LinearMap
+@inline _get_operator_type(::Any) = LinearMap
 
-function ResidualSampler(f_model::Function, center_point::Vector{<:Real}, linear_solver::LinearSolverLike, context::MGVIContext)
+function ResidualSampler(f_model::Function, center_point::Vector{<:Real}, linear_solver, context::MGVIContext)
     OP = _get_operator_type(linear_solver)
     ℐ_λ, dλ_dξ = _fisher_information_and_jac(f_model, center_point, OP, context)
     ResidualSampler(f_model, center_point, linear_solver, convert(LinearMap, ℐ_λ), convert(LinearMap, dλ_dξ), context)
@@ -87,11 +84,12 @@ function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:Ma
     Σ⁻¹_θ_est_matrix = allocate_array(genctx, (n_θ, n_θ))
     mul!(Σ⁻¹_θ_est_matrix, Σ⁻¹_θ_est, one(eltype(Σ⁻¹_θ_est_matrix)))
     root_covariance = cholesky(PositiveFactorizations.Positive, inv(Σ⁻¹_θ_est_matrix)).L
-    root_covariance * randn(genctx, size(root_covariance, 1))
+    Δξ = root_covariance * randn(genctx, size(root_covariance, 1))
+    return Δξ
 end
 
 
-function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real}})
+function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:Any})
     genctx = s.context.gen
 
     ℐ_λ = s.λ_information
@@ -106,5 +104,6 @@ function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real}})
 
     prob = LinearProblem{false}(Σ⁻¹_θ_est, Δφ)
     sol = solve(prob, s.linear_solver)
-    return sol.u # Δξ
+    Δξ = sol.u
+    return Δξ
 end
