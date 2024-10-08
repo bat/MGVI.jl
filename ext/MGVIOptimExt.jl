@@ -13,7 +13,7 @@ function MGVI._optimize(f::Function, adsel::ADSelector, curvature::Function,
     x₀::AbstractVector, optimizer::Optim.AbstractOptimizer, 
     optim_options::NamedTuple
 )
-    ∇f! = gradient!_func(kl, adsel)
+    ∇f! = gradient!_func(f, adsel)
     res = Optim.optimize(f, ∇f!, x₀, optimizer, Optim.Options(;optim_options...))
     x_res = oftype(x₀, Optim.minimizer(res))
     x_res, res

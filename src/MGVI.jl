@@ -37,6 +37,8 @@ using LinearSolve: solve, LinearProblem
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, ProjectTo, AbstractThunk, unthunk
 import Statistics: mean
 
+using IterativeSolvers: cg_iterator!
+
 include("util.jl")
 include("mgvi_context.jl")
 include("custom_linear_maps.jl")

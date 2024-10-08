@@ -38,12 +38,12 @@ Test.@testset "test_mgvi_optimize_step" begin
     next_iteration = mgvi_optimize_step(
         model, data, next_iteration.result, context;
         linear_solver = LinearSolve.KrylovJL_CG(),
-        optim_solver = Optimization.LFBGS()
+        optim_solver = Optimization.LBFGS()
     )
 
     next_iteration = mgvi_optimize_step(
         model, data, next_iteration.result, context;
         linear_solver = LinearSolve.KrylovJL_CG(),
-        optim_solver = Optim.LFBGS()
+        optim_solver = Optim.LBFGS()
     )
 end
