@@ -17,7 +17,7 @@ end
 
 
 """
-    function mgvi_optimize_step(
+    function mgvi_step(
         forward_model::Function, data, init_param_point::AbstractVector{<:Real}, context::MGVIContext;
         num_residuals::Integer = 3,
         lcenter_pointinear_solver::LinearSolverAlg = KrylovJL_CG(),
@@ -49,7 +49,7 @@ true_param = [2.0]
 data = rand(model(true_param), 1)[1]
 init_param = [1.3]
 
-res = mgvi_optimize_step(
+res = mgvi_step(
     model, data, init_param, context;
     num_residuals = 5,
     linear_solver = LinearSolve.KrylovJL_CG(),
@@ -64,10 +64,10 @@ Optim.summary(optim_optimized_object)
 samples_from_est_covariance = res.samples
 ```
 """
-function mgvi_optimize_step end
-export mgvi_optimize_step
+function mgvi_step end
+export mgvi_step
 
-function mgvi_optimize_step(
+function mgvi_step(
     forward_model::Function, data, init_point::AbstractVector{<:Real}, context::MGVIContext;
     num_residuals::Integer = 3,
     linear_solver = KrylovJL_CG(),

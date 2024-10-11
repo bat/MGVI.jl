@@ -91,7 +91,7 @@ init_plots()
 # The output contains an updated parameter estimate (`first_iteration.result`),
 # which we can compare to the true parameters.
 
-first_iteration = mgvi_optimize_step(
+first_iteration = mgvi_step(
     model, data, starting_point, context;
     linear_solver = KrylovJL_CG((;itmax=10)),
     optim_solver = MGVI.NewtonCG()
@@ -138,7 +138,7 @@ next_iteration = first_iteration
 for i in 1:5
     @info minimum(next_iteration.optimized)
     @info hcat(next_iteration.result, true_params)
-    global next_iteration = mgvi_optimize_step(
+    global next_iteration = mgvi_step(
         model, data, next_iteration.result, context;
         linear_solver=KrylovJL_CG((;itmax=10)),
         optim_solver = MGVI.NewtonCG()

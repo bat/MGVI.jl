@@ -23,26 +23,26 @@ Test.@testset "test_mgvi_optimize_step" begin
     rng = MersenneTwister(145)
     data = rand(rng, model(true_params), 1)[1]
 
-    first_iteration = mgvi_optimize_step(
+    first_iteration = mgvi_step(
         model, data, starting_point, context;
         linear_solver = LinearSolve.KrylovJL_CG(),
         optim_solver = MGVI.NewtonCG()
     )
     next_iteration = first_iteration
 
-    next_iteration = mgvi_optimize_step(
+    next_iteration = mgvi_step(
         model, data, next_iteration.result, context;
         linear_solver = LinearSolve.KrylovJL_CG(),
         optim_solver = MGVI.NewtonCG()
     )
 
-    next_iteration = mgvi_optimize_step(
+    next_iteration = mgvi_step(
         model, data, next_iteration.result, context;
         linear_solver = LinearSolve.KrylovJL_CG(),
         optim_solver = Optimization.LBFGS()
     )
 
-    next_iteration = mgvi_optimize_step(
+    next_iteration = mgvi_step(
         model, data, next_iteration.result, context;
         linear_solver = LinearSolve.KrylovJL_CG(),
         optim_solver = Optim.LBFGS()

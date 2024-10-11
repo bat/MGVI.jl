@@ -483,7 +483,7 @@ plot_kernel_mgvi_samples(produce_posterior_samples(starting_point, 6), 20)
 # Let's make a first iteration of the MGVI. For purposes of displaying the convergence curve, we limit the optimization to 1 step so that
 # MGVI will coverge more slowly.
 
-first_iteration = mgvi_optimize_step(
+first_iteration = mgvi_step(
     model, data, starting_point, context;
     num_residuals = 3,
     linear_solver = KrylovJL_CG((;itmax=10)),
@@ -545,7 +545,7 @@ next_iteration = first_iteration;
 avg_likelihood_series = [];
 push!(avg_likelihood_series, compute_avg_likelihood(model, next_iteration.samples, data));
 for i in 1:30
-    tmp_iteration = mgvi_optimize_step(
+    tmp_iteration = mgvi_step(
         model, data, next_iteration.result, context;
         num_residuals = 3,
         linear_solver = KrylovJL_CG((;atol=1E-2,verbose=false)),
