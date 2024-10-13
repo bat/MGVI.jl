@@ -1,18 +1,24 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
-
-function posterior_loglike(model, p, data)
-    logpdf(model(p), data) - dot(p, p)/2
+function _posterior_loglike(model, p, data)
+    likelihood_value = logdensityof(model(p), data)
+    # normal prior, leaving out `+ length(p)*log2π/2` normalization constant
+    prior_density = - dot(p, p)/2
+    return likelihood_value + prior_density
 end
 
-function mgvi_kl(f::Function, data, residual_samples::AbstractMatrix{<:Real}, center_p::AbstractVector{<:Real})
-    kl_component(p::AbstractVector) = -posterior_loglike(f, p, data)
-    kl_comp_both(rs::AbstractVector) = kl_component(center_p + rs) + kl_component(center_p - rs)
-    res = 0
-    for rs in eachcol(residual_samples)
-        res += kl_comp_both(rs)
-    end
-    res/size(residual_samples, 2)/2
+# Equivalent to -(ELBO - H(q)), can't calculate H(q) efficiently for MGVI,
+# but it's constant, so we'll use the mean of the negative non-normalized
+# log-posterior over the samples instead:
+function _mean_neg_log_pstr(f::Function, data, residual_samples::AbstractMatrix{<:Real}, center::AbstractVector{<:Real})
+    mnlp_contribution(residual::AbstractVector) = - (
+        _posterior_loglike(f, center + residual, data) +
+        _posterior_loglike(f, center - residual, data)
+    )
+    res = sum(mnlp_contribution, eachcol(residual_samples))
+    n = 2 * size(residual_samples, 2)
+    kl = res / n
+    return kl
 end
 
 
@@ -76,11 +82,11 @@ function mgvi_step(
 )
     residual_sampler = ResidualSampler(forward_model, center_init, linear_solver, context)
     residual_samples = sample_residuals(residual_sampler, num_residuals)
-    kl(params::AbstractVector) = mgvi_kl(forward_model, data, residual_samples, params)
+    mnlp(params::AbstractVector) = _mean_neg_log_pstr(forward_model, data, residual_samples, params)
     OP = _get_operator_type(linear_solver)
     Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, OP, context)
     Σ̅⁻¹(ξ) = mean(Σ⁻¹.(collect.(eachcol(ξ .+ residual_samples))))
-    center_updated, optres = _optimize(kl, context.ad, Σ̅⁻¹, center_init, optim_solver, optim_options)
+    center_updated, optres = _optimize(mnlp, context.ad, Σ̅⁻¹, center_init, optim_solver, optim_options)
     smpls = hcat(center_updated .+ residual_samples, center_updated .- residual_samples)
 
     (center = center_updated, samples = smpls, info = optres)
