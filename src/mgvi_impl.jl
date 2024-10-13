@@ -86,10 +86,10 @@ function mgvi_step(
     OP = _get_operator_type(linear_solver)
     Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, OP, context)
     Σ̅⁻¹(ξ) = mean(Σ⁻¹.(collect.(eachcol(ξ .+ residual_samples))))
-    center_updated, optres = _optimize(mnlp, context.ad, Σ̅⁻¹, center_init, optim_solver, optim_options)
+    center_updated, min_mnlp, optres = _optimize(mnlp, context.ad, Σ̅⁻¹, center_init, optim_solver, optim_options)
     smpls = hcat(center_updated .+ residual_samples, center_updated .- residual_samples)
 
-    (center = center_updated, samples = smpls, info = optres)
+    (center = center_updated, samples = smpls, mnlp = min_mnlp, info = optres)
 end
 
 function _inv_cov_est(fwd_model::Function, ξ::AbstractVector, OP, context::MGVIContext)

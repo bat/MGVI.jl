@@ -16,7 +16,9 @@ function MGVI._optimize(f::Function, adsel::ADSelector, curvature::Function,
     ∇f! = gradient!_func(f, adsel)
     res = Optim.optimize(f, ∇f!, x₀, optimizer, Optim.Options(;optim_options...))
     x_res = oftype(x₀, Optim.minimizer(res))
-    x_res, res
+    f_x_res = Optim.minimum(res)
+    # @assert f_x_res == f(x_res)
+    return x_res, f_x_res, res
 end
 
 

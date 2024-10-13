@@ -137,7 +137,7 @@ init_plots()
 plt = scatter()
 next_iteration = first_iteration
 for i in 1:5
-    @info next_iteration.elbo
+    @info next_iteration.mnlp
     @info hcat(next_iteration.center, true_params)
     global next_iteration = mgvi_step(
         model, data, next_iteration.center, context;
@@ -146,7 +146,7 @@ for i in 1:5
     )
     plot_iteration_light(next_iteration, i)
 end
-@info minimum(next_iteration.elbo)
+@info minimum(next_iteration.mnlp)
 @info hcat(next_iteration.center, true_params)
 plt
 #jl savefig("tutorial-plot4.pdf")

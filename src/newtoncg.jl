@@ -161,5 +161,7 @@ function _optimize(
     )
 
     x_res = oftype(x₀, xₙ)
-    return x_res, res
+    f_x_res = fⁿ
+    #@assert f_x_res == f(x_res)
+    return x_res, f_x_res, res
 end

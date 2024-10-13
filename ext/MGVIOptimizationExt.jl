@@ -27,9 +27,11 @@ function MGVI._optimize(f::Function, adsel::ADSelector, curvature::Function,
     optfunc = Optimization.OptimizationFunction(_OptimizationTargetFunc(f), adsel)
     optprob = Optimization.OptimizationProblem(optfunc, x₀)
 
-    optres = Optimization.solve(optprob, optimizer; optim_options...)
-    x_res = oftype(x₀, optres.u)
-    return x_res, optres
+    res = Optimization.solve(optprob, optimizer; optim_options...)
+    x_res = oftype(x₀, res.u)
+    # ToDo: Is there a way to make Optimization return f(x_res)?
+    f_x_res = f(x_res)
+    return x_res, f_x_res, res
 end
 
 
