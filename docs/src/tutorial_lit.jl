@@ -89,7 +89,7 @@ init_plots()
 
 
 # Now we are ready to run one iteration of the MGVI.
-# The output contains an updated parameter estimate (`first_iteration.result`),
+# The output contains an updated parameter estimate (`first_iteration.mean`),
 # which we can compare to the true parameters.
 
 first_iteration = mgvi_step(
@@ -97,7 +97,7 @@ first_iteration = mgvi_step(
     linear_solver = KrylovJL_CG((;itmax=10)),
     optim_solver = MGVI.NewtonCG()
 )
-@info hcat(first_iteration.result, true_params)
+@info hcat(first_iteration.mean, true_params)
 p
 #jl savefig("tutorial-plot2.pdf")
 #md savefig("tutorial-plot2.pdf")
@@ -113,7 +113,7 @@ plot_iteration = (params, label) -> let
     for sample in eachcol(params.samples)
         scatter!(_common_grid, _mean(Vector(sample)), markercolor=:gray, markeralpha=0.3, markersize=2, label=nothing)
     end
-    scatter!(_common_grid, _mean(params.result), markercolor=:green, label=label)
+    scatter!(_common_grid, _mean(params.mean), markercolor=:green, label=label)
 end;
 
 # Now let's also plot the curve corresponding to the new parameters after the first iteration:
@@ -128,7 +128,7 @@ p
 #md # [![Plot](tutorial-3.svg)](tutorial-3.pdf)
 #-
 plot_iteration_light = (params, counter) -> let
-    scatter!(_common_grid, _mean(params.result), markercolor=:green, markersize=3, markeralpha=2*atan(counter/18)/π, label=nothing)
+    scatter!(_common_grid, _mean(params.mean), markercolor=:green, markersize=3, markeralpha=2*atan(counter/18)/π, label=nothing)
 end;
 
 # From the plot above we see that one iteration is not enough. Let's do 5 more steps and plot the evolution of estimates.
@@ -138,16 +138,16 @@ plt = scatter()
 next_iteration = first_iteration
 for i in 1:5
     @info minimum(next_iteration.info)
-    @info hcat(next_iteration.result, true_params)
+    @info hcat(next_iteration.mean, true_params)
     global next_iteration = mgvi_step(
-        model, data, next_iteration.result, context;
+        model, data, next_iteration.mean, context;
         linear_solver=KrylovJL_CG((;itmax=10)),
         optim_solver = MGVI.NewtonCG()
     )
     plot_iteration_light(next_iteration, i)
 end
 @info minimum(next_iteration.info)
-@info hcat(next_iteration.result, true_params)
+@info hcat(next_iteration.mean, true_params)
 plt
 #jl savefig("tutorial-plot4.pdf")
 #md savefig("tutorial-plot4.pdf")

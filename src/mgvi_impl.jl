@@ -18,7 +18,7 @@ end
 
 """
     function mgvi_step(
-        forward_model::Function, data, init_param_point::AbstractVector{<:Real}, context::MGVIContext;
+        forward_model::Function, data, init_mean::AbstractVector{<:Real}, context::MGVIContext;
         num_residuals::Integer = 3,
         lcenter_pointinear_solver::LinearSolverAlg = KrylovJL_CG(),
         optim_solver = MGVI.NewtonCG(),
@@ -29,12 +29,12 @@ Performs one MGVI iteration.
 
 The posterior distribution is approximated with a multivariate normal distribution.
 The covariance is approximated with the inverse Fisher information valuated at
-`init_param_point`. Samples are drawn according to this covariance, which are then
+`init_mean`. Samples are drawn according to this covariance, which are then
 used to estimate and minimize the KL divergence between the true posterior and the
 approximation.
 
 Note: The prior is implicit, it is a standard (uncorrelated) multivariate
-normal distribution of the same dimensionality as `init_param_point`.
+normal distribution of the same dimensionality as `init_mean`.
 
 # Example
 
@@ -56,7 +56,7 @@ res = mgvi_step(
     optim_solver = MGVI.NewtonCG(),
 )
 
-next_param_point = res.result
+next_param_point = res.mean
 
 optim_optimized_object = res.info
 Optim.summary(optim_optimized_object)
@@ -68,22 +68,22 @@ function mgvi_step end
 export mgvi_step
 
 function mgvi_step(
-    forward_model::Function, data, init_point::AbstractVector{<:Real}, context::MGVIContext;
+    forward_model::Function, data, init_mean::AbstractVector{<:Real}, context::MGVIContext;
     num_residuals::Integer = 3,
     linear_solver = KrylovJL_CG(),
     optim_solver = MGVI.NewtonCG(),
     optim_options::NamedTuple = (;)
 )
-    res_sampler = ResidualSampler(forward_model, init_point, linear_solver, context)
-    residual_samples = sample_residuals(res_sampler, num_residuals)
+    residual_sampler = ResidualSampler(forward_model, init_mean, linear_solver, context)
+    residual_samples = sample_residuals(residual_sampler, num_residuals)
     kl(params::AbstractVector) = mgvi_kl(forward_model, data, residual_samples, params)
     OP = _get_operator_type(linear_solver)
     Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, OP, context)
     Σ̅⁻¹(ξ) = mean(Σ⁻¹.(collect.(eachcol(ξ .+ residual_samples))))
-    updated_point, res = _optimize(kl, context.ad, Σ̅⁻¹, init_point, optim_solver, optim_options)
-    smpls = hcat(updated_point .+ residual_samples, updated_point .- residual_samples)
+    updated_mean, optres = _optimize(kl, context.ad, Σ̅⁻¹, init_mean, optim_solver, optim_options)
+    smpls = hcat(updated_mean .+ residual_samples, updated_mean .- residual_samples)
 
-    (result=updated_point, info=res, samples=smpls)
+    (mean = updated_mean, samples = smpls, info = optres)
 end
 
 function _inv_cov_est(fwd_model::Function, ξ::AbstractVector, OP, context::MGVIContext)
