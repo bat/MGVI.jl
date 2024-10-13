@@ -35,7 +35,7 @@ using FFTW
 
 import ForwardDiff, Zygote
 using AutoDiffOperators
-using LinearSolve: 
+using LinearSolve: KrylovJL_CG
 
 context = MGVIContext(ADSelector(Zygote))
 

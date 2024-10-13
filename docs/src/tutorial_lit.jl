@@ -7,9 +7,10 @@ using Distributions
 using Random
 using ValueShapes
 using LinearAlgebra
-using Optim
-using AutoDiffOperators
+
 import Zygote
+using AutoDiffOperators
+using LinearSolve: KrylovJL_CG
 
 # We want to fit a 3-degree polynomial using two data sets (`a` and `b`). MGVI requires a model
 # expressed as a function of the model parameters and returning an instance of the Distribution.

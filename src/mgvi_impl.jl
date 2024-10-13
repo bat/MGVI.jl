@@ -81,8 +81,9 @@ function mgvi_step(
     Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, OP, context)
     Σ̅⁻¹(ξ) = mean(Σ⁻¹.(collect.(eachcol(ξ .+ residual_samples))))
     updated_point, res = _optimize(kl, context.ad, Σ̅⁻¹, init_point, optim_solver, optim_options)
+    smpls = hcat(updated_point .+ residual_samples, updated_point .- residual_samples)
 
-    (result=updated_point, info=res, samples=hcat(updated_point .+ residual_samples, updated_point .- residual_samples))
+    (result=updated_point, info=res, samples=smpls)
 end
 
 function _inv_cov_est(fwd_model::Function, ξ::AbstractVector, OP, context::MGVIContext)
