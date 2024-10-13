@@ -1,6 +1,6 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
-function _posterior_loglike(model, p, data)
+function posterior_loglike(model, p, data)
     likelihood_value = logdensityof(model(p), data)
     # normal prior, leaving out `+ length(p)*log2π/2` normalization constant
     prior_density = - dot(p, p)/2
@@ -12,8 +12,8 @@ end
 # log-posterior over the samples instead:
 function _mean_neg_log_pstr(f::Function, data, residual_samples::AbstractMatrix{<:Real}, center::AbstractVector{<:Real})
     mnlp_contribution(residual::AbstractVector) = - (
-        _posterior_loglike(f, center + residual, data) +
-        _posterior_loglike(f, center - residual, data)
+        posterior_loglike(f, center + residual, data) +
+        posterior_loglike(f, center - residual, data)
     )
     res = sum(mnlp_contribution, eachcol(residual_samples))
     n = 2 * size(residual_samples, 2)
