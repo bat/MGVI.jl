@@ -495,7 +495,7 @@ first_iteration = mgvi_step(
 
 plot()
 plot_data()
-plot_mean(first_iteration.mean, "first iteration"; plot_args=(;color=:darkorange2))
+plot_mean(first_iteration.center, "first iteration"; plot_args=(;color=:darkorange2))
 plot_mgvi_samples(first_iteration.samples)
 #jl savefig("advtut-plot8.pdf")
 #md savefig("advtut-plot8.pdf")
@@ -505,8 +505,8 @@ plot_mgvi_samples(first_iteration.samples)
 #-
 plot()
 plot_data()
-plot_mean(first_iteration.mean, "full gp"; full=true, plot_args=(;color=:pink))
-plot_mean(first_iteration.mean, "first iteration"; plot_args=(;color=:darkorange2))
+plot_mean(first_iteration.center, "full gp"; full=true, plot_args=(;color=:pink))
+plot_mean(first_iteration.center, "first iteration"; plot_args=(;color=:darkorange2))
 #jl savefig("advtut-plot9.pdf")
 #md savefig("advtut-plot9.pdf")
 #md savefig("advtut-plot9.svg"); nothing # hide
@@ -516,7 +516,7 @@ plot_mean(first_iteration.mean, "first iteration"; plot_args=(;color=:darkorange
 # in comparison to the `starting_point` even after the first iteration:
 
 plot()
-plot_kernel_model(first_iteration.mean, 20; plot_args=(;label="kernel model"))
+plot_kernel_model(first_iteration.center, 20; plot_args=(;label="kernel model"))
 plot_kernel_mgvi_samples(first_iteration.samples, 20)
 #jl savefig("advtut-plot10.pdf")
 #md savefig("advtut-plot10.pdf")
@@ -546,7 +546,7 @@ avg_likelihood_series = [];
 push!(avg_likelihood_series, compute_avg_likelihood(model, next_iteration.samples, data));
 for i in 1:30
     tmp_iteration = mgvi_step(
-        model, data, next_iteration.mean, context;
+        model, data, next_iteration.center, context;
         num_residuals = 3,
         linear_solver = KrylovJL_CG((;atol=1E-2,verbose=false)),
         optim_solver = MGVI.NewtonCG()
@@ -573,7 +573,7 @@ show_avg_likelihood(avg_likelihood_series)
 plot(ylim=[0,8])
 plot_data()
 plot_mgvi_samples(next_iteration.samples)
-plot_mean(next_iteration.mean, "many iterations"; plot_args=(;color=:darkorange2))
+plot_mean(next_iteration.center, "many iterations"; plot_args=(;color=:darkorange2))
 #jl savefig("advtut-plot12.pdf")
 #md savefig("advtut-plot12.pdf")
 #md savefig("advtut-plot12.svg"); nothing # hide
@@ -584,9 +584,9 @@ plot_mean(next_iteration.mean, "many iterations"; plot_args=(;color=:darkorange2
 # the MGVI fit is with the data.
 
 plot(ylim=[0,8])
-plot_posterior_bands(next_iteration.mean, 400)
+plot_posterior_bands(next_iteration.center, 400)
 plot_data()
-plot_mean(next_iteration.mean, "many iterations"; plot_args=(;color=:darkorange2))
+plot_mean(next_iteration.center, "many iterations"; plot_args=(;color=:darkorange2))
 #jl savefig("advtut-plot13.pdf")
 #md savefig("advtut-plot13.pdf")
 #md savefig("advtut-plot13.svg"); nothing # hide
@@ -596,8 +596,8 @@ plot_mean(next_iteration.mean, "many iterations"; plot_args=(;color=:darkorange2
 
 plot()
 plot_data()
-plot_mean(next_iteration.mean; full=true, plot_args=(;color=:pink))
-plot_mean(next_iteration.mean, "many iterations"; plot_args=(;color=:darkorange2))
+plot_mean(next_iteration.center; full=true, plot_args=(;color=:pink))
+plot_mean(next_iteration.center, "many iterations"; plot_args=(;color=:darkorange2))
 #jl savefig("advtut-plot14.pdf")
 #md savefig("advtut-plot14.pdf")
 #md savefig("advtut-plot14.svg"); nothing # hide
@@ -607,7 +607,7 @@ plot_mean(next_iteration.mean, "many iterations"; plot_args=(;color=:darkorange2
 # to become narrower:
 
 plot()
-plot_kernel_model(next_iteration.mean, 20; plot_args=(;label="kernel model"))
+plot_kernel_model(next_iteration.center, 20; plot_args=(;label="kernel model"))
 plot_kernel_mgvi_samples(next_iteration.samples, 20)
 #jl savefig("advtut-plot15.pdf")
 #md savefig("advtut-plot15.pdf")
@@ -626,7 +626,7 @@ max_posterior = Optim.optimize(x -> -MGVI.posterior_loglike(model, x, data), sta
 
 plot()
 plot_data()
-plot_mean(next_iteration.mean, "mgvi mean"; plot_args=(;color=:darkorange2))
+plot_mean(next_iteration.center, "mgvi mean"; plot_args=(;color=:darkorange2))
 plot_mean(Optim.minimizer(max_posterior), "map")
 #jl savefig("advtut-plot16.pdf")
 #md savefig("advtut-plot16.pdf")
@@ -639,7 +639,7 @@ plot_mean(Optim.minimizer(max_posterior), "map")
 plot()
 plot_data()
 plot_mean(Optim.minimizer(max_posterior), "full gp"; full=true, plot_args=(;color=:darkorange2))
-plot_mean(next_iteration.mean, "mgvi full gp"; full=true)
+plot_mean(next_iteration.center, "mgvi full gp"; full=true)
 #jl savefig("advtut-plot17.pdf")
 #md savefig("advtut-plot17.pdf")
 #md savefig("advtut-plot17.svg"); nothing # hide

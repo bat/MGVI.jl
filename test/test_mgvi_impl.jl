@@ -31,19 +31,19 @@ Test.@testset "test_mgvi_optimize_step" begin
     next_iteration = first_iteration
 
     next_iteration = mgvi_step(
-        model, data, next_iteration.mean, context;
+        model, data, next_iteration.center, context;
         linear_solver = LinearSolve.KrylovJL_CG(),
         optim_solver = MGVI.NewtonCG()
     )
 
     next_iteration = mgvi_step(
-        model, data, next_iteration.mean, context;
+        model, data, next_iteration.center, context;
         linear_solver = LinearSolve.KrylovJL_CG(),
         optim_solver = Optimization.LBFGS()
     )
 
     next_iteration = mgvi_step(
-        model, data, next_iteration.mean, context;
+        model, data, next_iteration.center, context;
         linear_solver = LinearSolve.KrylovJL_CG(),
         optim_solver = Optim.LBFGS()
     )
