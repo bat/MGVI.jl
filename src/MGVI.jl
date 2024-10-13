@@ -16,6 +16,7 @@ using LinearAlgebra
 using Random
 using SparseArrays
 using Base.Iterators
+using DensityInterface
 using Distributions
 using DistributionsAD
 using FillArrays
