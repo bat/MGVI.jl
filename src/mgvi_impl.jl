@@ -58,7 +58,7 @@ res = mgvi_step(
 
 next_param_point = res.result
 
-optim_optimized_object = res.optimized
+optim_optimized_object = res.info
 Optim.summary(optim_optimized_object)
 
 samples_from_est_covariance = res.samples
