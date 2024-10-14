@@ -93,7 +93,7 @@ init_plots()
 # which we can compare to the true parameters.
 
 first_iteration = mgvi_step(
-    model, data, starting_point, context;
+    model, data, starting_point, 3, context;
     linear_solver = KrylovJL_CG((;itmax=10)),
     optim_solver = MGVI.NewtonCG()
 )
@@ -140,7 +140,7 @@ for i in 1:5
     @info next_iteration.mnlp
     @info hcat(next_iteration.center, true_params)
     global next_iteration = mgvi_step(
-        model, data, next_iteration.center, context;
+        model, data, next_iteration.center, 10, context;
         linear_solver=KrylovJL_CG((;itmax=10)),
         optim_solver = MGVI.NewtonCG()
     )

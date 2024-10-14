@@ -23,15 +23,40 @@ end
 
 
 """
-    function mgvi_step(
-        forward_model::Function, data, center_init::AbstractVector{<:Real}, context::MGVIContext;
-        num_residuals::Integer = 3,
-        lcenter_pointinear_solver::LinearSolverAlg = KrylovJL_CG(),
-        optim_solver = MGVI.NewtonCG(),
-        optim_options::NamedTuple = Optim.Options(),
+    struct MGVIState
+
+State resulting from [`mgvi_step`](@ref).
+
+Fields:
+
+* `center`: The center/mean of the current MGVI posterior approximation.
+* `samples`: Samples drawn from the current MGVI posterior approximation.
+* `mnlp`: The mean of the negative non-normalized log-posterior over the samples.
+* `optres`: The original result object returned by the optimization solver.
+"""
+struct MGVIState{M, D, T<:Real, C<:AbstractVector{T}, S<:AbstractMatrix{T}, U::Real, ORES}
+    center::C
+    samples::S
+    mnlp::T
+    optres::AUX
+end
+
+
+"""
+    mgvi_step(
+        forward_model::Function, data, center_init::AbstractVector{<:Real},
+        num_residuals::Integer, context::MGVIContext;
+        linear_solver = KrylovJL_CG(),
+        optim_solver = MGVI.NewtonCG(), optim_options::NamedTuple = (;)
     )
 
-Performs one MGVI iteration.
+    mgvi_step(
+        forward_model::Function, data, state::MGVIState, context::MGVIContext;
+        linear_solver = KrylovJL_CG(),
+        optim_solver = MGVI.NewtonCG(), optim_options::NamedTuple = (;)
+    )
+
+Performs one MGVI step and returns an [`MGVIState`](@ref) object.
 
 The posterior distribution is approximated with a multivariate normal distribution.
 The covariance is approximated with the inverse Fisher information valuated at
@@ -74,11 +99,10 @@ function mgvi_step end
 export mgvi_step
 
 function mgvi_step(
-    forward_model::Function, data, center_init::AbstractVector{<:Real}, context::MGVIContext;
-    num_residuals::Integer = 12,
+    forward_model::Function, data, center_init::AbstractVector{<:Real},
+    num_residuals::Integer, context::MGVIContext;
     linear_solver = KrylovJL_CG(),
-    optim_solver = MGVI.NewtonCG(),
-    optim_options::NamedTuple = (;)
+    optim_solver = MGVI.NewtonCG(), optim_options::NamedTuple = (;)
 )
     residual_sampler = ResidualSampler(forward_model, center_init, linear_solver, context)
     residual_samples = sample_residuals(residual_sampler, num_residuals)
@@ -89,8 +113,21 @@ function mgvi_step(
     center_updated, min_mnlp, optres = _optimize(mnlp, context.ad, Σ̅⁻¹, center_init, optim_solver, optim_options)
     smpls = hcat(center_updated .+ residual_samples, center_updated .- residual_samples)
 
-    (center = center_updated, samples = smpls, mnlp = min_mnlp, info = optres)
+    return MGVIState(center_updated, smpls, min_mnlp, optres)
 end
+
+function mgvi_step(
+    forward_model::Function, data, state::MGVIState, context::MGVIContext;
+    linear_solver = KrylovJL_CG(),
+    optim_solver = MGVI.NewtonCG(), optim_options::NamedTuple = (;)
+)
+    new_state = mgvi_step(
+        forward_model, data, state.center, size(state.samples, 2) ÷ 2, context;
+        linear_solver = linear_solver, optim_solver = optim_solver, optim_options = optim_options
+    )
+    return typeof(state, new_state)
+end
+
 
 function _inv_cov_est(fwd_model::Function, ξ::AbstractVector, OP, context::MGVIContext)
     ℐ_λ, dλ_dξ = _fisher_information_and_jac(fwd_model, ξ, OP, context)

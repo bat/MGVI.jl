@@ -484,8 +484,7 @@ plot_kernel_mgvi_samples(produce_posterior_samples(starting_point, 6), 20)
 # MGVI will coverge more slowly.
 
 first_iteration = mgvi_step(
-    model, data, starting_point, context;
-    num_residuals = 3,
+    model, data, starting_point, 3, context;
     linear_solver = KrylovJL_CG((;itmax=10)),
     optim_solver = MGVI.NewtonCG(steps = 1)
 );
@@ -546,8 +545,7 @@ avg_likelihood_series = [];
 push!(avg_likelihood_series, compute_avg_likelihood(model, next_iteration.samples, data));
 for i in 1:30
     tmp_iteration = mgvi_step(
-        model, data, next_iteration.center, context;
-        num_residuals = 3,
+        model, data, next_iteration.center, 3, context;
         linear_solver = KrylovJL_CG((;atol=1E-2,verbose=false)),
         optim_solver = MGVI.NewtonCG()
     )
