@@ -75,7 +75,7 @@ export mgvi_step
 
 function mgvi_step(
     forward_model::Function, data, center_init::AbstractVector{<:Real}, context::MGVIContext;
-    num_residuals::Integer = 3,
+    num_residuals::Integer = 12,
     linear_solver = KrylovJL_CG(),
     optim_solver = MGVI.NewtonCG(),
     optim_options::NamedTuple = (;)
