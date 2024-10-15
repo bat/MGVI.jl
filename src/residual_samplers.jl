@@ -36,7 +36,7 @@ Constructor:
 ResidualSampler(f_model::Function, center_point::Vector{<:Real}, linear_solver, context::MGVIContext)
 ```
 
-linear_solver must be a solver supported by [`LinearSolve`](https://github.com/SciML/LinearSolve.jl) or
+`linear_solver` must be a solver supported by [`LinearSolve`](https://github.com/SciML/LinearSolve.jl) or
 [`MGVI.MatrixInversion`](@ref). Use `MatrixInversion` only for low-dimensional problems.
 
 Call `MGVI.sample_residuals(s::ResidualSampler[, n::Integer])` to generate a

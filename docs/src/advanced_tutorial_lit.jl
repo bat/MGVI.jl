@@ -486,7 +486,7 @@ plot_kernel_mgvi_samples(produce_posterior_samples(starting_point, 6), 20)
 first_iteration = mgvi_step(
     model, data, starting_point, 3, context;
     linear_solver = KrylovJL_CG((;itmax=10)),
-    optim_solver = MGVI.NewtonCG(steps = 1)
+    optimization_alg = MGVI.NewtonCG(steps = 1)
 );
 
 # We again plot data and the Poisson rate. We again show the Gaussian process with padding.
@@ -547,7 +547,7 @@ for i in 1:30
     tmp_iteration = mgvi_step(
         model, data, next_iteration.center, 3, context;
         linear_solver = KrylovJL_CG((;atol=1E-2,verbose=false)),
-        optim_solver = MGVI.NewtonCG()
+        optimization_alg = MGVI.NewtonCG()
     )
     global next_iteration = tmp_iteration
     push!(avg_likelihood_series, compute_avg_likelihood(model, next_iteration.samples, data))

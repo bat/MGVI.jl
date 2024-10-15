@@ -17,9 +17,9 @@ _OptimizationTargetFunc(::Type{F}) where F = _OptimizationTargetFunc{Type{F}}(F)
 (ft::_OptimizationTargetFunc)(x, p) = ft.f(x)
 
 function MGVI._optimize(f::Function, adsel::ADSelector, curvature::Function, 
-    x₀::AbstractVector, optimizer, optim_options::NamedTuple
+    x₀::AbstractVector, optimizer, optimization_opts::NamedTuple
 )
-    # optim_options = (maxiters = ..., maxtime = ..., abstol = ..., reltol = ...)
+    # optimization_opts = (maxiters = ..., maxtime = ..., abstol = ..., reltol = ...)
    
     # ToDo: Forward curvature/Hessian?
 
@@ -27,7 +27,7 @@ function MGVI._optimize(f::Function, adsel::ADSelector, curvature::Function,
     optfunc = Optimization.OptimizationFunction(_OptimizationTargetFunc(f), adsel)
     optprob = Optimization.OptimizationProblem(optfunc, x₀)
 
-    res = Optimization.solve(optprob, optimizer; optim_options...)
+    res = Optimization.solve(optprob, optimizer; optimization_opts...)
     x_res = oftype(x₀, res.u)
     # ToDo: Is there a way to make Optimization return f(x_res)?
     f_x_res = f(x_res)

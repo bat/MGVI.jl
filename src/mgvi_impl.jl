@@ -23,6 +23,55 @@ end
 
 
 """
+    struct MVGIConfig
+
+MGVI clgorithm configuration.
+
+Fields:
+
+* `linar_solver`: Linear solver to use, must be suitable for positive-definite operators
+* `optimization_alg`: Optimization solver to use
+* `optimization_opts`: Optimization solver options
+
+`linear_solver` must be a solver supported by
+[`LinearSolve`](https://github.com/SciML/LinearSolve.jl) or
+[`MGVI.MatrixInversion`](@ref). Use `MatrixInversion` only for low-dimensional
+problems.
+
+`optimization_alg` nay be [`MGVI.NewtonCG()`](@ref) or an optimization
+algorithm supported by `Optimization` or `Optim`. `optimization_opts` is
+algorithm-specific.
+"""
+@with_kw struct MGVIConfig{LS, OS, OP<:NamedTuple}
+    linear_solver::LS = KrylovJL_CG()
+    optimization_alg::OS = MGVI.NewtonCG()
+    optimization_opts::OP::NamedTuple = (;)
+end
+export MGVIConfig
+
+
+"""
+    struct MGVIResult
+
+State resulting from [`mgvi_step`](@ref).
+
+Fields:
+
+* `smples`: The samples drawn by MVGI
+* `mnlp`: The mean of the negative non-normalized log-posterior over the samples
+"""
+struct MGVIResult{
+    T<:Real, TM<:AbstractMatrix{T}, TV<:AbstractMatrix{T}, S<:ResidualSampler,
+    C<:MGVIConfig, CTX<:MGVIContext
+}
+    smpls::TM
+    center::TV
+    mnlp::U
+    info::AUX
+end
+
+
+"""
     struct MGVIState
 
 State resulting from [`mgvi_step`](@ref).
@@ -30,15 +79,17 @@ State resulting from [`mgvi_step`](@ref).
 Fields:
 
 * `center`: The center/mean of the current MGVI posterior approximation.
-* `samples`: Samples drawn from the current MGVI posterior approximation.
-* `mnlp`: The mean of the negative non-normalized log-posterior over the samples.
-* `optres`: The original result object returned by the optimization solver.
+* `resisual_sampler`: The current [`ResidualSampler`](@ref).
+* `config`: The current [`MGVIConfig`](@ref).
 """
-struct MGVIState{M, D, T<:Real, C<:AbstractVector{T}, S<:AbstractMatrix{T}, U::Real, ORES}
-    center::C
-    samples::S
-    mnlp::T
-    optres::AUX
+struct MGVIState{
+    T<:Real, TV<:AbstractVector{T}, S<:ResidualSampler,
+    C<:MGVIConfig, CTX<:MGVIContext
+}
+    center::TV
+    resisual_sampler::S
+    config::C
+    context::CTX
 end
 
 
@@ -47,13 +98,13 @@ end
         forward_model::Function, data, center_init::AbstractVector{<:Real},
         num_residuals::Integer, context::MGVIContext;
         linear_solver = KrylovJL_CG(),
-        optim_solver = MGVI.NewtonCG(), optim_options::NamedTuple = (;)
+        optimization_alg = MGVI.NewtonCG(), optimization_opts::NamedTuple = (;)
     )
 
     mgvi_step(
         forward_model::Function, data, state::MGVIState, context::MGVIContext;
         linear_solver = KrylovJL_CG(),
-        optim_solver = MGVI.NewtonCG(), optim_options::NamedTuple = (;)
+        optimization_alg = MGVI.NewtonCG(), optimization_opts::NamedTuple = (;)
     )
 
 Performs one MGVI step and returns an [`MGVIState`](@ref) object.
@@ -84,7 +135,7 @@ res = mgvi_step(
     model, data, init_param, context;
     num_residuals = 5,
     linear_solver = LinearSolve.KrylovJL_CG(),
-    optim_solver = MGVI.NewtonCG(),
+    optimization_alg = MGVI.NewtonCG(),
 )
 
 next_param_point = res.center
@@ -102,7 +153,7 @@ function mgvi_step(
     forward_model::Function, data, center_init::AbstractVector{<:Real},
     num_residuals::Integer, context::MGVIContext;
     linear_solver = KrylovJL_CG(),
-    optim_solver = MGVI.NewtonCG(), optim_options::NamedTuple = (;)
+    optimization_alg = MGVI.NewtonCG(), optimization_opts::NamedTuple = (;)
 )
     residual_sampler = ResidualSampler(forward_model, center_init, linear_solver, context)
     residual_samples = sample_residuals(residual_sampler, num_residuals)
@@ -110,22 +161,22 @@ function mgvi_step(
     OP = _get_operator_type(linear_solver)
     Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, OP, context)
     Σ̅⁻¹(ξ) = mean(Σ⁻¹.(collect.(eachcol(ξ .+ residual_samples))))
-    center_updated, min_mnlp, optres = _optimize(mnlp, context.ad, Σ̅⁻¹, center_init, optim_solver, optim_options)
+    center_updated, min_mnlp, optres = _optimize(mnlp, context.ad, Σ̅⁻¹, center_init, optimization_alg, optimization_opts)
     smpls = hcat(center_updated .+ residual_samples, center_updated .- residual_samples)
 
-    return MGVIState(center_updated, smpls, min_mnlp, optres)
+    return (samples = smpls, mnlp = min_mnlp, optres = optres), MGVIState(center, residual_sampler, smpls, )
 end
 
 function mgvi_step(
     forward_model::Function, data, state::MGVIState, context::MGVIContext;
     linear_solver = KrylovJL_CG(),
-    optim_solver = MGVI.NewtonCG(), optim_options::NamedTuple = (;)
+    optimization_alg = MGVI.NewtonCG(), optimization_opts::NamedTuple = (;)
 )
     new_state = mgvi_step(
         forward_model, data, state.center, size(state.samples, 2) ÷ 2, context;
-        linear_solver = linear_solver, optim_solver = optim_solver, optim_options = optim_options
+        linear_solver = linear_solver, optimization_alg = optimization_alg, optimization_opts = optimization_opts
     )
-    return typeof(state, new_state)
+    return new_state
 end
 
 

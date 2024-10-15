@@ -11,10 +11,10 @@ using AutoDiffOperators: ADSelector, gradient!_func
 
 function MGVI._optimize(f::Function, adsel::ADSelector, curvature::Function, 
     x₀::AbstractVector, optimizer::Optim.AbstractOptimizer, 
-    optim_options::NamedTuple
+    optimization_opts::NamedTuple
 )
     ∇f! = gradient!_func(f, adsel)
-    res = Optim.optimize(f, ∇f!, x₀, optimizer, Optim.Options(;optim_options...))
+    res = Optim.optimize(f, ∇f!, x₀, optimizer, Optim.Options(;optimization_opts...))
     x_res = oftype(x₀, Optim.minimizer(res))
     f_x_res = Optim.minimum(res)
     # @assert f_x_res == f(x_res)

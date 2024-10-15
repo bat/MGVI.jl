@@ -84,7 +84,7 @@ end
 
 function _optimize(
     f::Function, adsel::ADSelector, Σ̅⁻¹::Function, 
-    x₀::AbstractVector, optimizer::NewtonCG, optim_options::NamedTuple
+    x₀::AbstractVector, optimizer::NewtonCG, optimization_opts::NamedTuple
 )
     # fetch parameters from optimizer struct
     α = optimizer.α
