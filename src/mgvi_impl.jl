@@ -150,11 +150,12 @@ function mgvi_step end
 export mgvi_step
 
 function mgvi_step(
-    forward_model::Function, data, center_init::AbstractVector{<:Real},
-    num_residuals::Integer, context::MGVIContext;
-    linear_solver = KrylovJL_CG(),
-    optimization_alg = MGVI.NewtonCG(), optimization_opts::NamedTuple = (;)
+    forward_model::Function, data, num_residuals::Integer, center_init::AbstractVector{<:Real},
+    config::MGVIConfig, context::MGVIContext
 )
+    linear_solver = config.linear_solver
+    optimization_alg = config.optimization_alg
+    optimization_opts = config.optimization_opts
     residual_sampler = ResidualSampler(forward_model, center_init, linear_solver, context)
     residual_samples = sample_residuals(residual_sampler, num_residuals)
     mnlp(params::AbstractVector) = _mean_neg_log_pstr(forward_model, data, residual_samples, params)
@@ -164,16 +165,18 @@ function mgvi_step(
     center_updated, min_mnlp, optres = _optimize(mnlp, context.ad, Σ̅⁻¹, center_init, optimization_alg, optimization_opts)
     smpls = hcat(center_updated .+ residual_samples, center_updated .- residual_samples)
 
-    return (samples = smpls, mnlp = min_mnlp, optres = optres), MGVIState(center, residual_sampler, smpls, )
+    result = MGVIResult(smpls, center_updated, min_mnlp, optres)
+    info = (lsres = nothing, optres = optres)
+    state = MGVIState(center, residual_sampler, smpls, info)
+    return result, state
 end
 
 function mgvi_step(
-    forward_model::Function, data, state::MGVIState, context::MGVIContext;
-    linear_solver = KrylovJL_CG(),
-    optimization_alg = MGVI.NewtonCG(), optimization_opts::NamedTuple = (;)
+    forward_model::Function, data, config::MGVIConfg, num_residuals::Integer, state::MGVIState
 )
+!!!!!!!!!!!!!
     new_state = mgvi_step(
-        forward_model, data, state.center, size(state.samples, 2) ÷ 2, context;
+        forward_model, data, state.center, length(state.center) ÷ 2, context;
         linear_solver = linear_solver, optimization_alg = optimization_alg, optimization_opts = optimization_opts
     )
     return new_state
