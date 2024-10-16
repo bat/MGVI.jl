@@ -63,32 +63,6 @@ function ResidualSampler(f_model::Function, center_point::Vector{<:Real}, linear
 end
 
 
-function sample_residuals(s::ResidualSampler, n::Integer)
-    m = size(s.jac_dλ_dθ, 2)
-    A = allocate_array(s.context.gen, (m, n))
-    Base.Threads.@threads for i in 1:size(A,2)
-        view(A, :, i) .= sample_residuals(s)
-    end
-    return A
-end
-
-
-function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:MatrixInversion})
-    genctx = s.context.gen
-
-    ℐ_λ = s.λ_information
-    dλ_dθ = s.jac_dλ_dθ
-    n_λ, n_θ = size(dλ_dθ)
-
-    Σ⁻¹_θ_est = dλ_dθ' * ℐ_λ * dλ_dθ + I
-    Σ⁻¹_θ_est_matrix = allocate_array(genctx, (n_θ, n_θ))
-    mul!(Σ⁻¹_θ_est_matrix, Σ⁻¹_θ_est, one(eltype(Σ⁻¹_θ_est_matrix)))
-    root_covariance = cholesky(PositiveFactorizations.Positive, inv(Σ⁻¹_θ_est_matrix)).L
-    Δξ = root_covariance * randn(genctx, size(root_covariance, 1))
-    return Δξ
-end
-
-
 function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:Any})
     genctx = s.context.gen
 
@@ -105,5 +79,43 @@ function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:An
     prob = LinearProblem{false}(Σ⁻¹_θ_est, Δφ)
     sol = solve(prob, s.linear_solver)
     Δξ = sol.u
+    return Δξ
+end
+
+function sample_residuals(s::ResidualSampler, n::Integer)
+    m = size(s.jac_dλ_dθ, 2)
+    A = allocate_array(s.context.gen, (m, n))
+    Base.Threads.@threads for i in 1:size(A,2)
+        view(A, :, i) .= sample_residuals(s)
+    end
+    return A
+end
+
+
+function residual_pushfwd_operator(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:MatrixInversion})
+    genctx = s.context.gen
+
+    ℐ_λ = s.λ_information
+    dλ_dθ = s.jac_dλ_dθ
+    n_λ, n_θ = size(dλ_dθ)
+
+    Σ⁻¹_θ_est = dλ_dθ' * ℐ_λ * dλ_dθ + I
+    Σ⁻¹_θ_est_matrix = allocate_array(genctx, (n_θ, n_θ))
+    mul!(Σ⁻¹_θ_est_matrix, Σ⁻¹_θ_est, one(eltype(Σ⁻¹_θ_est_matrix)))
+    Σ_θ_est_matrix = inv(Σ⁻¹_θ_est_matrix)
+    Σ_θ_est_chol_l = cholesky(PositiveFactorizations.Positive, Σ_θ_est_matrix).L
+
+    return Σ_θ_est_chol_l
+end
+
+function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:MatrixInversion})
+    op = residual_pushfwd_operator(s)
+    Δξ =  op * randn(genctx, size(op, 2))
+    return Δξ
+end
+
+function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:MatrixInversion}, n::Integer)
+    op = residual_pushfwd_operator(s)
+    Δξ =  op * randn(genctx, size(op, 2), n)
     return Δξ
 end

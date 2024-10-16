@@ -59,10 +59,12 @@ Fields:
 
 * `smples`: The samples drawn by MVGI
 * `mnlp`: The mean of the negative non-normalized log-posterior over the samples
+* `info`: Additional information given by the linear solver and optimization
+  algorithm.
 """
 struct MGVIResult{
-    T<:Real, TM<:AbstractMatrix{T}, TV<:AbstractMatrix{T}, S<:ResidualSampler,
-    C<:MGVIConfig, CTX<:MGVIContext
+    T<:Real, TM<:AbstractMatrix{T}, TV<:AbstractVector{T}, U<:Real,
+    AUX<:NamedTuple
 }
     smpls::TM
     center::TV
@@ -82,13 +84,9 @@ Fields:
 * `resisual_sampler`: The current [`ResidualSampler`](@ref).
 * `config`: The current [`MGVIConfig`](@ref).
 """
-struct MGVIState{
-    T<:Real, TV<:AbstractVector{T}, S<:ResidualSampler,
-    C<:MGVIConfig, CTX<:MGVIContext
-}
+struct MGVIState{T<:Real, TV<:AbstractVector{T}, S<:ResidualSampler, CTX<:MGVIContext}
     center::TV
     resisual_sampler::S
-    config::C
     context::CTX
 end
 
@@ -150,8 +148,8 @@ function mgvi_step end
 export mgvi_step
 
 function mgvi_step(
-    forward_model::Function, data, num_residuals::Integer, center_init::AbstractVector{<:Real},
-    config::MGVIConfig, context::MGVIContext
+    forward_model, data, num_residuals::Integer, config::MGVIConfig,
+    center_init::AbstractVector{<:Real}, context::MGVIContext
 )
     linear_solver = config.linear_solver
     optimization_alg = config.optimization_alg
@@ -165,25 +163,32 @@ function mgvi_step(
     center_updated, min_mnlp, optres = _optimize(mnlp, context.ad, Σ̅⁻¹, center_init, optimization_alg, optimization_opts)
     smpls = hcat(center_updated .+ residual_samples, center_updated .- residual_samples)
 
-    result = MGVIResult(smpls, center_updated, min_mnlp, optres)
     info = (lsres = nothing, optres = optres)
-    state = MGVIState(center, residual_sampler, smpls, info)
+    result = MGVIResult(smpls, center_updated, min_mnlp, info)
+    state = MGVIState(center, residual_sampler, context)
     return result, state
 end
 
-function mgvi_step(
-    forward_model::Function, data, config::MGVIConfg, num_residuals::Integer, state::MGVIState
-)
-!!!!!!!!!!!!!
-    new_state = mgvi_step(
-        forward_model, data, state.center, length(state.center) ÷ 2, context;
-        linear_solver = linear_solver, optimization_alg = optimization_alg, optimization_opts = optimization_opts
-    )
-    return new_state
+function mgvi_step(forward_model, data, num_residuals::Integer, config::MGVIConfig, state::MGVIState)
+    return mgvi_step(forward_model, data, num_residuals, config, state.center, state.context)
 end
 
 
-function _inv_cov_est(fwd_model::Function, ξ::AbstractVector, OP, context::MGVIContext)
-    ℐ_λ, dλ_dξ = _fisher_information_and_jac(fwd_model, ξ, OP, context)
-    dλ_dξ' * ℐ_λ * dλ_dξ + I
+"""
+    mgvi_mvnormal_pushfwd_function(
+        forward_model, data, config::MGVIConfig,
+        center_point::AbstractVector{<:Real}, context::MGVIContext
+    )
+ 
+"""
+function mgvi_mvnormal_pushfwd_function end
+export mgvi_mvnormal_pushfwd_function
+
+function mgvi_mvnormal_pushfwd_function(
+    forward_model, data, config::MGVIConfig,
+    center_point::AbstractVector{<:Real}, context::MGVIContext
+)
+    residual_sampler = ResidualSampler(forward_model, center_point, MatrixInversion(), context)
+    op = residual_pushfwd_operator(residual_sampler)
+    MulAdd(op, center_point)
 end
