@@ -25,25 +25,25 @@ Test.@testset "test_mgvi_optimize_step" begin
 
     state = mgvi_step(
         model, data, starting_point, 3, context;
-        linear_solver = LinearSolve.KrylovJL_CG(),
-        optimization_alg = MGVI.NewtonCG()
+        linsolver = LinearSolve.KrylovJL_CG(),
+        optimizer = MGVI.NewtonCG()
     )
 
     state = mgvi_step(
         model, data, state, context;
-        linear_solver = LinearSolve.KrylovJL_CG(),
-        optimization_alg = MGVI.NewtonCG()
+        linsolver = LinearSolve.KrylovJL_CG(),
+        optimizer = MGVI.NewtonCG()
     )
 
     state = mgvi_step(
         model, data, state, context;
-        linear_solver = LinearSolve.KrylovJL_CG(),
-        optimization_alg = Optimization.LBFGS()
+        linsolver = LinearSolve.KrylovJL_CG(),
+        optimizer = Optimization.LBFGS()
     )
 
     state = mgvi_step(
         model, data, state, context;
-        linear_solver = LinearSolve.KrylovJL_CG(),
-        optimization_alg = Optim.LBFGS()
+        linsolver = LinearSolve.KrylovJL_CG(),
+        optimizer = Optim.LBFGS()
     )
 end

@@ -30,22 +30,22 @@ MGVI clgorithm configuration.
 Fields:
 
 * `linar_solver`: Linear solver to use, must be suitable for positive-definite operators
-* `optimization_alg`: Optimization solver to use
-* `optimization_opts`: Optimization solver options
+* `optimizer`: Optimization solver to use
+* `optimizer_opts`: Optimization solver options
 
-`linear_solver` must be a solver supported by
+`linsolver` must be a solver supported by
 [`LinearSolve`](https://github.com/SciML/LinearSolve.jl) or
 [`MGVI.MatrixInversion`](@ref). Use `MatrixInversion` only for low-dimensional
 problems.
 
-`optimization_alg` nay be [`MGVI.NewtonCG()`](@ref) or an optimization
-algorithm supported by `Optimization` or `Optim`. `optimization_opts` is
+`optimizer` nay be [`MGVI.NewtonCG()`](@ref) or an optimization
+algorithm supported by `Optimization` or `Optim`. `optimizer_opts` is
 algorithm-specific.
 """
 @with_kw struct MGVIConfig{LS, OS, OP<:NamedTuple}
-    linear_solver::LS = KrylovJL_CG()
-    optimization_alg::OS = MGVI.NewtonCG()
-    optimization_opts::OP::NamedTuple = (;)
+    linsolver::LS = KrylovJL_CG()
+    optimizer::OS = MGVI.NewtonCG()
+    optimizer_opts::OP::NamedTuple = (;)
 end
 export MGVIConfig
 
@@ -63,49 +63,24 @@ Fields:
   algorithm.
 """
 struct MGVIResult{
-    T<:Real, TM<:AbstractMatrix{T}, TV<:AbstractVector{T}, U<:Real,
+    T<:Real, TM<:AbstractMatrix{T}, U<:Real,
     AUX<:NamedTuple
 }
     smpls::TM
-    center::TV
     mnlp::U
     info::AUX
 end
 
 
 """
-    struct MGVIState
-
-State resulting from [`mgvi_step`](@ref).
-
-Fields:
-
-* `center`: The center/mean of the current MGVI posterior approximation.
-* `resisual_sampler`: The current [`ResidualSampler`](@ref).
-* `config`: The current [`MGVIConfig`](@ref).
-"""
-struct MGVIState{T<:Real, TV<:AbstractVector{T}, S<:ResidualSampler, CTX<:MGVIContext}
-    center::TV
-    resisual_sampler::S
-    context::CTX
-end
-
-
-"""
     mgvi_step(
-        forward_model::Function, data, center_init::AbstractVector{<:Real},
-        num_residuals::Integer, context::MGVIContext;
-        linear_solver = KrylovJL_CG(),
-        optimization_alg = MGVI.NewtonCG(), optimization_opts::NamedTuple = (;)
-    )
-
-    mgvi_step(
-        forward_model::Function, data, state::MGVIState, context::MGVIContext;
-        linear_solver = KrylovJL_CG(),
-        optimization_alg = MGVI.NewtonCG(), optimization_opts::NamedTuple = (;)
+        forward_model, data, n_residuals::Integer, center_init::AbstractVector{<:Real},
+        config::MGVIConfig, context::MGVIContext
     )
 
 Performs one MGVI step and returns an [`MGVIState`](@ref) object.
+
+Returns a tuple `(result::MGVIResult, updated_center::AbstractVector{<:Real})`.
 
 The posterior distribution is approximated with a multivariate normal distribution.
 The covariance is approximated with the inverse Fisher information valuated at
@@ -127,51 +102,59 @@ context = MGVIContext(ADSelector(Zygote))
 model(x::AbstractVector) = Normal(x[1], 0.2)
 true_param = [2.0]
 data = rand(model(true_param), 1)[1]
-init_param = [1.3]
+center = [1.3]
 
-res = mgvi_step(
-    model, data, init_param, context;
-    num_residuals = 5,
-    linear_solver = LinearSolve.KrylovJL_CG(),
-    optimization_alg = MGVI.NewtonCG(),
+config = MGVIConfig(
+    linsolver = LinearSolve.KrylovJL_CG(),
+    optimizer = MGVI.NewtonCG()
 )
+n_residuals = 12
+n_steps = 5
 
-next_param_point = res.center
-
-optim_optimized_object = res.info
-Optim.summary(optim_optimized_object)
+res, center = mgvi_step(model, data, n_residuals =, center, config, context)
+for i in 1:n_steps-1
+    res, center = mgvi_step(model, data, n_residuals =, center, config, context)
+end
 
 samples_from_est_covariance = res.samples
 ```
 """
-function mgvi_step end
-export mgvi_step
-
 function mgvi_step(
-    forward_model, data, num_residuals::Integer, config::MGVIConfig,
-    center_init::AbstractVector{<:Real}, context::MGVIContext
+    forward_model, data, n_residuals::Integer, center_init::AbstractVector{<:Real},
+    config::MGVIConfig, context::MGVIContext
 )
-    linear_solver = config.linear_solver
-    optimization_alg = config.optimization_alg
-    optimization_opts = config.optimization_opts
-    residual_sampler = ResidualSampler(forward_model, center_init, linear_solver, context)
-    residual_samples = sample_residuals(residual_sampler, num_residuals)
+    residual_sampler = ResidualSampler(forward_model, center_init, config.linsolver, context)
+    residual_samples = sample_residuals(residual_sampler, n_residuals)
     mnlp(params::AbstractVector) = _mean_neg_log_pstr(forward_model, data, residual_samples, params)
-    OP = _get_operator_type(linear_solver)
+    OP = _get_operator_type(config.linsolver)
     Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, OP, context)
     Σ̅⁻¹(ξ) = mean(Σ⁻¹.(collect.(eachcol(ξ .+ residual_samples))))
-    center_updated, min_mnlp, optres = _optimize(mnlp, context.ad, Σ̅⁻¹, center_init, optimization_alg, optimization_opts)
+    center_updated, min_mnlp, optres = _optimize(mnlp, context.ad, Σ̅⁻¹, center_init, config.optimizer, config.optimizer_opts)
     smpls = hcat(center_updated .+ residual_samples, center_updated .- residual_samples)
-
-    info = (lsres = nothing, optres = optres)
-    result = MGVIResult(smpls, center_updated, min_mnlp, info)
-    state = MGVIState(center, residual_sampler, context)
-    return result, state
+    info = (linsolver_output = nothing, optimizer_output = optres)
+    result = MGVIResult(smpls, min_mnlp, info)
+    return result, oftype(ccenter_init, center_updated)
 end
+export mgvi_step
 
-function mgvi_step(forward_model, data, num_residuals::Integer, config::MGVIConfig, state::MGVIState)
-    return mgvi_step(forward_model, data, num_residuals, config, state.center, state.context)
+
+"""
+    mgvi_sample(
+        forward_model, data, n_residuals::Integer, center_init::AbstractVector{<:Real},
+        config::MGVIConfig, context::MGVIContext
+    )
+
+"""
+function mgvi_sample(
+    forward_model, data, n_residuals::Integer, center::AbstractVector{<:Real},
+    config::MGVIConfig, context::MGVIContext
+)
+    residual_sampler = ResidualSampler(forward_model, center_init, config.linsolver, context)
+    residual_samples = sample_residuals(residual_sampler, n_residuals)
+    smpls = hcat(center_updated .+ residual_samples, center_updated .- residual_samples)
+    return smpls
 end
+export mgvi_sample
 
 
 """
@@ -179,11 +162,14 @@ end
         forward_model, data, config::MGVIConfig,
         center_point::AbstractVector{<:Real}, context::MGVIContext
     )
- 
-"""
-function mgvi_mvnormal_pushfwd_function end
-export mgvi_mvnormal_pushfwd_function
 
+Returns a function that pushes a multivariate normal distribution forward
+to the MGVI posterior approximation.
+
+This currently instantiates the full Jabocian of the forward model as
+a matrix in memory, and so should not be used for very high-dimensional
+problems.
+"""
 function mgvi_mvnormal_pushfwd_function(
     forward_model, data, config::MGVIConfig,
     center_point::AbstractVector{<:Real}, context::MGVIContext
@@ -192,3 +178,4 @@ function mgvi_mvnormal_pushfwd_function(
     op = residual_pushfwd_operator(residual_sampler)
     MulAdd(op, center_point)
 end
+export mgvi_mvnormal_pushfwd_function

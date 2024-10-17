@@ -94,8 +94,8 @@ init_plots()
 
 first_iteration = mgvi_step(
     model, data, starting_point, 3, context;
-    linear_solver = KrylovJL_CG((;itmax=10)),
-    optimization_alg = MGVI.NewtonCG()
+    linsolver = KrylovJL_CG((;itmax=10)),
+    optimizer = MGVI.NewtonCG()
 )
 @info hcat(first_iteration.center, true_params)
 p
@@ -142,7 +142,7 @@ for i in 1:5
     global next_iteration = mgvi_step(
         model, data, next_iteration.center, 10, context;
         linear_solver=KrylovJL_CG((;itmax=10)),
-        optimization_alg = MGVI.NewtonCG()
+        optimizer = MGVI.NewtonCG()
     )
     plot_iteration_light(next_iteration, i)
 end
