@@ -3,10 +3,11 @@
 using Test
 using MGVI
 
+using AutoDiffOperators
 using HypothesisTests
 using Random
 
-import Zygote
+import LinearSolve, Zygote
 
 if :ModelPolyfit ∉ names(Main)
     include("test_models/model_polyfit.jl")
@@ -29,7 +30,7 @@ Test.@testset "test_cmp_residual_samplers" begin
     B0 = BartlettTest(full_samples_1', full_samples_2')
     Test.@test pvalue(B0) > 1E-2
 
-    implicit_rs = MGVI.ResidualSampler(model, true_params, MGVI.IterativeSolversCG(), context)
+    implicit_rs = MGVI.ResidualSampler(model, true_params, LinearSolve.KrylovJL_CG(), context)
     implicit_samples = MGVI.sample_residuals(implicit_rs, num_of_test_samples)
     B1 = BartlettTest(full_samples_1', implicit_samples')
 

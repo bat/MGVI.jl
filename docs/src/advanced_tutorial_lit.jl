@@ -38,6 +38,7 @@ using FFTW
 
 import ForwardDiff, Zygote
 using AutoDiffOperators
+using LinearSolve: KrylovJL_CG
 
 context = MGVIContext(ADSelector(Zygote))
 
@@ -383,7 +384,7 @@ function produce_posterior_samples(p, num_residuals)
     end
 
     est_res_sampler = MGVI.ResidualSampler(
-        model, p, MGVI.IterativeSolversCG((abstol=1E-2,)), context
+        model, p, KrylovJL_CG((atol=1E-2,)), context
     )
     batches = []
     for _ in 1:(num_residuals ÷ batch_size ÷ 2)
@@ -482,23 +483,22 @@ plot_kernel_mgvi_samples(produce_posterior_samples(starting_point, 6), 20)
 #md savefig("advtut-plot7.svg"); nothing # hide
 #md # [![Plot](advtut-plot7.svg)](advtut-plot7.pdf)
 
-# Let's make a first iteration of the MGVI. For purposes of displaying the convergence curve, we limit `Optim.option` to 1 iteration so that
+# Let's make a first iteration of the MGVI. For purposes of displaying the convergence curve, we limit the optimization to 1 step so that
 # MGVI will coverge more slowly.
 
-first_iteration = mgvi_optimize_step(
-    model, data, starting_point, context;
-    num_residuals = 3,
-    linear_solver = MGVI.IterativeSolversCG((;maxiter=10)),
-    optim_solver = MGVI.NewtonCG()
-);
+config = MGVIConfig(
+    linsolver = KrylovJL_CG((;itmax=10)),
+    optimizer = MGVI.NewtonCG(steps = 1)
+)
+result, center_point = mgvi_step(model, data, 3, starting_point, config, context);
 
 # We again plot data and the Poisson rate. We again show the Gaussian process with padding.
 # After one iteration the Poisson rate doesn't seem to get much closer to the data.
 
 plot()
 plot_data()
-plot_mean(first_iteration.result, "first iteration"; plot_args=(;color=:darkorange2))
-plot_mgvi_samples(first_iteration.samples)
+plot_mean(center_point, "first iteration"; plot_args=(;color=:darkorange2))
+plot_mgvi_samples(result.samples)
 #jl savefig("advtut-plot8.pdf")
 #md savefig("advtut-plot8.pdf")
 #md savefig("advtut-plot8.svg"); nothing # hide
@@ -507,8 +507,8 @@ plot_mgvi_samples(first_iteration.samples)
 #-
 plot()
 plot_data()
-plot_mean(first_iteration.result, "full gp"; full=true, plot_args=(;color=:pink))
-plot_mean(first_iteration.result, "first iteration"; plot_args=(;color=:darkorange2))
+plot_mean(center_point, "full gp"; full=true, plot_args=(;color=:pink))
+plot_mean(center_point, "first iteration"; plot_args=(;color=:darkorange2))
 #jl savefig("advtut-plot9.pdf")
 #md savefig("advtut-plot9.pdf")
 #md savefig("advtut-plot9.svg"); nothing # hide
@@ -518,8 +518,8 @@ plot_mean(first_iteration.result, "first iteration"; plot_args=(;color=:darkoran
 # in comparison to the `starting_point` even after the first iteration:
 
 plot()
-plot_kernel_model(first_iteration.result, 20; plot_args=(;label="kernel model"))
-plot_kernel_mgvi_samples(first_iteration.samples, 20)
+plot_kernel_model(center_point, 20; plot_args=(;label="kernel model"))
+plot_kernel_mgvi_samples(result.samples, 20)
 #jl savefig("advtut-plot10.pdf")
 #md savefig("advtut-plot10.pdf")
 #md savefig("advtut-plot10.svg"); nothing # hide
@@ -543,18 +543,16 @@ end;
 # Now we do 30 more iterations of the MGVI and store the average likelihood after each step.
 # We feed the fitted result of the previous step as an input to the next iteration.
 
-next_iteration = first_iteration;
+config = MGVIConfig(
+    linsolver = KrylovJL_CG((;atol=1E-2,verbose=false)),
+    optimizer = MGVI.NewtonCG()
+)
+
 avg_likelihood_series = [];
-push!(avg_likelihood_series, compute_avg_likelihood(model, next_iteration.samples, data));
+push!(avg_likelihood_series, compute_avg_likelihood(model, result.samples, data));
 for i in 1:30
-    tmp_iteration = mgvi_optimize_step(
-        model, data, next_iteration.result, context;
-        num_residuals = 3,
-        linear_solver = MGVI.IterativeSolversCG((;abstol=1E-2,verbose=false)),
-        optim_solver = MGVI.NewtonCG()
-    )
-    global next_iteration = tmp_iteration
-    push!(avg_likelihood_series, compute_avg_likelihood(model, next_iteration.samples, data))
+    global result, center_point = mgvi_step(model, data, 3, center_point, config, context);
+    push!(avg_likelihood_series, compute_avg_likelihood(model, result.samples, data))
 end;
 
 # First, let's have a look at the convergence plots. We see that MGVI converged after 10 iterations
@@ -574,8 +572,8 @@ show_avg_likelihood(avg_likelihood_series)
 
 plot(ylim=[0,8])
 plot_data()
-plot_mgvi_samples(next_iteration.samples)
-plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
+plot_mgvi_samples(result.samples)
+plot_mean(center_point, "many iterations"; plot_args=(;color=:darkorange2))
 #jl savefig("advtut-plot12.pdf")
 #md savefig("advtut-plot12.pdf")
 #md savefig("advtut-plot12.svg"); nothing # hide
@@ -586,9 +584,9 @@ plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorang
 # the MGVI fit is with the data.
 
 plot(ylim=[0,8])
-plot_posterior_bands(next_iteration.result, 400)
+plot_posterior_bands(center_point, 400)
 plot_data()
-plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
+plot_mean(center_point, "many iterations"; plot_args=(;color=:darkorange2))
 #jl savefig("advtut-plot13.pdf")
 #md savefig("advtut-plot13.pdf")
 #md savefig("advtut-plot13.svg"); nothing # hide
@@ -598,8 +596,8 @@ plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorang
 
 plot()
 plot_data()
-plot_mean(next_iteration.result; full=true, plot_args=(;color=:pink))
-plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorange2))
+plot_mean(center_point; full=true, plot_args=(;color=:pink))
+plot_mean(center_point, "many iterations"; plot_args=(;color=:darkorange2))
 #jl savefig("advtut-plot14.pdf")
 #md savefig("advtut-plot14.pdf")
 #md savefig("advtut-plot14.svg"); nothing # hide
@@ -609,8 +607,8 @@ plot_mean(next_iteration.result, "many iterations"; plot_args=(;color=:darkorang
 # to become narrower:
 
 plot()
-plot_kernel_model(next_iteration.result, 20; plot_args=(;label="kernel model"))
-plot_kernel_mgvi_samples(next_iteration.samples, 20)
+plot_kernel_model(center_point, 20; plot_args=(;label="kernel model"))
+plot_kernel_mgvi_samples(result.samples, 20)
 #jl savefig("advtut-plot15.pdf")
 #md savefig("advtut-plot15.pdf")
 #md savefig("advtut-plot15.svg"); nothing # hide
@@ -628,7 +626,7 @@ max_posterior = Optim.optimize(x -> -MGVI.posterior_loglike(model, x, data), sta
 
 plot()
 plot_data()
-plot_mean(next_iteration.result, "mgvi mean"; plot_args=(;color=:darkorange2))
+plot_mean(center_point, "mgvi mean"; plot_args=(;color=:darkorange2))
 plot_mean(Optim.minimizer(max_posterior), "map")
 #jl savefig("advtut-plot16.pdf")
 #md savefig("advtut-plot16.pdf")
@@ -641,7 +639,7 @@ plot_mean(Optim.minimizer(max_posterior), "map")
 plot()
 plot_data()
 plot_mean(Optim.minimizer(max_posterior), "full gp"; full=true, plot_args=(;color=:darkorange2))
-plot_mean(next_iteration.result, "mgvi full gp"; full=true)
+plot_mean(center_point, "mgvi full gp"; full=true)
 #jl savefig("advtut-plot17.pdf")
 #md savefig("advtut-plot17.pdf")
 #md savefig("advtut-plot17.svg"); nothing # hide
