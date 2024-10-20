@@ -10,40 +10,30 @@ using MGVI
 
 SRC=joinpath(@__DIR__, "src")
 
-GENERATED = joinpath(@__DIR__, "build")
-GENERATED_SRC = joinpath(GENERATED, "src")
-GENERATED_DOCS = joinpath(GENERATED, "docs")
 
-EXECUTE_MD = true
-
-mkpath(GENERATED)
-cp(SRC, GENERATED_SRC, force = true)
-
-function dir_replace(content)
-    content = replace(content, "@__DIR__" => '"' * GENERATED_SRC * '"')
+function fix_literate_output(content)
+    content = replace(content, "EditURL = \"@__REPO_ROOT_URL__/\"" => "")
     return content
 end
 
-Literate.notebook(joinpath(GENERATED_SRC, "advanced_tutorial_lit.jl"),
-                  GENERATED_SRC; name="advanced_tutorial", execute=false)
-Literate.script(joinpath(GENERATED_SRC, "advanced_tutorial_lit.jl"),
-                GENERATED_SRC; name="advanced_tutorial")
-Literate.markdown(joinpath(GENERATED_SRC, "advanced_tutorial_lit.jl"),
-                  GENERATED_SRC; name="advanced_tutorial", execute=EXECUTE_MD, preprocess=dir_replace)
+gen_content_dir = joinpath(@__DIR__, "src")
 
-Literate.notebook(joinpath(GENERATED_SRC, "tutorial_lit.jl"),
-                  GENERATED_SRC; name="tutorial", execute=false)
-Literate.script(joinpath(GENERATED_SRC, "tutorial_lit.jl"),
-                GENERATED_SRC; name="tutorial")
-Literate.markdown(joinpath(GENERATED_SRC, "tutorial_lit.jl"),
-                  GENERATED_SRC; name="tutorial", execute=EXECUTE_MD)
+tutorial_src = joinpath(@__DIR__, "src", "tutorial_lit.jl")
+Literate.markdown(tutorial_src, gen_content_dir, name = "tutorial", documenter = true, credit = true, postprocess = fix_literate_output)
+#Literate.markdown(tutorial_src, gen_content_dir, name = "tutorial", codefence = "```@repl tutorial" => "```", documenter = true, credit = true)
+Literate.notebook(tutorial_src, gen_content_dir, execute = false, name = "mgvi_tutorial", documenter = true, credit = true)
+Literate.script(tutorial_src, gen_content_dir, keep_comments = false, name = "mgvi_tutorial", documenter = true, credit = false)
+
+advanced_tutorial_src = joinpath(@__DIR__, "src", "advanced_tutorial_lit.jl")
+Literate.markdown(advanced_tutorial_src, gen_content_dir, name = "advanced_tutorial", documenter = true, credit = true, postprocess = fix_literate_output)
+#Literate.markdown(advanced_tutorial_src, gen_content_dir, name = "advanced_tutorial", codefence = "```@repl advanced_tutorial" => "```", documenter = true, credit = true)
+Literate.notebook(advanced_tutorial_src, gen_content_dir, execute = false, name = "mgvi_advanced_tutorial", documenter = true, credit = true)
+Literate.script(advanced_tutorial_src, gen_content_dir, keep_comments = false, name = "mgvi_advanced_tutorial", documenter = true, credit = false)
+
 
 makedocs(
     sitename = "MGVI",
     modules = [MGVI],
-    root = GENERATED,
-    source = "src",
-    build = "docs",
     format = Documenter.HTML(
         prettyurls = !("local" in ARGS),
         canonical = "https://bat.github.io/MGVI.jl/stable/"

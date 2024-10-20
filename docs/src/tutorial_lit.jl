@@ -1,5 +1,8 @@
 #md # # Tutorial
-#md # Notebook [download](tutorial.ipynb) [source](tutorial.jl)
+
+#md # You can also download this tutorial as a
+#md # [Jupyter notebook](mgvi_tutorial.ipynb) and a plain
+#md # [Julia source file](mgvi_tutorial.jl).
 
 using MGVI
 #

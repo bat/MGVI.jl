@@ -1,2 +1,6 @@
 build/
 site/
+src/tutorial.*
+src/mgvi_tutorial.*
+src/advanced_tutorial.*
+src/mgvi_advanced_tutorial.*

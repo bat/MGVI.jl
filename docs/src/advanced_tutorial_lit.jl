@@ -1,5 +1,8 @@
 #md # # Advanced Tutorial
-#md # Notebook [download](advanced_tutorial.ipynb) [source](advanced_tutorial.jl)
+
+#md # You can also download this tutorial as a
+#md # [Jupyter notebook](mgvi_advanced_tutorial.ipynb) and a plain
+#md # [Julia source file](mgvi_advanced_tutorial.jl).
 
 # ## Introduction
 
