@@ -1,6 +1,6 @@
 name = "MGVI"
 uuid = "fdae7790-d271-4276-880d-f72bbddf129c"
-version = "0.4.0"
+version = "0.4.1"
 
 [deps]
 AffineMaps = "2c83c9a8-abf5-4329-a0d7-deffaf474661"
