@@ -83,6 +83,12 @@ function fisher_information(dist::Product)
     _blockdiag(λinformations)
 end
 
+function fisher_information(dist::Distributions.ProductDistribution)
+    dists = vec(dist.dists)
+    λinformations = fisher_information.(dists)
+    _blockdiag(λinformations)
+end
+
 function fisher_information(d::NamedTupleDist)
     dists = values(d)
     λinformations = map(fisher_information, dists)

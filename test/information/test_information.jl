@@ -56,6 +56,14 @@ Test.@testset "test_fisher_information_combinations" begin
     truth = blockdiag(MGVI.fisher_information.(dists)...)
     Test.@test norm(Matrix(res) - Matrix(truth)) < epsilon
 
+    # test product_distribution(Univariates)
+    μ1, σ1 = 0.1, 0.2
+    μ2, σ2 = 0.1, 0.3
+    dists = [Normal(μ1, σ1) Normal(μ2, σ2); Normal(μ1, σ1) Normal(μ2, σ2)]
+    res = MGVI.fisher_information(Distributions.Distributions.ProductDistribution(dists))
+    truth = blockdiag(MGVI.fisher_information.(dists)...)
+    Test.@test norm(Matrix(res) - Matrix(truth)) < epsilon
+
     # test NamedTupleDist
     dists = NamedTupleDist(a=Normal(0.1, 0.2),
                            b=Distributions.Product{Continuous, Normal{Float64}, Vector{Normal{Float64}}}([Normal(0.1, 0.2), Normal(0.3, 0.1)]),

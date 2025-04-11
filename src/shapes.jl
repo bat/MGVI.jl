@@ -49,6 +49,10 @@ function flat_params(dp::Distributions.Product)
     flat_params(params.(dp.v))
 end
 
+function flat_params(dp::Distributions.ProductDistribution)
+    flat_params(params.(vec(dp.dists)))
+end
+
 function flat_params(d::TuringDenseMvNormal)
     μ = d.m
     Σ = d.C.L*d.C.U
