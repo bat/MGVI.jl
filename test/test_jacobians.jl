@@ -9,7 +9,7 @@ using Random
 using AutoDiffOperators, LinearMaps
 import ForwardDiff, Zygote
 
-if isdefined(Main, :ModelPolyfit)
+if !isdefined(Main, :ModelPolyfit)
     include("test_models/model_polyfit.jl")
     import .ModelPolyfit
 end
