@@ -5,16 +5,16 @@ module MGVIOptimizationExt
 import Optimization
 
 import MGVI
-using AutoDiffOperators: ADSelector, reverse_ad_selector
+using AutoDiffOperators: ADSelector, reverse_adtype
 
 
 struct _OptimizationTargetFunc{F} <: Function
     f::F
 end
-
 _OptimizationTargetFunc(::Type{F}) where F = _OptimizationTargetFunc{Type{F}}(F)
 
-(ft::_OptimizationTargetFunc)(x, p) = ft.f(x)
+(ft::_OptimizationTargetFunc)(x, ::Any) = ft.f(x)
+
 
 function MGVI._optimize(f::Function, adsel::ADSelector, curvature::Function, 
     x₀::AbstractVector, optimizer, optimization_opts::NamedTuple
@@ -23,8 +23,9 @@ function MGVI._optimize(f::Function, adsel::ADSelector, curvature::Function,
    
     # ToDo: Forward curvature/Hessian?
 
-    adsel = reverse_ad_selector(adsel)
-    optfunc = Optimization.OptimizationFunction(_OptimizationTargetFunc(f), adsel)
+    f_target = _OptimizationTargetFunc(f)
+    ad = reverse_adtype(adsel)
+    optfunc = Optimization.OptimizationFunction(f_target, ad)
     optprob = Optimization.OptimizationProblem(optfunc, x₀)
 
     res = Optimization.solve(optprob, optimizer; optimization_opts...)

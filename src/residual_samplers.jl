@@ -53,7 +53,7 @@ end
 export ResidualSampler
 
 
-@inline _get_operator_type(::MatrixInversion) = Matrix
+@inline _get_operator_type(::MatrixInversion) = DenseMatrix
 @inline _get_operator_type(::Any) = LinearMap
 
 function ResidualSampler(f_model::Function, center_point::Vector{<:Real}, linear_solver, context::MGVIContext)

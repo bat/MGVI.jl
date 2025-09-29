@@ -21,7 +21,7 @@ Test.@testset "test_jacobians_consistency" begin
         x = rand(6); l = rand(4); r = rand(6)
         J_ref = ForwardDiff.jacobian(f, x)
         
-        _, J1 = @inferred with_jacobian(f, x, Matrix, ADSelector(ForwardDiff))
+        _, J1 = @inferred with_jacobian(f, x, DenseMatrix, ADSelector(ForwardDiff))
         _, J2 = @inferred with_jacobian(f, x, LinearMap, ADSelector(Zygote))
         _, J3 = @inferred with_jacobian(f, x, LinearMap, ADSelector(ForwardDiff))
 

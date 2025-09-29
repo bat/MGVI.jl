@@ -2,19 +2,20 @@
 
 module MGVIOptimExt
 
-import Optim
+using Optim: Optim, OnceDifferentiable
 
 import MGVI
 
-using AutoDiffOperators: ADSelector, gradient!_func
+using AutoDiffOperators: ADSelector, reverse_adtype
 
 
 function MGVI._optimize(f::Function, adsel::ADSelector, curvature::Function, 
     x₀::AbstractVector, optimizer::Optim.AbstractOptimizer, 
     optimization_opts::NamedTuple
 )
-    ∇f! = gradient!_func(f, adsel)
-    res = Optim.optimize(f, ∇f!, x₀, optimizer, Optim.Options(;optimization_opts...))
+    ad = reverse_adtype(adsel)
+    target = OnceDifferentiable(f, x₀, autodiff = ad)
+    res = Optim.optimize(target, x₀, optimizer, Optim.Options(;optimization_opts...))
     x_res = oftype(x₀, Optim.minimizer(res))
     f_x_res = Optim.minimum(res)
     # @assert f_x_res == f(x_res)
