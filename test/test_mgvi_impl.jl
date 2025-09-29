@@ -24,20 +24,38 @@ Test.@testset "test_mgvi_optimize_step" begin
     data = rand(rng, model(true_params), 1)[1]
 
     config = MGVIConfig(
+        linsolver = MGVI.MatrixInversion(),
+        optimizer = MGVI.NewtonCG()
+    )
+    result, center = mgvi_step(model, data, 12, center, config, context)
+    @test result.mnlp isa Real
+    @test result.samples isa AbstractMatrix{<:Real}
+    @test center isa AbstractVector{<:Real}
+
+    config = MGVIConfig(
         linsolver = LinearSolve.KrylovJL_CG(),
         optimizer = MGVI.NewtonCG()
     )
     result, center = mgvi_step(model, data, 12, center, config, context)
+    @test result.mnlp isa Real
+    @test result.samples isa AbstractMatrix{<:Real}
+    @test center isa AbstractVector{<:Real}
 
     config = MGVIConfig(
         linsolver = LinearSolve.KrylovJL_CG(),
         optimizer = Optimization.LBFGS()
     )
     result, center = mgvi_step(model, data, 12, center, config, context)
+    @test result.mnlp isa Real
+    @test result.samples isa AbstractMatrix{<:Real}
+    @test center isa AbstractVector{<:Real}
 
     config = MGVIConfig(
         linsolver = LinearSolve.KrylovJL_CG(),
         optimizer = Optim.LBFGS()
     )
     result, center = mgvi_step(model, data, 12, center, config, context)
+    @test result.mnlp isa Real
+    @test result.samples isa AbstractMatrix{<:Real}
+    @test center isa AbstractVector{<:Real}
 end
