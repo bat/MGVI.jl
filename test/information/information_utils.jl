@@ -54,12 +54,15 @@ function fisher_information_mc(model::Function, params::AbstractVector, n::Integ
     dist = model(params)
     sample() = _grad_logpdf(model, params, rand(dist))/n
 
-    res = [sample() for _ in 1:Threads.nthreads()]
-    Threads.@threads for i in 1:n-Threads.nthreads()
-        res[Threads.threadid()] .+= sample()
+    res = zero(sample())
+    res_lock = ReentrantLock()
+
+    Threads.@threads for _ in 1:n
+        s = sample()
+        @lock res_lock res .+= s
     end
 
-    _cut_params(sum(res), dist)
+    _cut_params(res, dist)
 end
 
 # end fisher information mc
