@@ -6,7 +6,7 @@ using MGVI
 using Random
 using AutoDiffOperators
 import LinearSolve, Zygote
-import Optimization, Optim#, OptimizationOptimJL
+import OptimizationLBFGSB, Optim#, OptimizationOptimJL
 
 if !isdefined(Main, :ModelPolyfit)
     include("test_models/model_polyfit.jl")
@@ -43,7 +43,7 @@ Test.@testset "test_mgvi_optimize_step" begin
 
     config = MGVIConfig(
         linsolver = LinearSolve.KrylovJL_CG(),
-        optimizer = Optimization.LBFGS()
+        optimizer = OptimizationLBFGSB.LBFGSB()
     )
     result, center = mgvi_step(model, data, 12, center, config, context)
     @test result.mnlp isa Real

@@ -45,7 +45,7 @@ Fields:
 problems.
 
 `optimizer` nay be [`MGVI.NewtonCG()`](@ref) or an optimization
-algorithm supported by `Optimization` or `Optim`. `optimizer_opts` is
+algorithm supported by `OptimizationBase` or `Optim`. `optimizer_opts` is
 algorithm-specific.
 """
 @with_kw struct MGVIConfig{LS, OS, OP<:NamedTuple}

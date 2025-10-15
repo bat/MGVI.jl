@@ -1,8 +1,8 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-module MGVIOptimizationExt
+module MGVIOptimizationBaseExt
 
-import Optimization
+import OptimizationBase
 
 import MGVI
 using AutoDiffOperators: ADSelector, reverse_adtype
@@ -25,15 +25,15 @@ function MGVI._optimize(f::Function, adsel::ADSelector, curvature::Function,
 
     f_target = _OptimizationTargetFunc(f)
     ad = reverse_adtype(adsel)
-    optfunc = Optimization.OptimizationFunction(f_target, ad)
-    optprob = Optimization.OptimizationProblem(optfunc, x₀)
+    optfunc = OptimizationBase.OptimizationFunction(f_target, ad)
+    optprob = OptimizationBase.OptimizationProblem(optfunc, x₀)
 
-    res = Optimization.solve(optprob, optimizer; optimization_opts...)
+    res = OptimizationBase.solve(optprob, optimizer; optimization_opts...)
     x_res = oftype(x₀, res.u)
-    # ToDo: Is there a way to make Optimization return f(x_res)?
+    # ToDo: Is there a way to make OptimizationBase return f(x_res)?
     f_x_res = f(x_res)
     return x_res, f_x_res, res
 end
 
 
-end # module MGVIOptimizationExt
+end # module MGVIOptimizationBaseExt
