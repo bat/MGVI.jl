@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Tutorial · MGVI</title><link rel="canonical" href="https://bat.github.io/MGVI.jl/stable/tutorial/"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit">MGVI</span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li class="is-active"><a class="tocitem" href>Tutorial</a></li><li><a class="tocitem" href="../api/">API</a></li><li><a class="tocitem" href="../LICENSE/">LICENSE</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Tutorial</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tutorial</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/bat/MGVI.jl/blob/master/docs/build/src/tutorial_lit.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Tutorial-1"><a class="docs-heading-anchor" href="#Tutorial-1">Tutorial</a><a class="docs-heading-anchor-permalink" href="#Tutorial-1" title="Permalink"></a></h1><p>Notebook <a href="../tutorial.ipynb">download</a> <a href="https://nbviewer.jupyter.org/github/bat/MGVI.jl/blob/gh-pages/previews/PR12/tutorial.ipynb">nbviewer</a> <a href="../tutorial.jl">source</a></p><pre><code class="language-julia">using MGVI</code></pre><pre><code class="language-julia">using Distributions
+using Random
+using ValueShapes
+using LinearAlgebra
+using Optim</code></pre><p>We want to fit a 3-degree polynomial using two data sets (<code>a</code> and <code>b</code>). MGVI requires a model expressed as a function of the model parameters and returning an instance of the Distribution. In this example, since we have two sets of independent measurements, we express them as ValueShapes.NamedTupleDist.</p><p>We assume errors are normally distributed with unknown covariance, which has to be learned as well.</p><pre><code class="language-julia">const _x1_grid = [Float64(i)/10 for i in 1:25]
+const _x2_grid = [Float64(i)/10 + 0.1 for i in 1:15]
+const _common_grid = sort(vcat(_x1_grid, _x2_grid))
+
+function _mean(x_grid, p)
+    p[1]*10 .+ p[2]*40 .* x_grid .+ p[3]*600 .* x_grid.^2 .+ p[4]*80 .* x_grid.^3
+end
+
+function model(p)
+    dist1 = Product(Normal.(_mean(_x1_grid, p), p[5]^2*60))
+    dist2 = Product(Normal.(_mean(_x2_grid, p), p[5]^2*60))
+    NamedTupleDist(a=dist1,
+                   b=dist2)
+end</code></pre><pre><code class="language-none">model (generic function with 1 method)</code></pre><p>Here we define the ground truth of the parameters, as well as an initial guess.</p><pre><code class="language-julia">const true_params =  [
+ -0.3
+ -1.5
+ 0.2
+ -0.5
+ 0.3]
+
+const starting_point = [
+  0.2
+  0.5
+  -0.1
+  0.3
+ -0.6
+];
+nothing #hide</code></pre><pre><code class="language-julia">function pprintln(obj)
+    show(stdout, &quot;text/plain&quot;, obj)
+    println()
+end;
+nothing #hide</code></pre><pre><code class="language-julia">using Plots
+gr(size=(400, 300), dpi=700, fmt=:png)</code></pre><pre><code class="language-none">Plots.GRBackend()</code></pre><pre><code class="language-julia">rng = MersenneTwister(157);
+nothing #hide</code></pre><p>We draw data directly from the model, using the true parameter values:</p><pre><code class="language-julia">data = rand(rng, model(true_params), 1)[1];
+nothing #hide</code></pre><pre><code class="language-julia">function _mean(x::Vector)
+    _mean(_common_grid, x)
+end
+
+init_plots =() -&gt; let
+    truth = _mean(true_params)
+    plot!(_common_grid, truth, markercolor=:blue, linecolor=:blue, label=&quot;truth&quot;)
+    scatter!(_common_grid, _mean(starting_point), markercolor=:orange, markerstrokewidth=0, markersize=3, label=&quot;init&quot;)
+    scatter!(vcat(_x1_grid, _x2_grid), reduce(vcat, data), markercolor=:black, markerstrokewidth=0, markersize=3, label=&quot;data&quot;)
+end;
+nothing #hide</code></pre><p>Before we start the optimization, let&#39;s have an initial look at the data. It is also interesting to see how our starting guess performs.</p><pre><code class="language-julia">p = plot()
+init_plots()</code></pre><p><img src="../1052018596.png" alt/></p><p>Now we are ready to run one iteration of the MGVI. The output contains an updated parameter estimate (<code>first_iteration.result</code>), which we can compare to the true parameters.</p><pre><code class="language-julia">first_iteration = mgvi_kl_optimize_step(rng,
+                                        model, data,
+                                        starting_point;
+                                        jacobian_func=FwdRevADJacobianFunc,
+                                        residual_sampler=ImplicitResidualSampler,
+                                        optim_options=Optim.Options(iterations=10, show_trace=true),
+                                        residual_sampler_options=(;cg_params=(;maxiter=10)))
+pprintln(hcat(first_iteration.result, true_params))
+p</code></pre><p><img src="../3360478958.png" alt/></p><pre><code class="language-julia">plot_iteration = (params, label) -&gt; let
+    #error_mat = mgvi_kl_errors(full_model, params)
+    #display(error_mat)
+    #errors = sqrt.(error_mat[diagind(error_mat)])
+    #yerr = abs.(line(common_grid, params+errors) - line(common_grid, params-errors))
+    #scatter!(common_grid, line(common_grid, params), markercolor=:green, label=label, yerr=yerr)
+    for sample in eachcol(params.samples)
+        scatter!(_common_grid, _mean(Vector(sample)), markercolor=:gray, markeralpha=0.3, markersize=2, label=nothing)
+    end
+    scatter!(_common_grid, _mean(params.result), markercolor=:green, label=label)
+end;
+nothing #hide</code></pre><p>Now let&#39;s also plot the curve corresponding to the new parameters after the first iteration:</p><pre><code class="language-julia">p = plot()
+init_plots()
+plot_iteration(first_iteration, &quot;first&quot;)
+p</code></pre><p><img src="../1096907118.png" alt/></p><pre><code class="language-julia">plot_iteration_light = (params, counter) -&gt; let
+    scatter!(_common_grid, _mean(params.result), markercolor=:green, markersize=3, markeralpha=2*atan(counter/18)/π, label=nothing)
+end;
+nothing #hide</code></pre><p>From the plot above we see that one iteration is not enough. Let&#39;s do 5 more steps and plot the evolution of estimates.</p><pre><code class="language-julia">init_plots()
+plt = scatter()
+next_iteration = first_iteration
+for i in 1:5
+    pprintln(minimum(next_iteration.optimized))
+    pprintln(hcat(next_iteration.result, true_params))
+    global next_iteration = mgvi_kl_optimize_step(rng,
+                                                  model, data,
+                                                  next_iteration.result;
+                                                  jacobian_func=FwdRevADJacobianFunc,
+                                                  residual_sampler=ImplicitResidualSampler,
+                                                  optim_options=Optim.Options(iterations=10, show_trace=true),
+                                                  residual_sampler_options=(;cg_params=(;maxiter=10)))
+    plot_iteration_light(next_iteration, i)
+end
+pprintln(minimum(next_iteration.optimized))
+pprintln(hcat(next_iteration.result, true_params))
+plt</code></pre><p><img src="../2856511638.png" alt/></p><p>Finally, let&#39;s plot the last estimate and compare it to the truth. Also, notice, that gray dots represent samples from the approximation.</p><pre><code class="language-julia">p = plot()
+init_plots()
+plot_iteration(next_iteration, &quot;last&quot;)
+p</code></pre><p><img src="../1049673466.png" alt/></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../api/">API »</a></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Tuesday 22 December 2020 00:32">Tuesday 22 December 2020</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
