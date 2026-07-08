@@ -136,7 +136,9 @@ function mgvi_step(
     mnlp(params::AbstractVector) = _mean_neg_log_pstr(forward_model, data, residual_samples, params)
     OP = _get_operator_type(config.linsolver)
     Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, OP, context)
-    Σ̅⁻¹(ξ) = mean(Σ⁻¹.(collect.(eachcol(ξ .+ residual_samples))))
+    # average the metric over both members of the antithetic sample pairs,
+    # like the KL estimator does:
+    Σ̅⁻¹(ξ) = mean(Σ⁻¹.(collect.(vcat(eachcol(ξ .+ residual_samples), eachcol(ξ .- residual_samples)))))
     center_updated, min_mnlp, optres = _optimize(mnlp, context.ad, Σ̅⁻¹, center_init, config.optimizer, config.optimizer_opts)
     samples = _build_samples(residual_samples, center_updated)
     info = (linsolver_output = nothing, optimizer_output = optres)
