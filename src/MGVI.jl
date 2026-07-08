@@ -10,7 +10,7 @@ An implementation of the Metric Gaussian Variational Inference algorithm.
 module MGVI
 
 using AffineMaps: MulAdd
-using AutoDiffOperators: ADSelector, with_jacobian, gradient_func
+using AutoDiffOperators: ADSelector, with_jacobian, gradient_func, jvp_func, with_vjp_func
 import ChainRulesCore
 using LinearAlgebra
 using Random

@@ -101,6 +101,73 @@ function sample_residuals(s::ResidualSampler, n::Integer)
 end
 
 
+"""
+    MGVI._batched_cg(apply_A, B::AbstractMatrix{<:Real}, n_iter::Integer)
+
+Solve `A * X == B` column-wise via `n_iter` conjugate-gradient iterations,
+with `apply_A(P)` applying the positive-definite `A` to the columns of `P`.
+
+Uses a fixed iteration count and is free of dynamic control flow and array
+mutation, so it is suitable for program tracing and compilation (e.g. via
+Reactant), unlike dynamically terminated solvers.
+"""
+function _batched_cg(apply_A, B::AbstractMatrix{<:Real}, n_iter::Integer)
+    tiny = eps(float(one(eltype(B))))
+    X = zero(B)
+    R = B
+    P = R
+    rs = sum(abs2, R; dims = 1)
+    for _ in 1:n_iter
+        AP = apply_A(P)
+        α = rs ./ (sum(P .* AP; dims = 1) .+ tiny)
+        X = X .+ P .* α
+        R = R .- AP .* α
+        rs_next = sum(abs2, R; dims = 1)
+        β = rs_next ./ (rs .+ tiny)
+        P = R .+ P .* β
+        rs = rs_next
+    end
+    return X
+end
+
+
+"""
+    MGVI.sample_residuals(
+        f_model, center::AbstractVector{<:Real},
+        sample_n::AbstractMatrix{<:Real}, sample_η::AbstractMatrix{<:Real},
+        ad::ADSelector;
+        cg_iterations::Integer = 4 * length(center)
+    )
+
+Generate zero-centered residual samples like
+`sample_residuals(::ResidualSampler, n)`, but as a pure function of
+pre-drawn standard normal samples `sample_n` (data-parameter space, size
+`m × k`) and `sample_η` (parameter space, size `n × k`), solving all `k`
+linear systems together with [`MGVI._batched_cg`](@ref).
+
+Returns an `n × k` matrix of residual samples.
+
+Free of RNG state, dynamic control flow and array mutation, so suitable for
+program tracing and compilation, e.g. via Reactant with an Enzyme-based
+`ad`.
+"""
+function sample_residuals(
+    f_model, center::AbstractVector{<:Real},
+    sample_n::AbstractMatrix{<:Real}, sample_η::AbstractMatrix{<:Real},
+    ad::ADSelector;
+    cg_iterations::Integer = 4 * length(center)
+)
+    f_flat = flat_params ∘ f_model
+    jvp = jvp_func(f_flat, center, ad)
+    _, vjp = with_vjp_func(f_flat, center, ad)
+    ℐ_λ = fisher_information(f_model(center))
+    L = cholesky_L(ℐ_λ)
+    Δφ = _mapcols(vjp, _apply_op(L, sample_n)) .+ sample_η
+    apply_M(P) = _mapcols(vjp, _apply_op(ℐ_λ, _mapcols(jvp, P))) .+ P
+    return _batched_cg(apply_M, Δφ, cg_iterations)
+end
+
+
 function residual_pushfwd_operator(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:MatrixInversion})
     genctx = s.context.gen
 

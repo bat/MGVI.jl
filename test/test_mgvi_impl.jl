@@ -60,6 +60,15 @@ Test.@testset "test_mgvi_optimize_step" begin
     @test result.mnlp isa Real
     @test result.samples isa AbstractMatrix{<:Real}
     @test center isa AbstractVector{<:Real}
+
+    # mgvi_kl_target is the mean negative log-posterior over antithetic pairs:
+    residuals = rand(Xoshiro(7), 5, 3)
+    mnlp = mgvi_kl_target(model, data, residuals)
+    ref = -sum(
+        MGVI.posterior_loglike(model, center + s * residuals[:, i], data)
+        for i in 1:3, s in (+1, -1)
+    ) / 6
+    @test mnlp(center) ≈ ref
 end
 
 Test.@testset "test_newtoncg_linesearch_robustness" begin
