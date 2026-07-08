@@ -20,7 +20,7 @@ using Distributions
 using DistributionsAD
 using FillArrays
 using HeterogeneousComputing: GenContext, allocate_array
-using IrrationalConstants: log2π
+using IrrationalConstants: log2π, sqrt2, invsqrt2
 using LineSearches
 using LinearMaps
 using Parameters
@@ -47,5 +47,6 @@ include("information.jl")
 include("residual_samplers.jl")
 include("newtoncg.jl")
 include("mgvi_impl.jl")
+include("geovi_impl.jl")
 
 end # module

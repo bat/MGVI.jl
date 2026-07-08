@@ -96,3 +96,56 @@ function fisher_information(d::NamedTupleDist)
     λinformations = map(fisher_information, dists)
     _blockdiag(λinformations)
 end
+
+
+"""
+    MGVI.euclidean_coords(d::Distributions.Distribution)
+
+Compute coordinates of the parameters of `d` in which the Fisher
+information metric of `d`'s distribution family is the identity.
+
+The Jacobian `C` of `euclidean_coords` with respect to the flat parameters
+of `d` (see `MGVI.flat_params`) satisfies `C'C == fisher_information(d)` -
+exactly for distribution families with flat Fisher geometry, up to
+curvature terms otherwise (e.g. for `Normal`, where the cross terms
+between mean and scale vanish only at `μ == 0`).
+
+Used by geoVI (see [`geovi_step`](@ref)) to construct local isometries.
+"""
+function euclidean_coords end
+
+function euclidean_coords(d::Normal)
+    μ, σ = params(d)
+    _svector((μ/σ, sqrt2 * log(σ)))
+end
+
+function euclidean_coords(d::Exponential)
+    θ = params(d)[1]
+    _svector((log(θ),))
+end
+
+function euclidean_coords(d::Poisson)
+    λ = params(d)[1]
+    _svector((2*sqrt(λ),))
+end
+
+function euclidean_coords(d::MvNormal{<:Real,<:PDiagMat})
+    v = d.Σ.diag
+    vcat(d.μ ./ sqrt.(v), invsqrt2 .* log.(v))
+end
+
+euclidean_coords(d::TuringDiagMvNormal) = vcat(d.m ./ d.σ, sqrt2 .* log.(d.σ))
+
+# MvNormal with diagonal covariance may get swapped for a dense-Cholesky
+# TuringDenseMvNormal under AD tracing:
+function euclidean_coords(d::TuringDenseMvNormal{<:AbstractVector,<:Cholesky{<:Real,<:Diagonal}})
+    σ = d.C.factors.diag
+    vcat(d.m ./ σ, sqrt2 .* log.(σ))
+end
+
+euclidean_coords(d::Product) = _flatten_vec_of_vec(map(euclidean_coords, d.v))
+
+euclidean_coords(d::Distributions.ProductDistribution) =
+    _flatten_vec_of_vec(map(euclidean_coords, vec(d.dists)))
+
+euclidean_coords(d::NamedTupleDist) = vcat(map(euclidean_coords, values(d))...)

@@ -8,5 +8,6 @@ Test.@testset "Package MGVI" begin
     include("test_jacobians.jl")
     include("information/test_information.jl")
     include("test_samplers.jl")
+    include("test_geovi.jl")
     include("test_docs.jl")
 end # testset

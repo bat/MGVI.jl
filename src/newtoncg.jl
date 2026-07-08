@@ -83,7 +83,15 @@ function (F::EvalCount)(x::AbstractVector)
 end
 
 function _optimize(
-    f::Function, adsel::ADSelector, Σ̅⁻¹::Function, 
+    f::Function, adsel::ADSelector, Σ̅⁻¹::Function,
+    x₀::AbstractVector, optimizer::NewtonCG, optimization_opts::NamedTuple
+)
+    ∇f = gradient_func(f, adsel)
+    _newtoncg_optimize(f, ∇f, Σ̅⁻¹, x₀, optimizer, optimization_opts)
+end
+
+function _newtoncg_optimize(
+    f::Function, ∇f::Function, Σ̅⁻¹::Function,
     x₀::AbstractVector, optimizer::NewtonCG, optimization_opts::NamedTuple
 )
     # fetch parameters from optimizer struct
@@ -95,9 +103,6 @@ function _optimize(
     # logging information
     cg_iterations=Int64[]
     f_history=Float64[]
-
-    # gradient function of f
-    ∇f = gradient_func(f, adsel)
 
     f_counted = EvalCount(f)
     ∇f_counted = EvalCount(∇f)
