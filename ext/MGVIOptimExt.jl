@@ -1,4 +1,4 @@
-# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+# This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
 module MGVIOptimExt
 

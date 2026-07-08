@@ -12,11 +12,9 @@ module MGVI
 using AffineMaps: MulAdd
 using AutoDiffOperators: ADSelector, with_jacobian, gradient_func
 import ChainRulesCore
-using Distributed
 using LinearAlgebra
 using Random
 using SparseArrays
-using Base.Iterators
 using DensityInterface
 using Distributions
 using DistributionsAD
@@ -29,7 +27,6 @@ using Parameters
 using PDMats
 using PositiveFactorizations
 import SparseArrays: blockdiag
-using SparseArrays
 using StaticArrays
 using ValueShapes
 using DocStringExtensions
