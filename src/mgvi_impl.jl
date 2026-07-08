@@ -29,27 +29,30 @@ end
 
 
 """
-    struct MVGIConfig
+    struct MGVIConfig
 
-MGVI clgorithm configuration.
+MGVI algorithm configuration.
 
 Fields:
 
-* `linar_solver`: Linear solver to use, must be suitable for positive-definite operators
+* `linsolver`: Linear solver to use, must be suitable for positive-definite operators
+* `linsolver_opts`: Linear solver options
 * `optimizer`: Optimization solver to use
 * `optimizer_opts`: Optimization solver options
 
 `linsolver` must be a solver supported by
 [`LinearSolve`](https://github.com/SciML/LinearSolve.jl) or
 [`MGVI.MatrixInversion`](@ref). Use `MatrixInversion` only for low-dimensional
-problems.
+problems. `linsolver_opts` is passed to `LinearSolve.solve` as keyword
+arguments.
 
-`optimizer` nay be [`MGVI.NewtonCG()`](@ref) or an optimization
+`optimizer` may be [`MGVI.NewtonCG()`](@ref) or an optimization
 algorithm supported by `OptimizationBase` or `Optim`. `optimizer_opts` is
 algorithm-specific.
 """
-@with_kw struct MGVIConfig{LS, OS, OP<:NamedTuple}
+@with_kw struct MGVIConfig{LS, LSO<:NamedTuple, OS, OP<:NamedTuple}
     linsolver::LS = KrylovJL_CG()
+    linsolver_opts::LSO = (;)
     optimizer::OS = MGVI.NewtonCG()
     optimizer_opts::OP = (;)
 end
@@ -130,7 +133,7 @@ function mgvi_step(
     forward_model, data, n_residuals::Integer, center_init::AbstractVector{<:Real},
     config::MGVIConfig, context::MGVIContext
 )
-    residual_sampler = ResidualSampler(forward_model, center_init, config.linsolver, context)
+    residual_sampler = ResidualSampler(forward_model, center_init, config.linsolver, context; linear_solver_opts = config.linsolver_opts)
     residual_samples = sample_residuals(residual_sampler, n_residuals)
     mnlp(params::AbstractVector) = _mean_neg_log_pstr(forward_model, data, residual_samples, params)
     OP = _get_operator_type(config.linsolver)
@@ -167,7 +170,7 @@ function mgvi_sample(
     forward_model, data, n_residuals::Integer, center::AbstractVector{<:Real},
     config::MGVIConfig, context::MGVIContext
 )
-    residual_sampler = ResidualSampler(forward_model, center, config.linsolver, context)
+    residual_sampler = ResidualSampler(forward_model, center, config.linsolver, context; linear_solver_opts = config.linsolver_opts)
     residual_samples = sample_residuals(residual_sampler, n_residuals)
     smpls = _build_samples(residual_samples, center)
     return smpls

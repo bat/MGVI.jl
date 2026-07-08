@@ -33,19 +33,24 @@ are provided as arguments.
 Constructor:
 
 ```julia
-ResidualSampler(f_model::Function, center_point::Vector{<:Real}, linear_solver, context::MGVIContext)
+ResidualSampler(
+    f_model::Function, center_point::Vector{<:Real}, linear_solver, context::MGVIContext;
+    linear_solver_opts::NamedTuple = (;)
+)
 ```
 
 `linear_solver` must be a solver supported by [`LinearSolve`](https://github.com/SciML/LinearSolve.jl) or
 [`MGVI.MatrixInversion`](@ref). Use `MatrixInversion` only for low-dimensional problems.
+`linear_solver_opts` is passed to `LinearSolve.solve` as keyword arguments.
 
 Call `MGVI.sample_residuals(s::ResidualSampler[, n::Integer])` to generate a
 single or `n` samples.
 """
-struct ResidualSampler{F,RV<:AbstractVector{<:Real},SLV,OPL<:LinearMap,OPJ<:LinearMap,CTX<:MGVIContext}
+struct ResidualSampler{F,RV<:AbstractVector{<:Real},SLV,SLO<:NamedTuple,OPL<:LinearMap,OPJ<:LinearMap,CTX<:MGVIContext}
     f_model::F
     center_point::RV
     linear_solver::SLV
+    linear_solver_opts::SLO
     λ_information::OPL
     jac_dλ_dθ::OPJ
     context::CTX
@@ -56,10 +61,13 @@ export ResidualSampler
 @inline _get_operator_type(::MatrixInversion) = DenseMatrix
 @inline _get_operator_type(::Any) = LinearMap
 
-function ResidualSampler(f_model::Function, center_point::Vector{<:Real}, linear_solver, context::MGVIContext)
+function ResidualSampler(
+    f_model::Function, center_point::Vector{<:Real}, linear_solver, context::MGVIContext;
+    linear_solver_opts::NamedTuple = (;)
+)
     OP = _get_operator_type(linear_solver)
     ℐ_λ, dλ_dξ = _fisher_information_and_jac(f_model, center_point, OP, context)
-    ResidualSampler(f_model, center_point, linear_solver, convert(LinearMap, ℐ_λ), convert(LinearMap, dλ_dξ), context)
+    ResidualSampler(f_model, center_point, linear_solver, linear_solver_opts, convert(LinearMap, ℐ_λ), convert(LinearMap, dλ_dξ), context)
 end
 
 
@@ -71,13 +79,14 @@ function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:An
     n_λ, n_θ = size(dλ_dθ)
     Σ⁻¹_θ_est = dλ_dθ' * ℐ_λ * dλ_dθ + I
 
-    dλ_dθ = s.jac_dλ_dθ
     sample_n = randn(genctx, n_λ)
     sample_eta = randn(genctx, n_θ)
     Δφ = dλ_dθ' * (cholesky_L(ℐ_λ) * sample_n) + sample_eta
 
     prob = LinearProblem{false}(Σ⁻¹_θ_est, Δφ)
-    sol = solve(prob, s.linear_solver)
+    # LinearSolve's default maxiters (== n_θ) leaves iterative solvers
+    # unconverged in floating point on ill-conditioned systems:
+    sol = solve(prob, s.linear_solver; maxiters = 4 * n_θ, s.linear_solver_opts...)
     Δξ = sol.u
     return Δξ
 end
