@@ -277,7 +277,9 @@ function _geovi_residual_pure(
 end
 
 # Like sample_geovi_residuals, but as a pure function of pre-drawn standard
-# normal samples:
+# normal samples. The solves loop is a traced loop under compilation, so
+# the (large) nonlinear solve is only traced once instead of being
+# unrolled over the samples:
 function _geovi_residual_samples(
     f_model, center::AbstractVector{<:Real},
     sample_n::AbstractMatrix{<:Real}, sample_η::AbstractMatrix{<:Real},
@@ -289,11 +291,20 @@ function _geovi_residual_samples(
     T = _mapcols(vjp_c, sample_n) .+ sample_η
     apply_M(P) = _mapcols(vjp_c, _mapcols(jvp_c, P)) .+ P
     ΔΞ = _batched_cg(apply_M, T, cg_max_iterations, cg_rtol)
-    cols = [
-        _geovi_residual_pure(x_fn, center, x̄, jvp_c, vjp_c, s * T[:, i], s * ΔΞ[:, i], ad, optimizer)
-        for s in (+1, -1), i in axes(T, 2)
-    ]
-    return reduce(hcat, vec(cols))
+    n_smpls = size(T, 2)
+    X = zero(hcat(ΔΞ, ΔΞ))
+    # track_numbers=false: all loop-local numbers derive from the traced
+    # induction variable, and number tracking cannot handle the plain
+    # number fields of the optimizer passed to the solve:
+    @trace track_numbers = false for j in 1:(2 * n_smpls)
+        i = (j + 1) ÷ 2
+        s = ifelse(isodd(j), 1.0, -1.0)
+        r_j = _geovi_residual_pure(
+            x_fn, center, x̄, jvp_c, vjp_c, s .* T[:, i], s .* ΔΞ[:, i], ad, optimizer
+        )
+        X[:, j] = r_j
+    end
+    return X
 end
 
 struct _GeoVIKLTarget{F,D,S<:AbstractMatrix{<:Real}} <: Function
