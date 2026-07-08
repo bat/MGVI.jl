@@ -9,6 +9,7 @@ An implementation of the Metric Gaussian Variational Inference algorithm.
 """
 module MGVI
 
+import Adapt
 using AffineMaps: MulAdd
 using AutoDiffOperators: ADSelector, with_jacobian, gradient_func, jvp_func, with_vjp_func
 import ChainRulesCore
@@ -46,6 +47,7 @@ include("information.jl")
 include("residual_samplers.jl")
 include("newtoncg.jl")
 include("mgvi_impl.jl")
+include("mgvi_prepared.jl")
 include("geovi_impl.jl")
 
 end # module

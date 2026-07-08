@@ -71,6 +71,34 @@ Test.@testset "test_mgvi_optimize_step" begin
     @test mnlp(center) ≈ ref
 end
 
+Test.@testset "test_mgvi_prepared_step" begin
+    context = MGVIContext(ADSelector(Zygote))
+
+    model = ModelPolyfit.model
+    true_params = ModelPolyfit.true_params
+    center = ModelPolyfit.starting_point
+
+    rng = Xoshiro(145)
+    data = rand(rng, model(true_params), 1)[1]
+
+    config = MGVIConfig(
+        optimizer = MGVI.NewtonCG(linesearcher = MGVI.BacktrackingLineSearch())
+    )
+    prepared = mgvi_prepare(model, data, 12, center, config, context)
+
+    first_mnlp = nothing
+    result = nothing
+    for i in 1:5
+        result, center = mgvi_step(prepared, center)
+        i == 1 && (first_mnlp = result.mnlp)
+    end
+    @test result.mnlp isa Real
+    @test result.samples isa AbstractMatrix{<:Real}
+    @test size(result.samples) == (5, 24)
+    @test center isa AbstractVector{<:Real}
+    @test result.mnlp < first_mnlp
+end
+
 Test.@testset "test_newtoncg_linesearch_robustness" begin
     # A line search that fails (e.g. StrongWolfe unable to satisfy the Wolfe
     # conditions at a near-stationary point, as in the geoVI sampling solves)
