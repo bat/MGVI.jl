@@ -57,10 +57,12 @@ function fisher_information(dist::MvNormal)
     blockdiag(meanpart_map, covpart_map)
 end
 
+# Fisher information w.r.t. the variances (flat_params of PDiagMat), not
+# the standard deviations:
 function fisher_information(dist::MvNormal{<:Real,<:PDiagMat})
     Σ⁻¹ = inv(Diagonal(dist.Σ))
     mean_fisher_map = PDLinMapWithChol(Σ⁻¹)
-    cov_fisher_map = PDLinMapWithChol(2*Σ⁻¹)
+    cov_fisher_map = PDLinMapWithChol(Σ⁻¹^2/2)
     blockdiag(mean_fisher_map, cov_fisher_map)
 end
 

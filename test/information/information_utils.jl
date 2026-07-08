@@ -3,6 +3,7 @@
 using Distributions
 using DistributionsAD
 using LinearAlgebra
+using PDMats: PDiagMat
 import Zygote
 
 """
@@ -45,6 +46,7 @@ part of the covariance matrix. Covariance matrix is symmetric, so lower triangul
 parameters are redundand.
 """
 function _cut_params(res, dist::MvNormal)
+    dist.Σ isa PDiagMat && return res
     mean_size = length(dist.μ)
     slices = _fi_cov_only_upper_params(mean_size; offset=mean_size)
     res[slices, slices]
