@@ -3,6 +3,7 @@
 using MGVI
 using Test
 
+using Distributions
 using LinearAlgebra
 using Random
 using SparseArrays
@@ -28,7 +29,6 @@ Test.@testset "test_fisher_values" begin
     test_univariate(Poisson, [5.75])
 
     function test_mvnormal(dim)
-        dim = 1
         cov = I*5 + Symmetric(rand(dim, dim))
         mean = rand(dim)
         params = vcat(mean, cov[:])
