@@ -24,7 +24,7 @@ struct MatrixInversion end
 Generates zero-centered samples from the posterior's covariance approximated
 by the Fisher information.
 
-This sampler uses Conjugate Gradients to iteratively invert  the Fisher information,
+This sampler uses Conjugate Gradients to iteratively invert the Fisher information,
 never instantiating the covariance in memory explicitly.
 
 The Fisher information in canonical coordinates and Jacobian of the coordinate transformation

@@ -4,7 +4,7 @@
 """
     struct MGVI.PDLinMapWithChol{T} <: LinearMaps.LinearMap{T}
 
-A `LinearMap` that stores both a map and the lower-tringangular map
+A `LinearMap` that stores both a map and the lower-triangular map
 of its Cholesky decomposition.
 """
 struct PDLinMapWithChol{

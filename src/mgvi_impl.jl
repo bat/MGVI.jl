@@ -66,7 +66,7 @@ State resulting from [`mgvi_step`](@ref).
 
 Fields:
 
-* `smples`: The samples drawn by MVGI
+* `samples`: The samples drawn by MGVI
 * `mnlp`: The mean of the negative non-normalized log-posterior over the samples
 * `info`: Additional information given by the linear solver and optimization
   algorithm.
@@ -90,10 +90,8 @@ end
 Performs one MGVI step and returns a tuple
 `(result::MGVIResult, updated_center::AbstractVector{<:Real})`.
 
-Returns a tuple `(result::MGVIResult, updated_center::AbstractVector{<:Real})`.
-
 The posterior distribution is approximated with a multivariate normal distribution.
-The covariance is approximated with the inverse Fisher information valuated at
+The covariance is approximated with the inverse Fisher information evaluated at
 `center_init`. Samples are drawn according to this covariance, which are then
 used to estimate and minimize the KL divergence between the true posterior and the
 approximation.
@@ -161,10 +159,15 @@ end
 
 """
     mgvi_sample(
-        forward_model, data, n_residuals::Integer, center_init::AbstractVector{<:Real},
+        forward_model, data, n_residuals::Integer, center::AbstractVector{<:Real},
         config::MGVIConfig, context::MGVIContext
     )
 
+Draws samples from the MGVI posterior approximation centered at `center`
+without performing an optimization step.
+
+Returns a matrix whose `2 * n_residuals` columns are the samples
+`center ± residual`.
 """
 function mgvi_sample(
     forward_model, data, n_residuals::Integer, center::AbstractVector{<:Real},
@@ -187,7 +190,7 @@ export mgvi_sample
 Returns a function that pushes a multivariate normal distribution forward
 to the MGVI posterior approximation.
 
-This currently instantiates the full Jabocian of the forward model as
+This currently instantiates the full Jacobian of the forward model as
 a matrix in memory, and so should not be used for very high-dimensional
 problems.
 """
