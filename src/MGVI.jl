@@ -37,7 +37,7 @@ using LinearSolve: solve, LinearProblem, KrylovJL_CG
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, ProjectTo, AbstractThunk, unthunk
 import Statistics: mean
 
-using ReactantCore: within_compile
+using ReactantCore: @trace, within_compile
 
 include("util.jl")
 include("mgvi_context.jl")

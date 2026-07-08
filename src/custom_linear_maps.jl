@@ -98,6 +98,16 @@ blockdiag(As::PDLinMapWithChol...) = _blockdiag(As)
 
 _mapcols(f, A::AbstractMatrix) = reduce(hcat, [f(A[:, i]) for i in axes(A, 2)])
 
+# Program tracing (in traced loops) cannot handle the Bool fields of
+# wrapped LinearMaps, represent diagonal operators by their diagonal:
+_fisher_repr(A::DiagPDLinMapWithChol) = get_diagonal(without_chol(A).lmap)
+_fisher_repr(A::DiagLinearMap) = get_diagonal(A.lmap)
+_fisher_repr(A) = A
+_fisher_apply(d::AbstractVector{<:Real}, x::AbstractVector) = d .* x
+_fisher_apply(d::AbstractVector{<:Real}, X::AbstractMatrix) = d .* X
+_fisher_apply(A, x::AbstractVector) = _apply_op(A, x)
+_fisher_apply(A, X::AbstractMatrix) = _apply_op(A, X)
+
 # Batch- and tracing-friendly operator application, avoids the LinearMaps
 # mul! dispatch chain for diagonal operators:
 _apply_op(A::LinearMap, x::AbstractVector) = A * x

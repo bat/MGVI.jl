@@ -110,11 +110,10 @@ Solve `A * X == B` column-wise via conjugate-gradient iterations, with
 `apply_A(P)` applying the positive-definite `A` to the columns of `P`.
 
 Iterates until the residual norms of all columns have been reduced by the
-factor `rtol`, but at most `max_iter` times. When compiled via program
-tracing (e.g. via Reactant), a fixed number of `max_iter` iterations is
-used instead (already converged columns stall harmlessly).
-
-Free of array mutation, so suitable for program tracing.
+factor `rtol`, but at most `max_iter` times. Free of array mutation and,
+via `ReactantCore.@trace`, of scalar control flow, so it is suitable for
+program tracing and compilation (e.g. via Reactant), unlike dynamically
+terminated solvers.
 """
 function _batched_cg(apply_A, B::AbstractMatrix{<:Real}, max_iter::Integer, rtol::Real)
     tiny = eps(float(one(eltype(B))))
@@ -123,22 +122,13 @@ function _batched_cg(apply_A, B::AbstractMatrix{<:Real}, max_iter::Integer, rtol
     P = copy(B)
     rs₀ = sum(abs2, B; dims = 1)
     rs = copy(rs₀)
-    # ToDo: Use a single, convergence-terminated `@trace while` loop in all
-    # cases once Reactant traced loops support closures (like apply_A) that
-    # capture traced values:
-    if within_compile()
-        for _ in 1:max_iter
-            X, R, P, rs = _batched_cg_iteration(apply_A, X, R, P, rs, tiny)
-        end
-    else
-        threshold = oftype(tiny, rtol^2)
-        conv = one(tiny)
-        i = 0
-        while (i < max_iter) & (conv > threshold)
-            X, R, P, rs = _batched_cg_iteration(apply_A, X, R, P, rs, tiny)
-            conv = maximum(rs ./ (rs₀ .+ tiny))
-            i += 1
-        end
+    threshold = oftype(tiny, rtol^2)
+    conv = one(tiny)
+    i = 0
+    @trace while (i < max_iter) & (conv > threshold)
+        X, R, P, rs = _batched_cg_iteration(apply_A, X, R, P, rs, tiny)
+        conv = maximum(rs ./ (rs₀ .+ tiny))
+        i += 1
     end
     return X
 end
@@ -185,10 +175,11 @@ function sample_residuals(
     f_flat = flat_params ∘ f_model
     jvp = jvp_func(f_flat, center, ad)
     _, vjp = with_vjp_func(f_flat, center, ad)
-    ℐ_λ = fisher_information(f_model(center))
-    L = cholesky_L(ℐ_λ)
-    Δφ = _mapcols(vjp, _apply_op(L, sample_n)) .+ sample_η
-    apply_M(P) = _mapcols(vjp, _apply_op(ℐ_λ, _mapcols(jvp, P))) .+ P
+    fi = fisher_information(f_model(center))
+    ℐ_λ = _fisher_repr(fi)
+    L = _fisher_repr(cholesky_L(fi))
+    Δφ = _mapcols(vjp, _fisher_apply(L, sample_n)) .+ sample_η
+    apply_M(P) = _mapcols(vjp, _fisher_apply(ℐ_λ, _mapcols(jvp, P))) .+ P
     return _batched_cg(apply_M, Δφ, cg_max_iterations, cg_rtol)
 end
 

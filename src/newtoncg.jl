@@ -63,26 +63,11 @@ function (ls::BacktrackingLineSearch)(f_uni, df, f_and_df, β₀::Real, f₀::Re
     c, ρ, maxsteps = ls.c, ls.ρ, ls.maxsteps
     β = oftype(f₀ / β₀, β₀)
     fβ = f_uni(β)
-    # ToDo: Use a single, early-terminating `@trace while` loop in all cases
-    # once Reactant traced loops support closures (like f_uni) that capture
-    # traced values:
-    if within_compile()
-        # equivalent fixed-count masked backtracking, keeps the first
-        # accepted step size:
-        for _ in 1:maxsteps
-            accept = fβ <= f₀ + c * β * dϕ₀
-            β_next = ρ * β
-            fβ_next = f_uni(β_next)
-            β = ifelse(accept, β, β_next)
-            fβ = ifelse(accept, fβ, fβ_next)
-        end
-    else
-        k = 0
-        while (fβ > f₀ + c * β * dϕ₀) & (k < maxsteps)
-            β = ρ * β
-            fβ = f_uni(β)
-            k += 1
-        end
+    k = 0
+    @trace while (fβ > f₀ + c * β * dϕ₀) & (k < maxsteps)
+        β = ρ * β
+        fβ = f_uni(β)
+        k += 1
     end
     return β, fβ
 end
@@ -226,20 +211,12 @@ function _newtoncg_optimize(
                 Δx, r, p, rs = _cg_update(A, Δx, r, p, rs)
                 k += 1
             end
-        elseif within_compile()
-            # ToDo: Use the early-terminating while loop below in all cases
-            # once Reactant traced loops support closures (like A) that
-            # capture traced values; for now use i₀ fixed cg iterations:
-            for _ in 1:i₀
-                Δx, r, p, rs = _cg_update(A, Δx, r, p, rs)
-                k += 1
-            end
         else
             # do at most i₁ cg iterations, move on early if the improvement
             # falls below a fraction α of the previous NewtonCG step improvement:
             fᵏ = fⁿ⁻¹
             Δfᵏ = oftype(fⁿ⁻¹, Inf)
-            while (k < i₁) & (Δfᵏ >= α * Δfⁿ)
+            @trace while (k < i₁) & (Δfᵏ >= α * Δfⁿ)
                 Δx, r, p, rs = _cg_update(A, Δx, r, p, rs)
                 k += 1
                 fᵏ_next = f_used(xₙ - Δx)
