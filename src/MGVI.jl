@@ -39,6 +39,11 @@ import Statistics: mean
 
 using ReactantCore: @trace, within_compile
 
+# Reactant's traced and concrete number types do not subtype Real yet,
+# accept Number in the compilation-relevant signatures for now.
+# ToDo: Change back to Real once Reactant number types subtype Real:
+const RealLike = Number
+
 include("util.jl")
 include("mgvi_context.jl")
 include("custom_linear_maps.jl")

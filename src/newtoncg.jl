@@ -59,7 +59,7 @@ $(TYPEDFIELDS)
     maxsteps::Int64 = 20
 end
 
-function (ls::BacktrackingLineSearch)(f_uni, df, f_and_df, β₀::Real, f₀::Real, dϕ₀::Real)
+function (ls::BacktrackingLineSearch)(f_uni, df, f_and_df, β₀::RealLike, f₀::RealLike, dϕ₀::RealLike)
     c, ρ, maxsteps = ls.c, ls.ρ, ls.maxsteps
     β = oftype(f₀ / β₀, β₀)
     fβ = f_uni(β)

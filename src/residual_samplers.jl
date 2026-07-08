@@ -115,7 +115,7 @@ via `ReactantCore.@trace`, of scalar control flow, so it is suitable for
 program tracing and compilation (e.g. via Reactant), unlike dynamically
 terminated solvers.
 """
-function _batched_cg(apply_A, B::AbstractMatrix{<:Real}, max_iter::Integer, rtol::Real)
+function _batched_cg(apply_A, B::AbstractMatrix{<:RealLike}, max_iter::Integer, rtol::Real)
     tiny = eps(float(one(eltype(B))))
     X = zero(B)
     R = copy(B)
@@ -166,8 +166,8 @@ Free of RNG state and array mutation, so suitable for program tracing and
 compilation, e.g. via Reactant with an Enzyme-based `ad`.
 """
 function sample_residuals(
-    f_model, center::AbstractVector{<:Real},
-    sample_n::AbstractMatrix{<:Real}, sample_η::AbstractMatrix{<:Real},
+    f_model, center::AbstractVector{<:RealLike},
+    sample_n::AbstractMatrix{<:RealLike}, sample_η::AbstractMatrix{<:RealLike},
     ad::ADSelector;
     cg_max_iterations::Integer = 4 * length(center),
     cg_rtol::Real = sqrt(eps(Float64))

@@ -6,7 +6,7 @@
 # a nested function ξ -> (v -> Σ̅⁻¹(ξ) * v). Equivalent to the
 # LinearMap-based curvature used by mgvi_step(::MGVIConfig), but free of
 # LinearMaps machinery, so suitable for program tracing:
-function _mean_fisher_curvature(f_model, ad::ADSelector, residual_samples::AbstractMatrix{<:Real}, signs::Tuple)
+function _mean_fisher_curvature(f_model, ad::ADSelector, residual_samples::AbstractMatrix{<:RealLike}, signs::Tuple)
     f_flat = flat_params ∘ f_model
     function curvature(ξ::AbstractVector)
         ops = [
@@ -47,8 +47,8 @@ Adapt.adapt_structure(to, s::_MGVIStepFn) = _MGVIStepFn(
 )
 
 function (s::_MGVIStepFn)(
-    center::AbstractVector{<:Real},
-    sample_n::AbstractMatrix{<:Real}, sample_η::AbstractMatrix{<:Real}
+    center::AbstractVector{<:RealLike},
+    sample_n::AbstractMatrix{<:RealLike}, sample_η::AbstractMatrix{<:RealLike}
 )
     residual_samples = sample_residuals(
         s.forward_model, center, sample_n, sample_η, s.ad;

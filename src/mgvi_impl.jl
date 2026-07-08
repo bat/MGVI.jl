@@ -1,6 +1,6 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
-function _mv_normal_logdensity(x::AbstractVector{<:Real})
+function _mv_normal_logdensity(x::AbstractVector{<:RealLike})
     T = eltype(x)
     r = - dot(x, x)/2 - T(length(x)) * T(log2π/2)
     return r
@@ -16,7 +16,7 @@ end
 # Equivalent to -(ELBO - H(q)), can't calculate H(q) efficiently for MGVI,
 # but it's constant, so we'll use the mean of the negative non-normalized
 # log-posterior over the samples instead:
-function _mean_neg_log_pstr(f::Function, data, residual_samples::AbstractMatrix{<:Real}, center::AbstractVector{<:Real})
+function _mean_neg_log_pstr(f::Function, data, residual_samples::AbstractMatrix{<:RealLike}, center::AbstractVector{<:RealLike})
     mnlp_contribution(residual::AbstractVector) = - (
         posterior_loglike(f, center + residual, data) +
         posterior_loglike(f, center - residual, data)
@@ -37,13 +37,13 @@ of the variational mean.
 
 Construct with [`mgvi_kl_target`](@ref).
 """
-struct MGVIKLTarget{F,D,S<:AbstractMatrix{<:Real}} <: Function
+struct MGVIKLTarget{F,D,S<:AbstractMatrix{<:RealLike}} <: Function
     f_model::F
     data::D
     residual_samples::S
 end
 
-function (t::MGVIKLTarget)(center::AbstractVector{<:Real})
+function (t::MGVIKLTarget)(center::AbstractVector{<:RealLike})
     return _mean_neg_log_pstr(t.f_model, t.data, t.residual_samples, center)
 end
 
@@ -57,7 +57,7 @@ The result is a pure function of its argument and suitable for program
 tracing and compilation (e.g. via Reactant, with an Enzyme-based gradient),
 provided `forward_model` is.
 """
-function mgvi_kl_target(forward_model, data, residual_samples::AbstractMatrix{<:Real})
+function mgvi_kl_target(forward_model, data, residual_samples::AbstractMatrix{<:RealLike})
     return MGVIKLTarget(forward_model, data, residual_samples)
 end
 export mgvi_kl_target
@@ -107,7 +107,7 @@ Fields:
   algorithm.
 """
 struct MGVIResult{
-    T<:Real, TM<:AbstractMatrix{T}, U<:Real,
+    T<:RealLike, TM<:AbstractMatrix{T}, U<:RealLike,
     AUX<:NamedTuple
 }
     samples::TM

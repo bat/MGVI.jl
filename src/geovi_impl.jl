@@ -163,7 +163,7 @@ end
 
 # Explicit accumulation loop instead of sum over a column-index range, for
 # AD- and program-tracing-compatibility:
-function _mean_neg_log_pstr_cols(f::Function, data, residual_samples::AbstractMatrix{<:Real}, center::AbstractVector{<:Real})
+function _mean_neg_log_pstr_cols(f::Function, data, residual_samples::AbstractMatrix{<:RealLike}, center::AbstractVector{<:RealLike})
     res = -posterior_loglike(f, center + residual_samples[:, 1], data)
     for i in 2:size(residual_samples, 2)
         res = res - posterior_loglike(f, center + residual_samples[:, i], data)
@@ -244,8 +244,8 @@ export geovi_sample
 # Like _geovi_residual, but in terms of jvp/vjp functions instead of
 # LinearMap operators, suitable for program tracing:
 function _geovi_residual_pure(
-    x_fn, ξ̄::AbstractVector{<:Real}, x̄::AbstractVector{<:Real}, jvp_c, vjp_c,
-    t::AbstractVector{<:Real}, Δξ_init::AbstractVector{<:Real},
+    x_fn, ξ̄::AbstractVector{<:RealLike}, x̄::AbstractVector{<:RealLike}, jvp_c, vjp_c,
+    t::AbstractVector{<:RealLike}, Δξ_init::AbstractVector{<:RealLike},
     ad::ADSelector, optimizer::NewtonCG
 )
     g̃_residual(ξ) = (ξ - ξ̄) + vjp_c(x_fn(ξ) - x̄) - t
@@ -281,8 +281,8 @@ end
 # the (large) nonlinear solve is only traced once instead of being
 # unrolled over the samples:
 function _geovi_residual_samples(
-    f_model, center::AbstractVector{<:Real},
-    sample_n::AbstractMatrix{<:Real}, sample_η::AbstractMatrix{<:Real},
+    f_model, center::AbstractVector{<:RealLike},
+    sample_n::AbstractMatrix{<:RealLike}, sample_η::AbstractMatrix{<:RealLike},
     ad::ADSelector, optimizer::NewtonCG, cg_max_iterations::Integer, cg_rtol::Real
 )
     x_fn = _euclidean_coords_flat(f_model)
@@ -307,13 +307,13 @@ function _geovi_residual_samples(
     return X
 end
 
-struct _GeoVIKLTarget{F,D,S<:AbstractMatrix{<:Real}} <: Function
+struct _GeoVIKLTarget{F,D,S<:AbstractMatrix{<:RealLike}} <: Function
     f_model::F
     data::D
     residual_samples::S
 end
 
-function (t::_GeoVIKLTarget)(center::AbstractVector{<:Real})
+function (t::_GeoVIKLTarget)(center::AbstractVector{<:RealLike})
     return _mean_neg_log_pstr_cols(t.f_model, t.data, t.residual_samples, center)
 end
 
@@ -336,8 +336,8 @@ Adapt.adapt_structure(to, s::_GeoVIStepFn) = _GeoVIStepFn(
 )
 
 function (s::_GeoVIStepFn)(
-    center::AbstractVector{<:Real},
-    sample_n::AbstractMatrix{<:Real}, sample_η::AbstractMatrix{<:Real}
+    center::AbstractVector{<:RealLike},
+    sample_n::AbstractMatrix{<:RealLike}, sample_η::AbstractMatrix{<:RealLike}
 )
     residual_samples = _geovi_residual_samples(
         s.forward_model, center, sample_n, sample_η,
