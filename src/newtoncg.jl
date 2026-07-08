@@ -105,7 +105,6 @@ function _optimize(
     # value of f before any optimization steps
     f⁰ = fⁿ⁻¹ = f_counted(x₀)
     push!(f_history, f⁰)
-    push!(cg_iterations, i₀)
 
     fⁿ = Δfⁿ = zero(f⁰)
     xₙ = x₀
@@ -118,10 +117,12 @@ function _optimize(
         # hessian and our gradient of f at xₙ as our gradient
         # A = Σ̅⁻¹, b = ∇f(xₙ)
         cgiterator = cg_iterator!(Δx, Σ̅⁻¹(xₙ), ∇f_at_xₙ, initially_zero=true)
+        k_done = 0
         if n == 1
             # do i₀ iterations of cg
-            for (iteration, residual) in enumerate(cgiterator)
-                if iteration >= i₀
+            for (k, residual) in enumerate(cgiterator)
+                k_done = k
+                if k >= i₀
                     break
                 end
             end
@@ -130,14 +131,15 @@ function _optimize(
             # do at most i₁ cg iterations or move on if our improvement
             # is below α*100 percent of our previous NewtonCG step
             for (k, residual) in enumerate(cgiterator)
+                k_done = k
                 fᵏ = f_counted(xₙ - Δx)
                 if k >= i₁ || abs(fᵏ - fᵏ⁻¹) < α*Δfⁿ
-                    push!(cg_iterations, k)
                     break
                 end
                 fᵏ⁻¹ = fᵏ
             end
         end
+        push!(cg_iterations, k_done)
         # finish NewtonCG step with line search in -Δx direction
         β, fⁿ = ls(linesearch_args(f_counted, ∇f_counted, xₙ, -Δx, fⁿ⁻¹, ∇f_at_xₙ)...)
         xₙ -= β*Δx
