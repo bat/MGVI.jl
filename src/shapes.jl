@@ -25,12 +25,11 @@ function ChainRulesCore.rrule(::typeof(flat_params), A::UpperTriangular{<:Real})
     function _unshaped_pullback_uptri(thunked_x)
         x = unthunk(thunked_x)
         # ToDo: Improve implementation
-        data = A.data
         ΔA_data = zero(A.data)
-        for j in axes(ΔA_data, 1)
-            ΔA_data[j, 1:j] = view(x, j*(j-1)÷2+1:j*(j+1)÷2)
+        for j in axes(ΔA_data, 2)
+            ΔA_data[1:j, j] = view(x, j*(j-1)÷2+1:j*(j+1)÷2)
         end
-        return ChainRulesCore.NoTangent(), ProjectTo(A)(data)
+        return ChainRulesCore.NoTangent(), ProjectTo(A)(ΔA_data)
     end
 
     flat_params(A), _unshaped_pullback_uptri

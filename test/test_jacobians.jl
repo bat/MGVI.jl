@@ -32,6 +32,23 @@ Test.@testset "test_jacobians_consistency" begin
         end
     end
 
+    let
+        A = UpperTriangular([1.0 2.0 3.0; 0.0 4.0 5.0; 0.0 0.0 6.0])
+        y, pb = Zygote.pullback(MGVI.flat_params, A)
+        @test y == [1.0, 2.0, 4.0, 3.0, 5.0, 6.0]
+        Δy = collect(1.0:6.0)
+        g_ref = ForwardDiff.gradient(m -> MGVI.flat_params(UpperTriangular(m))' * Δy, Matrix(A))
+        @test pb(Δy)[1] ≈ g_ref
+    end
+
+    let
+        f = x -> MGVI.flat_params(MvNormal(x[1:2], [exp(x[3]) 0.1; 0.1 exp(x[4])]))
+        x = [0.3, -0.2, 0.4, 0.7]
+        J_ref = ForwardDiff.jacobian(f, x)
+        _, J = with_jacobian(f, x, LinearMap, ADSelector(Zygote))
+        @test Matrix(J) ≈ J_ref
+    end
+
     epsilon = 1E-5
     Random.seed!(145)
 
