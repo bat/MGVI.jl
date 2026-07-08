@@ -17,7 +17,6 @@ using Random
 using SparseArrays
 using DensityInterface
 using Distributions
-using DistributionsAD
 using FillArrays
 using HeterogeneousComputing: GenContext, allocate_array
 using IrrationalConstants: log2π, sqrt2, invsqrt2

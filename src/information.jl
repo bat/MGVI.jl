@@ -150,15 +150,6 @@ function euclidean_coords(d::MvNormal{<:Real,<:ScalMat})
     vcat(d.μ ./ sqrt(v), sqrt(n/2) * log(v))
 end
 
-euclidean_coords(d::TuringDiagMvNormal) = vcat(d.m ./ d.σ, sqrt2 .* log.(d.σ))
-
-# MvNormal with diagonal covariance may get swapped for a dense-Cholesky
-# TuringDenseMvNormal under AD tracing:
-function euclidean_coords(d::TuringDenseMvNormal{<:AbstractVector,<:Cholesky{<:Real,<:Diagonal}})
-    σ = d.C.factors.diag
-    vcat(d.m ./ σ, sqrt2 .* log.(σ))
-end
-
 euclidean_coords(d::Product) = _flatten_vec_of_vec(map(euclidean_coords, d.v))
 
 euclidean_coords(d::Distributions.ProductDistribution) =

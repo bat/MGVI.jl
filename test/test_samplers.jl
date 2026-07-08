@@ -7,6 +7,7 @@ using AutoDiffOperators
 using HypothesisTests
 using Random
 
+import DistributionsAD  # required for Zygote AD through Distributions
 import LinearSolve, Zygote
 
 if :ModelPolyfit ∉ names(Main)

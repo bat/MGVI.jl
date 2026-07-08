@@ -5,6 +5,7 @@ using MGVI
 
 using Random
 using AutoDiffOperators
+import DistributionsAD  # required for Zygote AD through Distributions
 import LinearSolve, Zygote
 import OptimizationLBFGSB, Optim#, OptimizationOptimJL
 

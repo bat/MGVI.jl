@@ -5,6 +5,10 @@
 
 Specifies the linear operator type, RNG and automatic differentiation backend
 to be used by MGVI operations.
+
+Note: When using a Zygote-based `ADSelector`, also load `DistributionsAD`
+to make forward models that construct `Distributions` objects
+Zygote-differentiable.
 """
 struct MGVIContext{GTX<:GenContext,AD<:ADSelector}
     gen::GTX

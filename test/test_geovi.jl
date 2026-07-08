@@ -10,6 +10,7 @@ using Statistics
 using ValueShapes
 using AutoDiffOperators
 using PDMats: PDiagMat, ScalMat
+import DistributionsAD  # required for Zygote AD through Distributions
 import ForwardDiff, Zygote
 import LinearSolve
 

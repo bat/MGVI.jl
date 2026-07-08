@@ -7,6 +7,7 @@ using Distributions
 using LinearAlgebra
 using Random
 using AutoDiffOperators, LinearMaps
+import DistributionsAD  # required for Zygote AD through Distributions
 import ForwardDiff, Zygote
 
 if !isdefined(Main, :ModelPolyfit)
@@ -47,6 +48,11 @@ Test.@testset "test_jacobians_consistency" begin
         J_ref = ForwardDiff.jacobian(f, x)
         _, J = with_jacobian(f, x, LinearMap, ADSelector(Zygote))
         @test Matrix(J) ≈ J_ref
+        # the traced value and vjp (TuringDenseMvNormal path) must match the primal:
+        y_traced, pb = Zygote.pullback(f, x)
+        @test y_traced ≈ f(x)
+        w = collect(1.0:length(y_traced))
+        @test pb(w)[1] ≈ J_ref'w
     end
 
     epsilon = 1E-5
