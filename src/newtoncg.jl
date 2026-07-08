@@ -145,8 +145,17 @@ function _newtoncg_optimize(
             end
         end
         push!(cg_iterations, k_done)
-        # finish NewtonCG step with line search in -Δx direction
-        β, fⁿ = ls(linesearch_args(f_counted, ∇f_counted, xₙ, -Δx, fⁿ⁻¹, ∇f_at_xₙ)...)
+        # finish NewtonCG step with line search in -Δx direction. StrongWolfe
+        # (and similar) throw when the Wolfe conditions can't be satisfied;
+        # near a stationary point (tiny directional derivative, as in the
+        # geoVI sampling solves) that means the step has effectively
+        # converged, so treat it as a zero step rather than failing:
+        β, fⁿ = try
+            ls(linesearch_args(f_counted, ∇f_counted, xₙ, -Δx, fⁿ⁻¹, ∇f_at_xₙ)...)
+        catch err
+            err isa LineSearches.LineSearchException || rethrow()
+            (zero(fⁿ⁻¹), fⁿ⁻¹)
+        end
         xₙ -= β*Δx
         Δfⁿ = abs(fⁿ - fⁿ⁻¹)
         fⁿ⁻¹ = fⁿ
