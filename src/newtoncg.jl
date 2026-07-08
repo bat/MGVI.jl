@@ -13,7 +13,7 @@ $(TYPEDFIELDS)
 """
 @with_kw struct NewtonCG
     "amount of previous NewtonCG improvement guarding the lower
-    bound to the improvement between consecutive cg iterations from 
+    bound to the improvement between consecutive cg iterations from
     the second NewtonCG step on"
     α::Float64=0.1
 
@@ -28,6 +28,63 @@ $(TYPEDFIELDS)
 
     "LineSearcher that will be used after cg iterations are finished"
     linesearcher=StrongWolfe{Float64}()
+end
+
+
+"""
+    struct MGVI.BacktrackingLineSearch
+
+Simple Armijo backtracking line search.
+
+Unlike the line searches from
+[`LineSearches`](https://github.com/JuliaNLSolvers/LineSearches.jl) it is
+free of scalar control flow, so a [`NewtonCG`](@ref) using it (with
+suitable target functions) is suitable for program tracing and
+compilation, e.g. via Reactant.
+
+Constructors:
+
+* '''$(FUNCTIONNAME)(; fields...)'''
+
+$(TYPEDFIELDS)
+"""
+@with_kw struct BacktrackingLineSearch
+    "sufficient-decrease constant"
+    c::Float64 = 1e-4
+
+    "step reduction factor"
+    ρ::Float64 = 0.5
+
+    "maximum number of step reductions"
+    maxsteps::Int64 = 20
+end
+
+function (ls::BacktrackingLineSearch)(f_uni, df, f_and_df, β₀::Real, f₀::Real, dϕ₀::Real)
+    c, ρ, maxsteps = ls.c, ls.ρ, ls.maxsteps
+    β = oftype(f₀ / β₀, β₀)
+    fβ = f_uni(β)
+    # ToDo: Use a single, early-terminating `@trace while` loop in all cases
+    # once Reactant traced loops support closures (like f_uni) that capture
+    # traced values:
+    if within_compile()
+        # equivalent fixed-count masked backtracking, keeps the first
+        # accepted step size:
+        for _ in 1:maxsteps
+            accept = fβ <= f₀ + c * β * dϕ₀
+            β_next = ρ * β
+            fβ_next = f_uni(β_next)
+            β = ifelse(accept, β, β_next)
+            fβ = ifelse(accept, fβ, fβ_next)
+        end
+    else
+        k = 0
+        while (fβ > f₀ + c * β * dϕ₀) & (k < maxsteps)
+            β = ρ * β
+            fβ = f_uni(β)
+            k += 1
+        end
+    end
+    return β, fβ
 end
 
 
@@ -70,6 +127,21 @@ function linesearch_args(
     return (f_uni, df, f_and_df, 1.0, f_x, dot(∇f_x, Δx))
 end
 
+# LineSearches.jl searchers throw when no acceptable step exists; near a
+# stationary point (directional derivative at floating-point noise level, as
+# in the geoVI sampling solves) that means the step has effectively converged,
+# so treat it as a zero step rather than failing:
+function _run_linesearch(ls, f_uni, df, f_and_df, β₀, f₀, dϕ₀)
+    try
+        ls(f_uni, df, f_and_df, β₀, f₀, dϕ₀)
+    catch err
+        err isa LineSearches.LineSearchException || rethrow()
+        (zero(f₀), f₀)
+    end
+end
+
+_run_linesearch(ls::BacktrackingLineSearch, args...) = ls(args...)
+
 struct EvalCount
     f::Function
     counter::Base.Threads.Atomic{Int}
@@ -81,6 +153,25 @@ function (F::EvalCount)(x::AbstractVector)
     Base.Threads.atomic_add!(F.counter, 1)
     F.f(x)
 end
+
+
+_apply_curvature(A, v::AbstractVector) = A * v
+_apply_curvature(A::Function, v::AbstractVector) = A(v)
+
+# One conjugate-gradient iteration for `A * Δx == b`, in purely functional
+# form (suitable for program tracing):
+function _cg_update(A, Δx, r, p, rs)
+    tiny = eps(float(one(rs)))
+    Ap = _apply_curvature(A, p)
+    γ = rs / (dot(p, Ap) + tiny)
+    Δx = Δx + γ .* p
+    r = r - γ .* Ap
+    rs_next = dot(r, r)
+    δ = rs_next / (rs + tiny)
+    p = r + δ .* p
+    return Δx, r, p, rs_next
+end
+
 
 function _optimize(
     f::Function, adsel::ADSelector, Σ̅⁻¹::Function,
@@ -100,66 +191,70 @@ function _newtoncg_optimize(
     i₀ = optimizer.i₀
     i₁ = optimizer.i₁
     ls = optimizer.linesearcher
-    # logging information
+
+    # logging information, not available when compiled via program tracing:
+    record_trace = !within_compile()
     cg_iterations=Int64[]
     f_history=Float64[]
 
     f_counted = EvalCount(f)
     ∇f_counted = EvalCount(∇f)
-    
+    # eval counters are incompatible with program tracing, count only
+    # when running normally (within_compile is constant-foldable):
+    f_used = within_compile() ? f : f_counted
+    ∇f_used = within_compile() ? ∇f : ∇f_counted
+
     # value of f before any optimization steps
-    f⁰ = fⁿ⁻¹ = f_counted(x₀)
-    push!(f_history, f⁰)
+    f⁰ = fⁿ⁻¹ = f_used(x₀)
+    record_trace && push!(f_history, f⁰)
 
     fⁿ = Δfⁿ = zero(f⁰)
     xₙ = x₀
     for n in 1:steps
-        # preallocate/reset vector of descent
-        Δx = zero(xₙ)
-        ∇f_at_xₙ = ∇f_counted(xₙ)
+        ∇f_at_xₙ = ∇f_used(xₙ)
 
-        # initialize cg_iterator with our mean fisher metric as the
-        # hessian and our gradient of f at xₙ as our gradient
-        # A = Σ̅⁻¹, b = ∇f(xₙ)
-        cgiterator = cg_iterator!(Δx, Σ̅⁻¹(xₙ), ∇f_at_xₙ, initially_zero=true)
-        k_done = 0
+        # solve Σ̅⁻¹(xₙ) * Δx == ∇f(xₙ) approximately via conjugate gradients:
+        A = Σ̅⁻¹(xₙ)
+        Δx = zero(xₙ)
+        r = ∇f_at_xₙ
+        p = copy(r)
+        rs = dot(r, r)
+        k = 0
         if n == 1
             # do i₀ iterations of cg
-            for (k, residual) in enumerate(cgiterator)
-                k_done = k
-                if k >= i₀
-                    break
-                end
+            for _ in 1:i₀
+                Δx, r, p, rs = _cg_update(A, Δx, r, p, rs)
+                k += 1
+            end
+        elseif within_compile()
+            # ToDo: Use the early-terminating while loop below in all cases
+            # once Reactant traced loops support closures (like A) that
+            # capture traced values; for now use i₀ fixed cg iterations:
+            for _ in 1:i₀
+                Δx, r, p, rs = _cg_update(A, Δx, r, p, rs)
+                k += 1
             end
         else
-            fᵏ⁻¹ = fⁿ⁻¹
-            # do at most i₁ cg iterations or move on if our improvement
-            # is below α*100 percent of our previous NewtonCG step
-            for (k, residual) in enumerate(cgiterator)
-                k_done = k
-                fᵏ = f_counted(xₙ - Δx)
-                if k >= i₁ || abs(fᵏ - fᵏ⁻¹) < α*Δfⁿ
-                    break
-                end
-                fᵏ⁻¹ = fᵏ
+            # do at most i₁ cg iterations, move on early if the improvement
+            # falls below a fraction α of the previous NewtonCG step improvement:
+            fᵏ = fⁿ⁻¹
+            Δfᵏ = oftype(fⁿ⁻¹, Inf)
+            while (k < i₁) & (Δfᵏ >= α * Δfⁿ)
+                Δx, r, p, rs = _cg_update(A, Δx, r, p, rs)
+                k += 1
+                fᵏ_next = f_used(xₙ - Δx)
+                Δfᵏ = abs(fᵏ_next - fᵏ)
+                fᵏ = fᵏ_next
             end
         end
-        push!(cg_iterations, k_done)
-        # finish NewtonCG step with line search in -Δx direction. StrongWolfe
-        # (and similar) throw when the Wolfe conditions can't be satisfied;
-        # near a stationary point (tiny directional derivative, as in the
-        # geoVI sampling solves) that means the step has effectively
-        # converged, so treat it as a zero step rather than failing:
-        β, fⁿ = try
-            ls(linesearch_args(f_counted, ∇f_counted, xₙ, -Δx, fⁿ⁻¹, ∇f_at_xₙ)...)
-        catch err
-            err isa LineSearches.LineSearchException || rethrow()
-            (zero(fⁿ⁻¹), fⁿ⁻¹)
-        end
-        xₙ -= β*Δx
+        record_trace && push!(cg_iterations, Int(k))
+
+        # finish NewtonCG step with line search in -Δx direction
+        β, fⁿ = _run_linesearch(ls, linesearch_args(f_used, ∇f_used, xₙ, -Δx, fⁿ⁻¹, ∇f_at_xₙ)...)
+        xₙ = xₙ - β .* Δx
         Δfⁿ = abs(fⁿ - fⁿ⁻¹)
         fⁿ⁻¹ = fⁿ
-        push!(f_history, fⁿ)
+        record_trace && push!(f_history, fⁿ)
     end
     trace = (f_history=f_history, cg_iterations=cg_iterations)
     res = NewtonCGResults{typeof(optimizer), typeof(x₀), typeof(f⁰), typeof(trace)}(

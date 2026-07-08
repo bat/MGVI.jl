@@ -18,7 +18,7 @@ using SparseArrays
 using DensityInterface
 using Distributions
 using FillArrays
-using HeterogeneousComputing: GenContext, allocate_array
+using HeterogeneousComputing: GenContext, allocate_array, on_device
 using IrrationalConstants: log2π, sqrt2, invsqrt2
 using LineSearches
 using LinearMaps
@@ -36,7 +36,7 @@ using LinearSolve: solve, LinearProblem, KrylovJL_CG
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, ProjectTo, AbstractThunk, unthunk
 import Statistics: mean
 
-using IterativeSolvers: cg_iterator!
+using ReactantCore: within_compile
 
 include("util.jl")
 include("mgvi_context.jl")

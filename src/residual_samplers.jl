@@ -102,32 +102,56 @@ end
 
 
 """
-    MGVI._batched_cg(apply_A, B::AbstractMatrix{<:Real}, n_iter::Integer)
+    MGVI._batched_cg(
+        apply_A, B::AbstractMatrix{<:Real}, max_iter::Integer, rtol::Real
+    )
 
-Solve `A * X == B` column-wise via `n_iter` conjugate-gradient iterations,
-with `apply_A(P)` applying the positive-definite `A` to the columns of `P`.
+Solve `A * X == B` column-wise via conjugate-gradient iterations, with
+`apply_A(P)` applying the positive-definite `A` to the columns of `P`.
 
-Uses a fixed iteration count and is free of dynamic control flow and array
-mutation, so it is suitable for program tracing and compilation (e.g. via
-Reactant), unlike dynamically terminated solvers.
+Iterates until the residual norms of all columns have been reduced by the
+factor `rtol`, but at most `max_iter` times. When compiled via program
+tracing (e.g. via Reactant), a fixed number of `max_iter` iterations is
+used instead (already converged columns stall harmlessly).
+
+Free of array mutation, so suitable for program tracing.
 """
-function _batched_cg(apply_A, B::AbstractMatrix{<:Real}, n_iter::Integer)
+function _batched_cg(apply_A, B::AbstractMatrix{<:Real}, max_iter::Integer, rtol::Real)
     tiny = eps(float(one(eltype(B))))
     X = zero(B)
-    R = B
-    P = R
-    rs = sum(abs2, R; dims = 1)
-    for _ in 1:n_iter
-        AP = apply_A(P)
-        α = rs ./ (sum(P .* AP; dims = 1) .+ tiny)
-        X = X .+ P .* α
-        R = R .- AP .* α
-        rs_next = sum(abs2, R; dims = 1)
-        β = rs_next ./ (rs .+ tiny)
-        P = R .+ P .* β
-        rs = rs_next
+    R = copy(B)
+    P = copy(B)
+    rs₀ = sum(abs2, B; dims = 1)
+    rs = copy(rs₀)
+    # ToDo: Use a single, convergence-terminated `@trace while` loop in all
+    # cases once Reactant traced loops support closures (like apply_A) that
+    # capture traced values:
+    if within_compile()
+        for _ in 1:max_iter
+            X, R, P, rs = _batched_cg_iteration(apply_A, X, R, P, rs, tiny)
+        end
+    else
+        threshold = oftype(tiny, rtol^2)
+        conv = one(tiny)
+        i = 0
+        while (i < max_iter) & (conv > threshold)
+            X, R, P, rs = _batched_cg_iteration(apply_A, X, R, P, rs, tiny)
+            conv = maximum(rs ./ (rs₀ .+ tiny))
+            i += 1
+        end
     end
     return X
+end
+
+function _batched_cg_iteration(apply_A, X, R, P, rs, tiny)
+    AP = apply_A(P)
+    α = rs ./ (sum(P .* AP; dims = 1) .+ tiny)
+    X = X .+ P .* α
+    R = R .- AP .* α
+    rs_next = sum(abs2, R; dims = 1)
+    β = rs_next ./ (rs .+ tiny)
+    P = R .+ P .* β
+    return X, R, P, rs_next
 end
 
 
@@ -136,7 +160,8 @@ end
         f_model, center::AbstractVector{<:Real},
         sample_n::AbstractMatrix{<:Real}, sample_η::AbstractMatrix{<:Real},
         ad::ADSelector;
-        cg_iterations::Integer = 4 * length(center)
+        cg_max_iterations::Integer = 4 * length(center),
+        cg_rtol::Real = sqrt(eps(Float64))
     )
 
 Generate zero-centered residual samples like
@@ -147,15 +172,15 @@ linear systems together with [`MGVI._batched_cg`](@ref).
 
 Returns an `n × k` matrix of residual samples.
 
-Free of RNG state, dynamic control flow and array mutation, so suitable for
-program tracing and compilation, e.g. via Reactant with an Enzyme-based
-`ad`.
+Free of RNG state and array mutation, so suitable for program tracing and
+compilation, e.g. via Reactant with an Enzyme-based `ad`.
 """
 function sample_residuals(
     f_model, center::AbstractVector{<:Real},
     sample_n::AbstractMatrix{<:Real}, sample_η::AbstractMatrix{<:Real},
     ad::ADSelector;
-    cg_iterations::Integer = 4 * length(center)
+    cg_max_iterations::Integer = 4 * length(center),
+    cg_rtol::Real = sqrt(eps(Float64))
 )
     f_flat = flat_params ∘ f_model
     jvp = jvp_func(f_flat, center, ad)
@@ -164,7 +189,7 @@ function sample_residuals(
     L = cholesky_L(ℐ_λ)
     Δφ = _mapcols(vjp, _apply_op(L, sample_n)) .+ sample_η
     apply_M(P) = _mapcols(vjp, _apply_op(ℐ_λ, _mapcols(jvp, P))) .+ P
-    return _batched_cg(apply_M, Δφ, cg_iterations)
+    return _batched_cg(apply_M, Δφ, cg_max_iterations, cg_rtol)
 end
 
 

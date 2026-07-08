@@ -64,9 +64,9 @@ Test.@testset "test_batched_residual_sampling" begin
         Test.@test X ≈ X_ref rtol = 1e-8
     end
 
-    # _batched_cg solves column-wise:
+    # _batched_cg solves column-wise, terminating on the relative tolerance:
     M = J' * ℐm * J + I
     B = randn(3, 4)
-    X = MGVI._batched_cg(P -> M * P, B, 20)
+    X = MGVI._batched_cg(P -> M * P, B, 20, sqrt(eps(Float64)))
     Test.@test X ≈ M \ B rtol = 1e-8
 end
