@@ -12,6 +12,7 @@ flat_params(x::AbstractVector{<:AbstractVector{<:Real}}) = _flatten_vec_of_vec(x
 flat_params(x::AbstractVector{<:NTuple{N,<:Real}}) where N = _flatten_vec_of_vec(x)
 flat_params(x::AbstractVector) = _flatten_vec_of_vec(flat_params.(x))
 flat_params(A::DiagMatLike{<:Real}) = get_diagonal(A)
+flat_params(A::ScalMat{<:Real}) = _svector((A.value,))
 flat_params(A::PDMat{<:Real}) = flat_params(UpperTriangular(without_chol(A)))
 
 

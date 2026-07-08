@@ -66,6 +66,16 @@ function fisher_information(dist::MvNormal{<:Real,<:PDiagMat})
     blockdiag(mean_fisher_map, cov_fisher_map)
 end
 
+# Fisher information w.r.t. the single variance parameter (flat_params of
+# ScalMat):
+function fisher_information(dist::MvNormal{<:Real,<:ScalMat})
+    v = dist.Σ.value
+    n = dist.Σ.dim
+    mean_fisher_map = PDLinMapWithChol(Diagonal(Fill(inv(v), n)))
+    cov_fisher_map = PDLinMapWithChol(Diagonal(_svector((n/(2*v^2),))))
+    blockdiag(mean_fisher_map, cov_fisher_map)
+end
+
 function fisher_information(dist::Exponential)
     λ = params(dist)[1]
     inv_l = inv(λ)
@@ -132,6 +142,12 @@ end
 function euclidean_coords(d::MvNormal{<:Real,<:PDiagMat})
     v = d.Σ.diag
     vcat(d.μ ./ sqrt.(v), invsqrt2 .* log.(v))
+end
+
+function euclidean_coords(d::MvNormal{<:Real,<:ScalMat})
+    v = d.Σ.value
+    n = d.Σ.dim
+    vcat(d.μ ./ sqrt(v), sqrt(n/2) * log(v))
 end
 
 euclidean_coords(d::TuringDiagMvNormal) = vcat(d.m ./ d.σ, sqrt2 .* log.(d.σ))

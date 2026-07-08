@@ -9,7 +9,7 @@ using Random
 using Statistics
 using ValueShapes
 using AutoDiffOperators
-using PDMats: PDiagMat
+using PDMats: PDiagMat, ScalMat
 import ForwardDiff, Zygote
 import LinearSolve
 
@@ -25,6 +25,7 @@ Test.@testset "test_euclidean_coords" begin
         (Exponential(0.8), p -> Exponential(p...)),
         (Poisson(3.4), p -> Poisson(p...)),
         (MvNormal(zeros(2), PDiagMat([0.8, 1.7])), p -> MvNormal(p[1:2], PDiagMat(p[3:4]))),
+        (MvNormal(zeros(3), ScalMat(3, 1.3)), p -> MvNormal(p[1:3], ScalMat(3, p[4]))),
     )
         λ = collect(MGVI.flat_params(d))
         C = ForwardDiff.jacobian(p -> MGVI.euclidean_coords(p2d(p)), λ)

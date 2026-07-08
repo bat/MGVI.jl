@@ -56,6 +56,18 @@ Test.@testset "test_fisher_values" begin
 
     test_mvnormal_diag(2)
     test_mvnormal_diag(3)
+
+    function test_mvnormal_scal(dim)
+        v = rand() + 0.5
+        mn = rand(dim)
+        params = vcat(mn, v)
+        model = p -> MvNormal(p[1:dim], ScalMat(dim, p[dim+1]))
+        res = MGVI.fisher_information(model(params))
+        truth = fisher_information_mc(model, params, num_runs)
+        Test.@test norm((Matrix(res) - truth)) / norm(truth) < epsilon
+    end
+
+    test_mvnormal_scal(3)
 end
 
 
