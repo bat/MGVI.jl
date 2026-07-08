@@ -57,3 +57,8 @@ function flat_params(d::TuringDenseMvNormal)
     Σ = d.C.L*d.C.U
     vcat(flat_params(μ), flat_params(Σ))
 end
+
+# DistributionsAD swaps MvNormal for TuringDiagMvNormal under AD tracing,
+# must match the variance-based parametrization of the MvNormal/PDiagMat
+# methods of flat_params and fisher_information:
+flat_params(d::TuringDiagMvNormal) = vcat(d.m, d.σ .^ 2)

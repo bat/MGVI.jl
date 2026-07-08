@@ -64,4 +64,16 @@ Test.@testset "test_jacobians_consistency" begin
         @test norm(fwdder_jac*vec - full_jac*vec) < epsilon
         @test norm(fwdrevad_jac*vec - full_jac*vec) < epsilon
     end
+
+    # DistributionsAD swaps distribution types under Zygote tracing, the
+    # traced function and its vjp must still match the primal parametrization:
+    let
+        y_primal = _flat_model(true_params)
+        y_traced, pb = Zygote.pullback(_flat_model, true_params)
+        @test y_traced ≈ y_primal
+        for i in (1, size(full_jac, 1) ÷ 2, size(full_jac, 1))
+            w = zeros(size(full_jac, 1)); w[i] = 1
+            @test pb(w)[1] ≈ full_jac'w atol=epsilon
+        end
+    end
 end
