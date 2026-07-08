@@ -116,6 +116,59 @@ Test.@testset "test_geovi_nonlinear" begin
 end
 
 
+Test.@testset "test_geovi_prepared_step" begin
+    context = MGVIContext(ADSelector(Zygote))
+    Random.seed!(42)
+
+    # pure residual sampling matches the direct dense computation for a
+    # linear model (the nonlinear solves start at the exact solution):
+    let
+        A = randn(15, 3)
+        v = 0.6
+        lin_model(p::AbstractVector) = MvNormal(A * p, PDiagMat(fill(oftype(p[1] * 1.0, v), 15)))
+        center = [0.3, -0.2, 0.5]
+        x_fn = ξ -> MGVI.euclidean_coords(lin_model(ξ))
+        n_x = length(x_fn(center))
+        k = 4
+        N = randn(n_x, k)
+        H = randn(3, k)
+        opt = MGVI.NewtonCG(linesearcher = MGVI.BacktrackingLineSearch())
+        res = MGVI._geovi_residual_samples(
+            lin_model, center, N, H, ADSelector(Zygote), opt, 12, sqrt(eps(Float64))
+        )
+        C = ForwardDiff.jacobian(x_fn, center)
+        X_ref = (C'C + I) \ (C'N + H)
+        @test res[:, 1:2:end] ≈ X_ref rtol = 1e-6
+        @test res[:, 2:2:end] ≈ -X_ref rtol = 1e-6
+    end
+
+    # full prepared steps on the polyfit model:
+    let
+        model = ModelPolyfit.model
+        center = ModelPolyfit.starting_point
+        rng = Xoshiro(145)
+        data = rand(rng, model(ModelPolyfit.true_params), 1)[1]
+
+        config = GeoVIConfig(
+            optimizer = MGVI.NewtonCG(linesearcher = MGVI.BacktrackingLineSearch()),
+            sampling_optimizer = MGVI.NewtonCG(linesearcher = MGVI.BacktrackingLineSearch())
+        )
+        prepared = geovi_prepare(model, data, 8, center, config, context)
+
+        first_mnlp = nothing
+        result = nothing
+        for i in 1:4
+            result, center = geovi_step(prepared, center)
+            i == 1 && (first_mnlp = result.mnlp)
+        end
+        @test result.mnlp isa Real
+        @test size(result.samples, 2) == 16
+        @test center isa AbstractVector{<:Real}
+        @test result.mnlp < first_mnlp
+    end
+end
+
+
 Test.@testset "test_geovi_step" begin
     context = MGVIContext(ADSelector(Zygote))
 

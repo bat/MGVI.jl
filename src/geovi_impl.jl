@@ -161,8 +161,13 @@ function sample_geovi_residuals(s::GeoVISampler, n::Integer)
 end
 
 
+# Explicit accumulation loop instead of sum over a column-index range, for
+# AD- and program-tracing-compatibility:
 function _mean_neg_log_pstr_cols(f::Function, data, residual_samples::AbstractMatrix{<:Real}, center::AbstractVector{<:Real})
-    res = sum(i -> -posterior_loglike(f, center + residual_samples[:, i], data), axes(residual_samples, 2))
+    res = -posterior_loglike(f, center + residual_samples[:, 1], data)
+    for i in 2:size(residual_samples, 2)
+        res = res - posterior_loglike(f, center + residual_samples[:, i], data)
+    end
     return res / size(residual_samples, 2)
 end
 
@@ -234,3 +239,204 @@ function geovi_sample(
     return center .+ residual_samples
 end
 export geovi_sample
+
+
+# Like _geovi_residual, but in terms of jvp/vjp functions instead of
+# LinearMap operators, suitable for program tracing:
+function _geovi_residual_pure(
+    x_fn, ξ̄::AbstractVector{<:Real}, x̄::AbstractVector{<:Real}, jvp_c, vjp_c,
+    t::AbstractVector{<:Real}, Δξ_init::AbstractVector{<:Real},
+    ad::ADSelector, optimizer::NewtonCG
+)
+    g̃_residual(ξ) = (ξ - ξ̄) + vjp_c(x_fn(ξ) - x̄) - t
+
+    function f(ξ::AbstractVector)
+        r = g̃_residual(ξ)
+        dot(r, r) / 2
+    end
+
+    function ∇f(ξ::AbstractVector)
+        x_ξ, vjp_ξ = with_vjp_func(x_fn, ξ, ad)
+        r = (ξ - ξ̄) + vjp_c(x_ξ - x̄) - t
+        r + vjp_ξ(jvp_c(r))
+    end
+
+    # Gauss-Newton metric G'G with G = ∂g̃/∂ξ = I + C'J_x(ξ):
+    function curvature(ξ::AbstractVector)
+        jvp_ξ = jvp_func(x_fn, ξ, ad)
+        _, vjp_ξ = with_vjp_func(x_fn, ξ, ad)
+        function apply_curvature(v::AbstractVector)
+            Gv = v + vjp_c(jvp_ξ(v))
+            Gv + vjp_ξ(jvp_c(Gv))
+        end
+        return apply_curvature
+    end
+
+    ξ_res, _, _ = _newtoncg_optimize(f, ∇f, curvature, ξ̄ + Δξ_init, optimizer, (;))
+    return ξ_res - ξ̄
+end
+
+# Like sample_geovi_residuals, but as a pure function of pre-drawn standard
+# normal samples:
+function _geovi_residual_samples(
+    f_model, center::AbstractVector{<:Real},
+    sample_n::AbstractMatrix{<:Real}, sample_η::AbstractMatrix{<:Real},
+    ad::ADSelector, optimizer::NewtonCG, cg_max_iterations::Integer, cg_rtol::Real
+)
+    x_fn = _euclidean_coords_flat(f_model)
+    x̄, vjp_c = with_vjp_func(x_fn, center, ad)
+    jvp_c = jvp_func(x_fn, center, ad)
+    T = _mapcols(vjp_c, sample_n) .+ sample_η
+    apply_M(P) = _mapcols(vjp_c, _mapcols(jvp_c, P)) .+ P
+    ΔΞ = _batched_cg(apply_M, T, cg_max_iterations, cg_rtol)
+    cols = [
+        _geovi_residual_pure(x_fn, center, x̄, jvp_c, vjp_c, s * T[:, i], s * ΔΞ[:, i], ad, optimizer)
+        for s in (+1, -1), i in axes(T, 2)
+    ]
+    return reduce(hcat, vec(cols))
+end
+
+struct _GeoVIKLTarget{F,D,S<:AbstractMatrix{<:Real}} <: Function
+    f_model::F
+    data::D
+    residual_samples::S
+end
+
+function (t::_GeoVIKLTarget)(center::AbstractVector{<:Real})
+    return _mean_neg_log_pstr_cols(t.f_model, t.data, t.residual_samples, center)
+end
+
+# The complete math of one geoVI step as a pure function of the current
+# center and pre-drawn standard normal samples:
+struct _GeoVIStepFn{F,D,AD<:ADSelector,OPT<:NewtonCG,SOPT<:NewtonCG} <: Function
+    forward_model::F
+    data::D
+    ad::AD
+    optimizer::OPT
+    sampling_optimizer::SOPT
+    cg_max_iterations::Int
+    cg_rtol::Float64
+end
+
+# Adapt's generic closure rule does not support callable structs:
+Adapt.adapt_structure(to, s::_GeoVIStepFn) = _GeoVIStepFn(
+    Adapt.adapt(to, s.forward_model), Adapt.adapt(to, s.data),
+    s.ad, s.optimizer, s.sampling_optimizer, s.cg_max_iterations, s.cg_rtol
+)
+
+function (s::_GeoVIStepFn)(
+    center::AbstractVector{<:Real},
+    sample_n::AbstractMatrix{<:Real}, sample_η::AbstractMatrix{<:Real}
+)
+    residual_samples = _geovi_residual_samples(
+        s.forward_model, center, sample_n, sample_η,
+        s.ad, s.sampling_optimizer, s.cg_max_iterations, s.cg_rtol
+    )
+    mnlp = _GeoVIKLTarget(s.forward_model, s.data, residual_samples)
+    ∇mnlp = gradient_func(mnlp, s.ad)
+    Σ̅⁻¹ = _mean_fisher_curvature(s.forward_model, s.ad, residual_samples, (+1,))
+    center_updated, min_mnlp, _ = _newtoncg_optimize(mnlp, ∇mnlp, Σ̅⁻¹, center, s.optimizer, (;))
+    return center_updated, min_mnlp, residual_samples
+end
+
+
+"""
+    struct GeoVIPreparedStep
+
+A geoVI step prepared via [`geovi_prepare`](@ref) for a fixed model, data,
+number of residual samples and parameter dimensionality.
+
+Run steps with `geovi_step(prepared::GeoVIPreparedStep, center)`.
+"""
+struct GeoVIPreparedStep{SF,CTX<:MGVIContext}
+    step_fn::SF
+    n_x::Int
+    n_θ::Int
+    n_residuals::Int
+    context::CTX
+end
+export GeoVIPreparedStep
+
+
+"""
+    geovi_prepare(
+        forward_model, data, n_residuals::Integer,
+        center_proto::AbstractVector{<:Real},
+        config::GeoVIConfig, context::MGVIContext;
+        device = nothing
+    )
+
+Prepare repeated geoVI steps for the given model and data and return a
+[`GeoVIPreparedStep`](@ref), like [`mgvi_prepare`](@ref) does for MGVI
+steps.
+
+If `device` (an `MLDataDevices.AbstractDevice`) is given, the step
+computation is set up on the device via `HeterogeneousComputing.on_device`.
+For a Reactant device it is compiled once and then reused for every
+subsequent step, which requires `config.optimizer` and
+`config.sampling_optimizer` to be [`NewtonCG`](@ref)s with
+[`MGVI.BacktrackingLineSearch`](@ref) linesearchers and an Enzyme-based
+`context.ad`.
+
+The prepared step uses [`MGVI._batched_cg`](@ref) for the linear part of
+the residual sampling instead of `config.linsolver`; `maxiters` and
+`reltol` in `config.linsolver_opts` are honored.
+"""
+function geovi_prepare(
+    forward_model, data, n_residuals::Integer, center_proto::AbstractVector{<:Real},
+    config::GeoVIConfig, context::MGVIContext;
+    device = nothing
+)
+    optimizer = config.optimizer
+    optimizer isa NewtonCG || throw(ArgumentError(
+        "geovi_prepare requires config.optimizer to be a MGVI.NewtonCG"
+    ))
+    if nameof(typeof(device)) == :ReactantDevice && !(
+        optimizer.linesearcher isa BacktrackingLineSearch &&
+        config.sampling_optimizer.linesearcher isa BacktrackingLineSearch
+    )
+        throw(ArgumentError(
+            "Reactant-compiled geoVI steps require NewtonCG optimizers with MGVI.BacktrackingLineSearch linesearchers"
+        ))
+    end
+
+    n_θ = length(center_proto)
+    n_x = length(euclidean_coords(forward_model(center_proto)))
+    cg_max_iterations = Int(get(config.linsolver_opts, :maxiters, 4 * n_θ))
+    cg_rtol = Float64(get(config.linsolver_opts, :reltol, sqrt(eps(Float64))))
+
+    step_fn = _GeoVIStepFn(
+        forward_model, data, context.ad, optimizer, config.sampling_optimizer,
+        cg_max_iterations, cg_rtol
+    )
+
+    genctx = context.gen
+    dummy_center = collect(center_proto)
+    dummy_n = randn(genctx, n_x, n_residuals)
+    dummy_η = randn(genctx, n_θ, n_residuals)
+    prepared_fn = _maybe_on_device(step_fn, device, dummy_center, dummy_n, dummy_η)
+
+    return GeoVIPreparedStep(prepared_fn, n_x, n_θ, Int(n_residuals), context)
+end
+export geovi_prepare
+
+
+"""
+    geovi_step(prepared::GeoVIPreparedStep, center::AbstractVector{<:Real})
+
+Performs one geoVI step like
+`geovi_step(forward_model, data, n_residuals, center, config, context)`,
+using a step prepared with [`geovi_prepare`](@ref).
+
+Returns a tuple `(result::MGVIResult, updated_center)`.
+"""
+function geovi_step(prepared::GeoVIPreparedStep, center::AbstractVector{<:Real})
+    genctx = prepared.context.gen
+    sample_n = randn(genctx, prepared.n_x, prepared.n_residuals)
+    sample_η = randn(genctx, prepared.n_θ, prepared.n_residuals)
+    center_updated, min_mnlp, residual_samples = prepared.step_fn(center, sample_n, sample_η)
+    samples = center_updated .+ residual_samples
+    info = (linsolver_output = nothing, optimizer_output = nothing)
+    result = MGVIResult(samples, min_mnlp, info)
+    return result, oftype(center, center_updated)
+end

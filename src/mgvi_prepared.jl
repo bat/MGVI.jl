@@ -1,19 +1,12 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
 
-# Program tracing of the operator application (in the NewtonCG cg loop)
-# cannot handle the Bool fields of wrapped LinearMaps, represent diagonal
-# Fisher informations by their diagonal instead:
-_fisher_repr(A::DiagPDLinMapWithChol) = get_diagonal(without_chol(A).lmap)
-_fisher_repr(A) = A
-_fisher_apply(d::AbstractVector{<:Real}, v::AbstractVector) = d .* v
-_fisher_apply(A, v::AbstractVector) = _apply_op(A, v)
-
-# Mean posterior-covariance-inverse estimate over the antithetic sample
-# pairs, as a nested function ξ -> (v -> Σ̅⁻¹(ξ) * v). Equivalent to the
+# Mean posterior-covariance-inverse estimate over the samples (the
+# antithetic pairs for MGVI, the sample columns themselves for geoVI), as
+# a nested function ξ -> (v -> Σ̅⁻¹(ξ) * v). Equivalent to the
 # LinearMap-based curvature used by mgvi_step(::MGVIConfig), but free of
 # LinearMaps machinery, so suitable for program tracing:
-function _mean_fisher_curvature(f_model, ad::ADSelector, residual_samples::AbstractMatrix{<:Real})
+function _mean_fisher_curvature(f_model, ad::ADSelector, residual_samples::AbstractMatrix{<:Real}, signs::Tuple)
     f_flat = flat_params ∘ f_model
     function curvature(ξ::AbstractVector)
         ops = [
@@ -24,7 +17,7 @@ function _mean_fisher_curvature(f_model, ad::ADSelector, residual_samples::Abstr
                 ℐᵢ = _fisher_repr(fisher_information(f_model(ξᵢ)))
                 (jvpᵢ, vjpᵢ, ℐᵢ)
             end
-            for i in axes(residual_samples, 2), s in (+1, -1)
+            for i in axes(residual_samples, 2), s in signs
         ]
         function apply_curvature(v::AbstractVector)
             acc = sum(vjpᵢ(_fisher_apply(ℐᵢ, jvpᵢ(v))) for (jvpᵢ, vjpᵢ, ℐᵢ) in ops)
@@ -63,7 +56,7 @@ function (s::_MGVIStepFn)(
     )
     mnlp = mgvi_kl_target(s.forward_model, s.data, residual_samples)
     ∇mnlp = gradient_func(mnlp, s.ad)
-    Σ̅⁻¹ = _mean_fisher_curvature(s.forward_model, s.ad, residual_samples)
+    Σ̅⁻¹ = _mean_fisher_curvature(s.forward_model, s.ad, residual_samples, (+1, -1))
     center_updated, min_mnlp, _ = _newtoncg_optimize(mnlp, ∇mnlp, Σ̅⁻¹, center, s.optimizer, (;))
     return center_updated, min_mnlp, residual_samples
 end
