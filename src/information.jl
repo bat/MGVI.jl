@@ -58,9 +58,10 @@ function fisher_information(dist::MvNormal)
 end
 
 # Fisher information w.r.t. the variances (flat_params of PDiagMat), not
-# the standard deviations:
+# the standard deviations. Elementwise inv keeps this free of scalar
+# branches (compare inv(::Diagonal)), for AD- and tracing-compatibility:
 function fisher_information(dist::MvNormal{<:Real,<:PDiagMat})
-    Σ⁻¹ = inv(Diagonal(dist.Σ))
+    Σ⁻¹ = Diagonal(inv.(dist.Σ.diag))
     mean_fisher_map = PDLinMapWithChol(Σ⁻¹)
     cov_fisher_map = PDLinMapWithChol(Σ⁻¹^2/2)
     blockdiag(mean_fisher_map, cov_fisher_map)

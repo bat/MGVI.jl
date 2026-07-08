@@ -94,3 +94,15 @@ function _blockdiag(A::AbstractVector{<:DiagPDLinMapWithChol})
 end
 
 blockdiag(As::PDLinMapWithChol...) = _blockdiag(As)
+
+
+_mapcols(f, A::AbstractMatrix) = reduce(hcat, [f(A[:, i]) for i in axes(A, 2)])
+
+# Batch- and tracing-friendly operator application, avoids the LinearMaps
+# mul! dispatch chain for diagonal operators:
+_apply_op(A::LinearMap, x::AbstractVector) = A * x
+_apply_op(A::LinearMap, X::AbstractMatrix) = _mapcols(Base.Fix1(_apply_op, A), X)
+_apply_op(A::DiagLinearMap, x::AbstractVector) = A.lmap.diag .* x
+_apply_op(A::DiagLinearMap, X::AbstractMatrix) = A.lmap.diag .* X
+_apply_op(A::PDLinMapWithChol, x::AbstractVector) = _apply_op(without_chol(A), x)
+_apply_op(A::PDLinMapWithChol, X::AbstractMatrix) = _apply_op(without_chol(A), X)

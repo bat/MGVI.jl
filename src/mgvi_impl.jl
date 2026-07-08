@@ -21,11 +21,46 @@ function _mean_neg_log_pstr(f::Function, data, residual_samples::AbstractMatrix{
         posterior_loglike(f, center + residual, data) +
         posterior_loglike(f, center - residual, data)
     )
-    res = sum(mnlp_contribution, eachcol(residual_samples))
+    res = sum(i -> mnlp_contribution(residual_samples[:, i]), axes(residual_samples, 2))
     n = 2 * size(residual_samples, 2)
     kl = res / n
     return kl
 end
+
+
+"""
+    struct MGVI.MGVIKLTarget <: Function
+
+The optimization target of [`mgvi_step`](@ref): the sampled KL estimator
+(mean negative non-normalized log-posterior over the samples) as a function
+of the variational mean.
+
+Construct with [`mgvi_kl_target`](@ref).
+"""
+struct MGVIKLTarget{F,D,S<:AbstractMatrix{<:Real}} <: Function
+    f_model::F
+    data::D
+    residual_samples::S
+end
+
+function (t::MGVIKLTarget)(center::AbstractVector{<:Real})
+    return _mean_neg_log_pstr(t.f_model, t.data, t.residual_samples, center)
+end
+
+"""
+    mgvi_kl_target(forward_model, data, residual_samples::AbstractMatrix{<:Real})
+
+Return the function of the variational mean that [`mgvi_step`](@ref)
+minimizes, given zero-centered residual samples (as matrix columns).
+
+The result is a pure function of its argument and suitable for program
+tracing and compilation (e.g. via Reactant, with an Enzyme-based gradient),
+provided `forward_model` is.
+"""
+function mgvi_kl_target(forward_model, data, residual_samples::AbstractMatrix{<:Real})
+    return MGVIKLTarget(forward_model, data, residual_samples)
+end
+export mgvi_kl_target
 
 
 """
@@ -133,7 +168,7 @@ function mgvi_step(
 )
     residual_sampler = ResidualSampler(forward_model, center_init, config.linsolver, context; linear_solver_opts = config.linsolver_opts)
     residual_samples = sample_residuals(residual_sampler, n_residuals)
-    mnlp(params::AbstractVector) = _mean_neg_log_pstr(forward_model, data, residual_samples, params)
+    mnlp = mgvi_kl_target(forward_model, data, residual_samples)
     OP = _get_operator_type(config.linsolver)
     Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, OP, context)
     # average the metric over both members of the antithetic sample pairs,

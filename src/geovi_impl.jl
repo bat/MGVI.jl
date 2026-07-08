@@ -162,7 +162,7 @@ end
 
 
 function _mean_neg_log_pstr_cols(f::Function, data, residual_samples::AbstractMatrix{<:Real}, center::AbstractVector{<:Real})
-    res = sum(r -> -posterior_loglike(f, center + r, data), eachcol(residual_samples))
+    res = sum(i -> -posterior_loglike(f, center + residual_samples[:, i], data), axes(residual_samples, 2))
     return res / size(residual_samples, 2)
 end
 
