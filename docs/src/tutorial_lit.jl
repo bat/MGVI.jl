@@ -12,6 +12,7 @@ using ValueShapes
 using LinearAlgebra
 
 import Zygote
+import DistributionsAD # provides the AD rules Zygote needs for Distributions
 using AutoDiffOperators
 using LinearSolve: KrylovJL_CG
 
