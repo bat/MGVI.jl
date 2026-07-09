@@ -26,6 +26,7 @@ using LinearMaps
 using Parameters
 using PDMats
 using PositiveFactorizations
+import PSIS
 import SparseArrays: blockdiag
 using StaticArrays
 using ValueShapes
@@ -54,5 +55,6 @@ include("newtoncg.jl")
 include("mgvi_impl.jl")
 include("mgvi_prepared.jl")
 include("geovi_impl.jl")
+include("diagnostics.jl")
 
 end # module
