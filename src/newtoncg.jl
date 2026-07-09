@@ -162,7 +162,7 @@ function _optimize(
     f::Function, adsel::ADSelector, Σ̅⁻¹::Function,
     x₀::AbstractVector, optimizer::NewtonCG, optimization_opts::NamedTuple
 )
-    ∇f = gradient_func(f, adsel)
+    ∇f = gradient_func(f, adsel, x₀)
     _newtoncg_optimize(f, ∇f, Σ̅⁻¹, x₀, optimizer, optimization_opts)
 end
 

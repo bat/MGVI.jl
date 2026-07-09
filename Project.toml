@@ -44,7 +44,7 @@ MGVIOptimizationBaseExt = "OptimizationBase"
 [compat]
 Adapt = "3.4, 4"
 AffineMaps = "0.3"
-AutoDiffOperators = "0.3"
+AutoDiffOperators = "0.3.1"
 ChainRulesCore = "0.9.44, 0.10, 1"
 DensityInterface = "0.4"
 Distributed = "1"

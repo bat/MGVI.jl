@@ -55,7 +55,7 @@ function (s::_MGVIStepFn)(
         cg_max_iterations = s.cg_max_iterations, cg_rtol = s.cg_rtol
     )
     mnlp = mgvi_kl_target(s.forward_model, s.data, residual_samples)
-    ∇mnlp = gradient_func(mnlp, s.ad)
+    ∇mnlp = gradient_func(mnlp, s.ad, center)
     Σ̅⁻¹ = _mean_fisher_curvature(s.forward_model, s.ad, residual_samples, (+1, -1))
     center_updated, min_mnlp, _ = _newtoncg_optimize(mnlp, ∇mnlp, Σ̅⁻¹, center, s.optimizer, (;))
     return center_updated, min_mnlp, residual_samples

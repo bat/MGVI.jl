@@ -344,7 +344,7 @@ function (s::_GeoVIStepFn)(
         s.ad, s.sampling_optimizer, s.cg_max_iterations, s.cg_rtol
     )
     mnlp = _GeoVIKLTarget(s.forward_model, s.data, residual_samples)
-    ∇mnlp = gradient_func(mnlp, s.ad)
+    ∇mnlp = gradient_func(mnlp, s.ad, center)
     Σ̅⁻¹ = _mean_fisher_curvature(s.forward_model, s.ad, residual_samples, (+1,))
     center_updated, min_mnlp, _ = _newtoncg_optimize(mnlp, ∇mnlp, Σ̅⁻¹, center, s.optimizer, (;))
     return center_updated, min_mnlp, residual_samples
