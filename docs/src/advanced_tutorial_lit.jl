@@ -202,10 +202,27 @@ function sqrt_kernel(p)
     amplitude_spectrum.(k, kernel_A, kernel_l)
 end;
 
-# As a Fourier transform we choose the Discrete Hartley Transform, which ensures that Fourier
-# coefficients of the real valued function remain real valued.
+# As harmonic transform we choose the discrete Hartley transform (DHT), which
+# maps real-valued functions to real-valued harmonic coefficients and is its
+# own inverse up to a factor of `_GP_DIM`. We compute it via a complex FFT as
+# `real(F) - imag(F)`: unlike FFTW's real-to-real plans, this composes with
+# automatic differentiation and program tracing, and it generalizes correctly
+# to multiple dimensions.
 
-ht = FFTW.plan_r2r(zeros(_GP_DIM), FFTW.DHT);
+function dht(x::AbstractArray)
+    F = fft(Complex.(x))
+    return real.(F) .- imag.(F)
+end;
+
+# Reverse-mode AD handles `dht` out of the box. For forward-mode AD (MGVI
+# uses it for Jacobian-vector products) we exploit that the DHT is linear,
+# so it transforms dual values and partial derivatives independently:
+
+function dht(x::AbstractArray{ForwardDiff.Dual{T,V,N}}) where {T,V,N}
+    val = dht(ForwardDiff.value.(x))
+    parts = ntuple(i -> dht(ForwardDiff.partials.(x, i)), Val(N))
+    return ForwardDiff.Dual{T}.(val, parts...)
+end;
 
 # Before we proceed, let's have a brief look at the kernel's shape. Below
 # we plot the kernel in the coordinate space `K(r) = K(x2 - x1)` as a function of time in years
@@ -214,7 +231,7 @@ ht = FFTW.plan_r2r(zeros(_GP_DIM), FFTW.DHT);
 
 function plot_kernel_model(p, width; plot_args=(;))
     xs = collect(1:Int(floor(width/_GP_BINSIZE)))
-    plot!(xs .* _GP_BINSIZE, (ht * (sqrt_kernel(p) .^ 2))[xs] .* _GP_HARMONIC_DIST, label=nothing, linewidth=2.5; plot_args...)
+    plot!(xs .* _GP_BINSIZE, dht(sqrt_kernel(p) .^ 2)[xs] .* _GP_HARMONIC_DIST, label=nothing, linewidth=2.5; plot_args...)
 end
 
 plot()
@@ -230,7 +247,7 @@ plot_kernel_model(starting_point, 20)
 # kernel is periodic.
 
 function plot_kernel_matrix(p)
-    xkernel = ht * (sqrt_kernel(p) .^ 2) .* _GP_HARMONIC_DIST
+    xkernel = dht(sqrt_kernel(p) .^ 2) .* _GP_HARMONIC_DIST
     res = reduce(hcat, [circshift(xkernel, i) for i in 0:(_GP_DIM-1)])'
     heatmap!(_GP_XS, _GP_XS, res; yflip=true, xmirror=true, tick_direction=:out, top_margin=20px, right_margin=30px)
 end
@@ -252,20 +269,7 @@ plot_kernel_matrix(starting_point)
 
 function gp_sample(p)
     flat_gp = sqrt_kernel(p) .* p[PARIDX.gp_latent]
-    (ht * flat_gp) .* _GP_HARMONIC_DIST
-end;
-
-# Together with the implementation of `gp_sample` we also need
-# to define its version of the `Dual`s. This will allow our
-# application of the Hartley transform to be differentiatiable.
-
-function gp_sample(dp::Vector{ForwardDiff.Dual{T, V, N}}) where {T,V,N}
-    flat_gp_duals = sqrt_kernel(dp) .* dp[PARIDX.gp_latent]
-    val_res = ht*ForwardDiff.value.(flat_gp_duals) .* _GP_HARMONIC_DIST
-    psize = size(ForwardDiff.partials(flat_gp_duals[1]), 1)
-    ps = x -> ForwardDiff.partials.(flat_gp_duals, x)
-    val_ps = map((x -> ht*ps(x) .* _GP_HARMONIC_DIST), 1:psize)
-    ForwardDiff.Dual{T}.(val_res, val_ps...)
+    dht(flat_gp) .* _GP_HARMONIC_DIST
 end;
 
 # Gaussian process realization is meant to serve as a Poisson rate of the Poisson

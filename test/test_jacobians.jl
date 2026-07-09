@@ -15,6 +15,11 @@ if !isdefined(Main, :ModelPolyfit)
     import .ModelPolyfit
 end
 
+if !isdefined(Main, :ModelFFTGP)
+    include("test_models/model_fft_gp.jl")
+    import .ModelFFTGP
+end
+
 Test.@testset "test_jacobians_consistency" begin
     let
         A = rand(4,6)
@@ -82,4 +87,18 @@ Test.@testset "test_jacobians_consistency" begin
             @test pb(w)[1] ≈ full_jac'w atol=epsilon
         end
     end
+end
+
+Test.@testset "test_jacobians_fft_gp" begin
+    # Jacobians through an FFT-based harmonic-space GP model: the jvp runs
+    # forward-mode through the dual-number DHT method, the vjp reverse-mode
+    # through the FFT rules:
+    _flat_model = MGVI.flat_params ∘ ModelFFTGP.model
+    p = ModelFFTGP.starting_point
+    J_ref = ForwardDiff.jacobian(_flat_model, p)
+    _, J = with_jacobian(_flat_model, p, LinearMap, ADSelector(Zygote))
+    l = rand(size(J_ref, 1))
+    r = rand(size(J_ref, 2))
+    @test J * r ≈ J_ref * r
+    @test J' * l ≈ J_ref' * l
 end

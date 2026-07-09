@@ -2,65 +2,38 @@
 
 module ModelFFTGP
 
-import Base: *, adjoint
-import AbstractFFTs
-import FFTW: plan_r2r, DHT
+import FFTW: fft
 import ForwardDiff
 import Random: randn, MersenneTwister
 import Distributions: Normal
 import ValueShapes: NamedTupleDist
-import Zygote
-import LinearAlgebra: Diagonal
 
 export model, true_params, starting_point
 
 const _dims = 40
 const _k = [i < _dims / 2 ? i : _dims-i for i = 0:_dims-1]
 
-# Define the harmonic transform operator as a matrix-like object
-const _ht = plan_r2r(zeros(_dims), DHT)
-
-# Unfortunately neither Zygote nor ForwardDiff support planned Hartley
-# transformations. While Zygote does not support AbstractFFTs.ScaledPlan,
-# ForwardDiff does not overload the appropriate methods from AbstractFFTs.
-function _plan_dual_product(trafo::AbstractFFTs.Plan, u::Vector{ForwardDiff.Dual{T, V, N}}) where {T, V, N}
-    # Unpack AoS -> SoA
-    vs = ForwardDiff.value.(u)
-    ps = mapreduce(ForwardDiff.partials, hcat, u)
-    # Actual computation
-    val = trafo * vs
-    jvp = [trafo*t[:] for t in eachrow(ps)]
-    # Pack SoA -> AoS (depending on jvp, might need `eachrow`)
-    return map((v, p) -> ForwardDiff.Dual{T}(v, p...), val, zip(jvp...))
+# Discrete Hartley transform via FFT: real-to-real, self-inverse up to a
+# factor of `length(x)`, and (unlike FFTW's real-to-real plans) composable
+# with automatic differentiation and program tracing:
+function dht(x::AbstractArray)
+    F = fft(Complex.(x))
+    return real.(F) .- imag.(F)
 end
 
-
-function *(trafo::AbstractFFTs.Plan, u::Vector{ForwardDiff.Dual{T, V, N}}) where {T, V, N}
-    _plan_dual_product(trafo, u)
+# The DHT is linear, so it transforms dual values and partials independently:
+function dht(x::AbstractArray{ForwardDiff.Dual{T,V,N}}) where {T,V,N}
+    val = dht(ForwardDiff.value.(x))
+    parts = ntuple(i -> dht(ForwardDiff.partials.(x, i)), Val(N))
+    return ForwardDiff.Dual{T}.(val, parts...)
 end
 
-function *(trafo::AbstractFFTs.ScaledPlan, u::Vector{ForwardDiff.Dual{T, V, N}}) where {T, V, N}
-    _plan_dual_product(trafo, u)
-end
-
-Zygote.@adjoint function *(trafo::AbstractFFTs.ScaledPlan, xs)
-    # Zygote has implementation for AbstractFFTs.Plan. ScaledPlan doesn't require norm mb?
-    # https://github.com/FluxML/Zygote.jl/blob/2308bc8f30ccd6be913a054f7cc938c12a103512/src/lib/array.jl#L824
-    # should be adjoint actually: return trafo * xs, Δ -> (nothing, trafo * Δ)
-    return trafo * xs, Δ -> (nothing, trafo * Δ)
-end
-
-Zygote.@adjoint function inv(trafo::AbstractFFTs.Plan)
-    inv_t = inv(trafo)
-    return inv_t, function (Δ)
-        return (- inv_t * Δ * inv_t,)
-    end
-end
+idht(x::AbstractArray) = dht(x) ./ length(x)
 
 function _correlated_field(ξ::Vector)
     loglogslope = 2.3
     P = @. 50 / (_k^loglogslope + 1)
-    return inv(_ht) * (P .* ξ)
+    return idht(P .* ξ)
 end
 
 function _mean(ξ::Vector)
