@@ -4,6 +4,13 @@
 """
     struct NewtonCG
 
+Inexact-Newton optimizer with a matrix-free conjugate-gradient inner solver.
+
+Each step solves the Newton system approximately, with the cg residual
+target set by the Eisenstat–Walker forcing sequence
+`‖r‖ <= min(1/2, √‖∇f‖) * ‖∇f‖`, and finishes with a line search along the
+resulting direction.
+
 Constructors:
 
 * '''$(FUNCTIONNAME)(; fields...)'''
@@ -12,22 +19,21 @@ $(TYPEDFIELDS)
 
 """
 @with_kw struct NewtonCG
-    "amount of previous NewtonCG improvement guarding the lower
-    bound to the improvement between consecutive cg iterations from
-    the second NewtonCG step on"
-    α::Float64=0.1
+    "number of NewtonCG steps"
+    steps::Int64 = 4
 
-    "Number of total NewtonCG steps"
-    steps::Int64=4
+    "stop early when a NewtonCG step decreases the target by no more than
+    this (in uncompiled operation only); if positive, cg iterations also
+    stop once their quadratic-energy decrease becomes negligible compared
+    to the previous NewtonCG step's improvement"
+    absdelta::Float64 = 0.0
 
-    "maximum number of cg iterations in the first NewtonCG step"
-    i₀::Int64=5
-
-    "maximum number of cg iterations from the second NewtonCG step on"
-    i₁::Int64=50
+    "maximum number of cg iterations per NewtonCG step, `0` chooses
+    automatically based on the problem dimensionality"
+    cg_maxiter::Int64 = 0
 
     "LineSearcher that will be used after cg iterations are finished"
-    linesearcher=StrongWolfe{Float64}()
+    linesearcher = StrongWolfe{Float64}()
 end
 
 
@@ -171,11 +177,13 @@ function _newtoncg_optimize(
     x₀::AbstractVector, optimizer::NewtonCG, optimization_opts::NamedTuple
 )
     # fetch parameters from optimizer struct
-    α = optimizer.α
     steps = optimizer.steps
-    i₀ = optimizer.i₀
-    i₁ = optimizer.i₁
+    absdelta = optimizer.absdelta
     ls = optimizer.linesearcher
+    # iteration cap and minimum iterations before the energy criterion may
+    # fire, matching NIFTy:
+    cg_maxiter = optimizer.cg_maxiter > 0 ? optimizer.cg_maxiter : min(200, 20 * length(x₀))
+    cg_ad_miniter = min(6, cg_maxiter)
 
     # logging information, not available when compiled via program tracing:
     record_trace = !within_compile()
@@ -195,33 +203,41 @@ function _newtoncg_optimize(
 
     fⁿ = Δfⁿ = zero(f⁰)
     xₙ = x₀
+    n_done = 0
     for n in 1:steps
         ∇f_at_xₙ = ∇f_used(xₙ)
 
-        # solve Σ̅⁻¹(xₙ) * Δx == ∇f(xₙ) approximately via conjugate gradients:
+        # solve Σ̅⁻¹(xₙ) * Δx == ∇f(xₙ) approximately via conjugate gradients,
+        # the residual target given by the Eisenstat–Walker forcing sequence
+        # ‖r‖ <= min(1/2, √‖∇f‖) * ‖∇f‖ (inexact Newton, cf. NIFTy):
         A = Σ̅⁻¹(xₙ)
+        g = ∇f_at_xₙ
         Δx = zero(xₙ)
-        r = ∇f_at_xₙ
+        r = copy(g)
         p = copy(r)
         rs = dot(r, r)
+        rs_target = min(rs / 4, rs * sqrt(rs))
         k = 0
-        if n == 1
-            # do i₀ iterations of cg
-            for _ in 1:i₀
+        if absdelta > 0
+            # also stop cg once its quadratic-energy decrease per iteration
+            # becomes negligible: below absdelta / 100 in the first NewtonCG
+            # step, below a tenth of the previous step's improvement after:
+            cg_absdelta = n == 1 ? oftype(fⁿ⁻¹, absdelta / 100) : max(zero(Δfⁿ), Δfⁿ) / 10
+            E = zero(rs)
+            ΔE = oftype(rs, Inf)
+            @trace while (k < cg_maxiter) & (rs > rs_target) &
+                    ((k < cg_ad_miniter) | (ΔE >= cg_absdelta))
                 Δx, r, p, rs = _cg_update(A, Δx, r, p, rs)
                 k += 1
+                # cg quadratic energy ½ Δx'AΔx - g'Δx == -½ ⟨Δx, g + r⟩:
+                E_next = -dot(Δx, g + r) / 2
+                ΔE = E - E_next
+                E = E_next
             end
         else
-            # do at most i₁ cg iterations, move on early if the improvement
-            # falls below a fraction α of the previous NewtonCG step improvement:
-            fᵏ = fⁿ⁻¹
-            Δfᵏ = oftype(fⁿ⁻¹, Inf)
-            @trace while (k < i₁) & (Δfᵏ >= α * Δfⁿ)
+            @trace while (k < cg_maxiter) & (rs > rs_target)
                 Δx, r, p, rs = _cg_update(A, Δx, r, p, rs)
                 k += 1
-                fᵏ_next = f_used(xₙ - Δx)
-                Δfᵏ = abs(fᵏ_next - fᵏ)
-                fᵏ = fᵏ_next
             end
         end
         record_trace && push!(cg_iterations, Int(k))
@@ -229,9 +245,14 @@ function _newtoncg_optimize(
         # finish NewtonCG step with line search in -Δx direction
         β, fⁿ = _run_linesearch(ls, linesearch_args(f_used, ∇f_used, xₙ, -Δx, fⁿ⁻¹, ∇f_at_xₙ)...)
         xₙ = xₙ - β .* Δx
-        Δfⁿ = abs(fⁿ - fⁿ⁻¹)
+        Δfⁿ = fⁿ⁻¹ - fⁿ
         fⁿ⁻¹ = fⁿ
         record_trace && push!(f_history, fⁿ)
+        n_done = n
+        # a step without meaningful improvement means convergence, don't
+        # spend the remaining steps (not possible when compiled, program
+        # tracing requires a fixed number of steps):
+        !within_compile() && Δfⁿ <= absdelta && break
     end
     trace = (f_history=f_history, cg_iterations=cg_iterations)
     res = NewtonCGResults{typeof(optimizer), typeof(x₀), typeof(f⁰), typeof(trace)}(
@@ -240,7 +261,7 @@ function _newtoncg_optimize(
         xₙ,
         f⁰,
         fⁿ,
-        steps,
+        n_done,
         trace,
         f_counted.counter[],
         ∇f_counted.counter[],

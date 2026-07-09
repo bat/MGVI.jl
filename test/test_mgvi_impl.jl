@@ -126,7 +126,24 @@ Test.@testset "test_newtoncg_linesearch_robustness" begin
     curvature = x -> Diagonal(ones(length(x)))
     optimizer = MGVI.NewtonCG(linesearcher = throwing_ls, steps = 3)
     x₀ = [1.0, -2.0, 0.5]
-    x_res, f_res, _ = MGVI._optimize(f, ADSelector(Zygote), curvature, x₀, optimizer, (;))
-    @test x_res == x₀        # every step reduces to a zero step
+    x_res, f_res, res = MGVI._optimize(f, ADSelector(Zygote), curvature, x₀, optimizer, (;))
+    @test x_res == x₀        # the failed search reduces to a zero step
     @test f_res == f(x₀)
+    @test res.iterations == 1  # a zero step stops the optimization early
+end
+
+Test.@testset "test_newtoncg_forcing" begin
+    # On a quadratic with exact curvature the Eisenstat–Walker residual
+    # target is reached after a single cg iteration and the first NewtonCG
+    # step lands on the optimum; the second step yields no improvement and
+    # stops the optimization early:
+    f = x -> sum(abs2, x) / 2
+    curvature = x -> Diagonal(ones(length(x)))
+    x₀ = [1.0, -2.0, 0.5]
+    optimizer = MGVI.NewtonCG(absdelta = 1e-12)
+    x_res, f_res, res = MGVI._optimize(f, ADSelector(Zygote), curvature, x₀, optimizer, (;))
+    @test f_res ≈ 0 atol = 1e-20
+    @test isapprox(x_res, zero(x₀), atol = 1e-10)
+    @test res.iterations < optimizer.steps
+    @test res.cg_iterations <= 10
 end
