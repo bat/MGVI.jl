@@ -112,9 +112,9 @@ end
 function linesearch_args(
         f, ∇f, x::AbstractVector, Δx::AbstractVector, f_x, ∇f_x)
     # build univariate functions
-    f_uni(α::Real) = f(x + α*Δx)
-    df(α::Real) = dot(∇f(x + α*Δx), Δx)
-    f_and_df(α::Real) = (f_uni(α), df(α))
+    f_uni(α::RealLike) = f(x + α*Δx)
+    df(α::RealLike) = dot(∇f(x + α*Δx), Δx)
+    f_and_df(α::RealLike) = (f_uni(α), df(α))
     return (f_uni, df, f_and_df, 1.0, f_x, dot(∇f_x, Δx))
 end
 
