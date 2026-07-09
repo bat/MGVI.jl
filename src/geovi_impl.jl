@@ -293,10 +293,10 @@ function _geovi_residual_samples(
     ΔΞ = _batched_cg(apply_M, T, cg_max_iterations, cg_rtol)
     n_smpls = size(T, 2)
     X = zero(hcat(ΔΞ, ΔΞ))
-    # track_numbers=false: all loop-local numbers derive from the traced
-    # induction variable, and number tracking cannot handle the plain
-    # number fields of the optimizer passed to the solve:
-    @trace track_numbers = false for j in 1:(2 * n_smpls)
+    # ToDo: Run the solves as a traced loop when compiled, once traced
+    # loops support callables that carry traced state (like x_fn); the
+    # loop is unrolled under program tracing for now:
+    for j in 1:(2 * n_smpls)
         i = (j + 1) ÷ 2
         s = ifelse(isodd(j), 1.0, -1.0)
         r_j = _geovi_residual_pure(

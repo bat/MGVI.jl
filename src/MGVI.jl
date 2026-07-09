@@ -38,7 +38,7 @@ using LinearSolve: solve, LinearProblem, KrylovJL_CG
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, ProjectTo, AbstractThunk, unthunk
 import Statistics: mean
 
-using ReactantCore: @trace, within_compile
+using ReactantCore: within_compile
 
 # Reactant's traced and concrete number types do not subtype Real yet,
 # accept Number in the compilation-relevant signatures for now.

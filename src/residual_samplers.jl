@@ -111,8 +111,9 @@ Solve `A * X == B` column-wise via conjugate-gradient iterations, with
 
 Iterates until the residual norms of all columns have been reduced by the
 factor `rtol`, but at most `max_iter` times. Free of array mutation and,
-via `ReactantCore.@trace`, of scalar control flow, so it is suitable for
-program tracing and compilation (e.g. via Reactant), unlike dynamically
+when compiled via program tracing, of scalar control flow (`max_iter`
+unrolled cg iterations then, masked to no-ops for converged columns), so
+it is suitable for compilation e.g. via Reactant, unlike dynamically
 terminated solvers.
 """
 function _batched_cg(apply_A, B::AbstractMatrix{<:RealLike}, max_iter::Integer, rtol::Real)
@@ -123,12 +124,25 @@ function _batched_cg(apply_A, B::AbstractMatrix{<:RealLike}, max_iter::Integer, 
     rs₀ = sum(abs2, B; dims = 1)
     rs = copy(rs₀)
     threshold = oftype(tiny, rtol^2)
-    conv = one(tiny)
-    i = 0
-    @trace while (i < max_iter) & (conv > threshold)
-        X, R, P, rs = _batched_cg_iteration(apply_A, X, R, P, rs, tiny)
-        conv = maximum(rs ./ (rs₀ .+ tiny))
-        i += 1
+    # ToDo: Use the early-terminating while loop in all cases once traced
+    # loops support callables that carry traced state (like apply_A):
+    if within_compile()
+        for _ in 1:max_iter
+            X_next, R_next, P_next, rs_next = _batched_cg_iteration(apply_A, X, R, P, rs, tiny)
+            active = (rs ./ (rs₀ .+ tiny)) .> threshold
+            X = ifelse.(active, X_next, X)
+            R = ifelse.(active, R_next, R)
+            P = ifelse.(active, P_next, P)
+            rs = ifelse.(active, rs_next, rs)
+        end
+    else
+        conv = one(tiny)
+        i = 0
+        while (i < max_iter) & (conv > threshold)
+            X, R, P, rs = _batched_cg_iteration(apply_A, X, R, P, rs, tiny)
+            conv = maximum(rs ./ (rs₀ .+ tiny))
+            i += 1
+        end
     end
     return X
 end

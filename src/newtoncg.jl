@@ -32,6 +32,10 @@ $(TYPEDFIELDS)
     automatically based on the problem dimensionality"
     cg_maxiter::Int64 = 0
 
+    "number of cg iterations per NewtonCG step when compiled via program
+    tracing, which requires a fixed iteration count for now"
+    cg_steps_traced::Int64 = 5
+
     "LineSearcher that will be used after cg iterations are finished"
     linesearcher = StrongWolfe{Float64}()
 end
@@ -69,11 +73,25 @@ function (ls::BacktrackingLineSearch)(f_uni, df, f_and_df, β₀::RealLike, f₀
     c, ρ, maxsteps = ls.c, ls.ρ, ls.maxsteps
     β = oftype(f₀ / β₀, β₀)
     fβ = f_uni(β)
-    k = 0
-    @trace while (fβ > f₀ + c * β * dϕ₀) & (k < maxsteps)
-        β = ρ * β
-        fβ = f_uni(β)
-        k += 1
+    # ToDo: Use the early-terminating while loop in all cases once traced
+    # loops support callables that carry traced state (like f_uni):
+    if within_compile()
+        # equivalent fixed-count masked backtracking, keeps the first
+        # accepted step size:
+        for _ in 1:maxsteps
+            accept = fβ <= f₀ + c * β * dϕ₀
+            β_next = ρ * β
+            fβ_next = f_uni(β_next)
+            β = ifelse(accept, β, β_next)
+            fβ = ifelse(accept, fβ, fβ_next)
+        end
+    else
+        k = 0
+        while (fβ > f₀ + c * β * dϕ₀) & (k < maxsteps)
+            β = ρ * β
+            fβ = f_uni(β)
+            k += 1
+        end
     end
     return β, fβ
 end
@@ -218,14 +236,27 @@ function _newtoncg_optimize(
         rs = dot(r, r)
         rs_target = min(rs / 4, rs * sqrt(rs))
         k = 0
-        if absdelta > 0
+        # ToDo: Use the early-terminating while loops in all cases once
+        # traced loops support callables that carry traced state (like A):
+        if within_compile()
+            # fixed number of unrolled cg iterations, masked to no-ops
+            # after the residual target is reached:
+            for _ in 1:optimizer.cg_steps_traced
+                Δx_next, r_next, p_next, rs_next = _cg_update(A, Δx, r, p, rs)
+                active = rs > rs_target
+                Δx = ifelse.(active, Δx_next, Δx)
+                r = ifelse.(active, r_next, r)
+                p = ifelse.(active, p_next, p)
+                rs = ifelse(active, rs_next, rs)
+            end
+        elseif absdelta > 0
             # also stop cg once its quadratic-energy decrease per iteration
             # becomes negligible: below absdelta / 100 in the first NewtonCG
             # step, below a tenth of the previous step's improvement after:
             cg_absdelta = n == 1 ? oftype(fⁿ⁻¹, absdelta / 100) : max(zero(Δfⁿ), Δfⁿ) / 10
             E = zero(rs)
             ΔE = oftype(rs, Inf)
-            @trace while (k < cg_maxiter) & (rs > rs_target) &
+            while (k < cg_maxiter) & (rs > rs_target) &
                     ((k < cg_ad_miniter) | (ΔE >= cg_absdelta))
                 Δx, r, p, rs = _cg_update(A, Δx, r, p, rs)
                 k += 1
@@ -235,7 +266,7 @@ function _newtoncg_optimize(
                 E = E_next
             end
         else
-            @trace while (k < cg_maxiter) & (rs > rs_target)
+            while (k < cg_maxiter) & (rs > rs_target)
                 Δx, r, p, rs = _cg_update(A, Δx, r, p, rs)
                 k += 1
             end
