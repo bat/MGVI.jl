@@ -12,6 +12,7 @@ Test.@testset "Aqua tests" begin
     Aqua.test_all(
         MGVI,
         ambiguities = false,
-        unbound_args = false # Detects unbounds args in with {N,T} where N might be zero
+        unbound_args = false, # Detects unbounds args in with {N,T} where N might be zero
+        persistent_tasks = !Sys.iswindows() # Aqua's precompile subprocess is unreliable on Windows CI
     )
 end # testset
