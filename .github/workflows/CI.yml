@@ -22,6 +22,10 @@ jobs:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.version == 'nightly' }}
+    env:
+      # Temporary: bypass the Julia package servers, their registry
+      # snapshots lag the registration of AutoDiffOperators 0.3.2:
+      JULIA_PKG_SERVER: ''
     strategy:
       fail-fast: false
       matrix:
@@ -65,6 +69,10 @@ jobs:
   docs:
     name: Documentation
     runs-on: ubuntu-latest
+    env:
+      # Temporary: bypass the Julia package servers, their registry
+      # snapshots lag the registration of AutoDiffOperators 0.3.2:
+      JULIA_PKG_SERVER: ''
     steps:
       - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v3
