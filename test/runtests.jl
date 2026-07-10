@@ -5,6 +5,14 @@ import Test
 Test.@testset "Package MGVI" begin
     include("test_aqua.jl")
     include("test_mgvi_impl.jl")
+    # Mooncake rule compilation stalls on Julia 1.10 already during
+    # precompilation and tends to lag behind Julia prereleases, so it
+    # can't be a static test dependency:
+    if VERSION >= v"1.11" && isempty(VERSION.prerelease)
+        import Pkg
+        Base.identify_package("Mooncake") === nothing && Pkg.add("Mooncake")
+        include("test_mooncake.jl")
+    end
     include("test_jacobians.jl")
     include("information/test_information.jl")
     include("test_samplers.jl")

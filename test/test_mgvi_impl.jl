@@ -10,13 +10,6 @@ import DistributionsAD  # required for Zygote AD through Distributions
 import LinearSolve, Zygote
 import OptimizationLBFGSB, Optim#, OptimizationOptimJL
 
-# Mooncake rule compilation stalls on Julia 1.10 and tends to lag behind
-# prerelease Julia versions:
-run_mooncake_tests = VERSION >= v"1.11" && isempty(VERSION.prerelease)
-if run_mooncake_tests
-    import Mooncake
-end
-
 if !isdefined(Main, :ModelPolyfit)
     include("test_models/model_polyfit.jl")
     import .ModelPolyfit
@@ -104,26 +97,6 @@ Test.@testset "test_mgvi_prepared_step" begin
     @test size(result.samples) == (5, 24)
     @test center isa AbstractVector{<:Real}
     @test result.mnlp < first_mnlp
-end
-
-if run_mooncake_tests
-    Test.@testset "test_mgvi_step_mooncake" begin
-        # The full pipeline with a DifferentiationInterface-based backend that
-        # relies on preparation: jvp/vjp for the Fisher metric, prepared
-        # gradients in NewtonCG.
-        context = MGVIContext(ADSelector(Mooncake))
-
-        model = ModelPolyfit.model
-        center = ModelPolyfit.starting_point
-        rng = Xoshiro(145)
-        data = rand(rng, model(ModelPolyfit.true_params), 1)[1]
-
-        config = MGVIConfig(optimizer = MGVI.NewtonCG())
-        result, center = mgvi_step(model, data, 3, center, config, context)
-        @test result.mnlp isa Real
-        @test result.samples isa AbstractMatrix{<:Real}
-        @test center isa AbstractVector{<:Real}
-    end
 end
 
 Test.@testset "test_newtoncg_linesearch_robustness" begin
