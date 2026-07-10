@@ -30,6 +30,11 @@ Literate.markdown(advanced_tutorial_src, gen_content_dir, name = "advanced_tutor
 Literate.notebook(advanced_tutorial_src, gen_content_dir, execute = false, name = "mgvi_advanced_tutorial", documenter = true, credit = true)
 Literate.script(advanced_tutorial_src, gen_content_dir, keep_comments = false, name = "mgvi_advanced_tutorial", documenter = true, credit = false)
 
+astro_img_src = joinpath(@__DIR__, "src", "astro_img_lit.jl")
+Literate.markdown(astro_img_src, gen_content_dir, name = "astro_img", documenter = true, credit = true, postprocess = fix_literate_output)
+Literate.notebook(astro_img_src, gen_content_dir, execute = false, name = "mgvi_astro_img", documenter = true, credit = true)
+Literate.script(astro_img_src, gen_content_dir, keep_comments = false, name = "mgvi_astro_img", documenter = true, credit = false)
+
 
 makedocs(
     sitename = "MGVI",
@@ -42,6 +47,7 @@ makedocs(
         "Home" => "index.md",
         "Tutorial" => "tutorial.md",
         "Advanced Tutorial" => "advanced_tutorial.md",
+        "Astro Imaging Example" => "astro_img.md",
         "API" => "api.md",
         "LICENSE" => "LICENSE.md",
     ],
