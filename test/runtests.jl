@@ -10,5 +10,13 @@ Test.@testset "Package MGVI" begin
     include("test_samplers.jl")
     include("test_geovi.jl")
     include("test_diagnostics.jl")
+    # Reactant only supports 64-bit Linux and macOS, and some of its
+    # dependencies break already during precompilation on other platforms,
+    # so it can't be a static test dependency:
+    if Sys.WORD_SIZE == 64 && (Sys.islinux() || Sys.isapple()) && isempty(VERSION.prerelease)
+        import Pkg
+        Base.identify_package("Reactant") === nothing && Pkg.add("Reactant")
+        include("test_reactant.jl")
+    end
     include("test_docs.jl")
 end # testset
