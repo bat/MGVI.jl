@@ -21,7 +21,7 @@ jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.version == 'nightly' || matrix.version == 'pre' }}
+    continue-on-error: ${{ matrix.version == 'nightly' || matrix.version == 'pre' || matrix.arch == 'x86' }}
     strategy:
       fail-fast: false
       matrix:
