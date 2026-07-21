@@ -100,6 +100,14 @@ Test.@testset "test_geovi_nonlinear" begin
 
     config = GeoVIConfig()
     center = [1.0]
+    @test_throws ArgumentError geovi_step(pois_model, kdata, 0, center, config, context)
+    @test_throws ArgumentError geovi_sample(pois_model, kdata, 0, center, config, context)
+    let prep_config = GeoVIConfig(
+            optimizer = MGVI.NewtonCG(linesearcher = MGVI.BacktrackingLineSearch()),
+            sampling_optimizer = MGVI.NewtonCG(linesearcher = MGVI.BacktrackingLineSearch())
+        )
+        @test_throws ArgumentError geovi_prepare(pois_model, kdata, 0, center, prep_config, context)
+    end
     result = nothing
     for _ in 1:6
         result, center = geovi_step(pois_model, kdata, 50, center, config, context)

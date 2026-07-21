@@ -84,6 +84,9 @@ Test.@testset "test_mgvi_prepared_step" begin
     config = MGVIConfig(
         optimizer = MGVI.NewtonCG(linesearcher = MGVI.BacktrackingLineSearch())
     )
+    @test_throws ArgumentError mgvi_prepare(model, data, 0, center, config, context)
+    @test_throws ArgumentError mgvi_step(model, data, 0, center, config, context)
+    @test_throws ArgumentError mgvi_sample(model, data, 0, center, config, context)
     prepared = mgvi_prepare(model, data, 12, center, config, context)
 
     first_mnlp = nothing

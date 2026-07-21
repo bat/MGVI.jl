@@ -166,6 +166,9 @@ function mgvi_step(
     forward_model, data, n_residuals::Integer, center_init::AbstractVector{<:Real},
     config::MGVIConfig, context::MGVIContext
 )
+    n_residuals > 0 || throw(ArgumentError(
+        "n_residuals must be positive, got $n_residuals"
+    ))
     residual_sampler = ResidualSampler(forward_model, center_init, config.linsolver, context; linear_solver_opts = config.linsolver_opts)
     residual_samples = sample_residuals(residual_sampler, n_residuals)
     mnlp = mgvi_kl_target(forward_model, data, residual_samples)
@@ -211,6 +214,9 @@ function mgvi_sample(
     forward_model, data, n_residuals::Integer, center::AbstractVector{<:Real},
     config::MGVIConfig, context::MGVIContext
 )
+    n_residuals > 0 || throw(ArgumentError(
+        "n_residuals must be positive, got $n_residuals"
+    ))
     residual_sampler = ResidualSampler(forward_model, center, config.linsolver, context; linear_solver_opts = config.linsolver_opts)
     residual_samples = sample_residuals(residual_sampler, n_residuals)
     smpls = _build_samples(residual_samples, center)
