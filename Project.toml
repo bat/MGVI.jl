@@ -1,6 +1,6 @@
 name = "MGVI"
 uuid = "fdae7790-d271-4276-880d-f72bbddf129c"
-version = "0.5.0"
+version = "0.6.0"
 
 [workspace]
 projects = ["test", "docs"]
