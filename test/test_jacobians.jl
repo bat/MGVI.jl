@@ -6,7 +6,8 @@ using MGVI
 using Distributions
 using LinearAlgebra
 using Random
-using AutoDiffOperators, LinearMaps
+using AutoDiffOperators
+using MatrixShapedOperators: MatrixShapedOperator
 import DistributionsAD  # required for Zygote AD through Distributions
 import ForwardDiff, Zygote
 
@@ -27,9 +28,9 @@ Test.@testset "test_jacobians_consistency" begin
         x = rand(6); l = rand(4); r = rand(6)
         J_ref = ForwardDiff.jacobian(f, x)
         
-        _, J1 = @inferred with_jacobian(f, x, DenseMatrix, ADSelector(ForwardDiff))
-        _, J2 = @inferred with_jacobian(f, x, LinearMap, ADSelector(Zygote))
-        _, J3 = @inferred with_jacobian(f, x, LinearMap, ADSelector(ForwardDiff))
+        _, J1 = @inferred with_jacobian(f, x, AbstractMatrix, ADSelector(ForwardDiff))
+        _, J2 = @inferred with_jacobian(f, x, MatrixShapedOperator, ADSelector(Zygote))
+        _, J3 = @inferred with_jacobian(f, x, MatrixShapedOperator, ADSelector(ForwardDiff))
 
         for J in (J1, J2, J3)
             @test @inferred(Matrix(J)) ≈ J_ref
@@ -51,7 +52,7 @@ Test.@testset "test_jacobians_consistency" begin
         f = x -> MGVI.flat_params(MvNormal(x[1:2], [exp(x[3]) 0.1; 0.1 exp(x[4])]))
         x = [0.3, -0.2, 0.4, 0.7]
         J_ref = ForwardDiff.jacobian(f, x)
-        _, J = with_jacobian(f, x, LinearMap, ADSelector(Zygote))
+        _, J = with_jacobian(f, x, MatrixShapedOperator, ADSelector(Zygote))
         @test Matrix(J) ≈ J_ref
         # the traced value and vjp (TuringDenseMvNormal path) must match the primal:
         y_traced, pb = Zygote.pullback(f, x)
@@ -66,9 +67,9 @@ Test.@testset "test_jacobians_consistency" begin
     _flat_model = MGVI.flat_params ∘ ModelPolyfit.model
     true_params = ModelPolyfit.true_params
 
-    _, full_jac = @inferred with_jacobian(_flat_model, true_params, Matrix, ADSelector(ForwardDiff))
-    _, fwdder_jac = @inferred with_jacobian(_flat_model, true_params, LinearMap, ADSelector(ForwardDiff))
-    _, fwdrevad_jac = @inferred with_jacobian(_flat_model, true_params, LinearMap, ADSelector(Zygote))
+    _, full_jac = @inferred with_jacobian(_flat_model, true_params, AbstractMatrix, ADSelector(ForwardDiff))
+    _, fwdder_jac = @inferred with_jacobian(_flat_model, true_params, MatrixShapedOperator, ADSelector(ForwardDiff))
+    _, fwdrevad_jac = @inferred with_jacobian(_flat_model, true_params, MatrixShapedOperator, ADSelector(Zygote))
 
     for i in 1:min(size(full_jac)...)
         vec = rand(size(full_jac, 2))
@@ -96,7 +97,7 @@ Test.@testset "test_jacobians_fft_gp" begin
     _flat_model = MGVI.flat_params ∘ ModelFFTGP.model
     p = ModelFFTGP.starting_point
     J_ref = ForwardDiff.jacobian(_flat_model, p)
-    _, J = with_jacobian(_flat_model, p, LinearMap, ADSelector(Zygote))
+    _, J = with_jacobian(_flat_model, p, MatrixShapedOperator, ADSelector(Zygote))
     l = rand(size(J_ref, 1))
     r = rand(size(J_ref, 2))
     @test J * r ≈ J_ref * r

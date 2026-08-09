@@ -3,18 +3,30 @@
 """
     MGVI.fisher_information(distribution::Distributions.Distribution)
 
-Get the fisher information matrix/operator (as a `LinearMap`) for the given
-`distribution`.
+Get the Fisher information of `distribution` as a positive semi-definite
+matrix-shaped operator `ℐ` that supports
+`MatrixShapedOperators.rowgram_factor` (`ℐ == F * F'`) - in general a
+row-Gram operator that stores only its (generalized, possibly
+rectangular) Cholesky factor.
+
+Specializations for custom distribution types must return such an
+operator, or a plain hermitian `AbstractMatrix` (which MGVI wraps). Up
+to MGVI v0.5 this API used `LinearMap`s instead. For a diagonal Fisher
+information `d` use `rowgram_operator(diagonal_operator(sqrt.(d)))` -
+like there, the factor should be constructed without value-dependent
+branches, so that the result stays compatible with program tracing and
+compilation.
 """
 function fisher_information end
 
+# The Cholesky factor of a diagonal Fisher information:
+_diag_fisher(d::AbstractVector) = rowgram_operator(diagonal_operator(sqrt.(d)))
 
 function fisher_information(dist::Normal)
     _, σval = params(dist)
     inv_σ = inv(σval)
     inv_σ_2 = inv_σ * inv_σ
-    res = _svector((inv_σ_2, 2*inv_σ_2))
-    PDLinMapWithChol(Diagonal(res))
+    _diag_fisher(_svector((inv_σ_2, 2*inv_σ_2)))
 end
 
 function fisher_information(dist::MvNormal)
@@ -47,24 +59,17 @@ function fisher_information(dist::MvNormal)
         covpart[xflat, xflat:end] ./= 2
     end
 
-    sqrt_meanpart = cholesky(PositiveFactorizations.Positive, invσ).L
-    meanpart_map = PDLinMapWithChol(invσ, sqrt_meanpart)
-
-    sym_covpart = Symmetric(covpart)
-    sqrt_covpart = cholesky(PositiveFactorizations.Positive, sym_covpart).L
-    covpart_map = PDLinMapWithChol(sym_covpart, sqrt_covpart)
-
-    blockdiag(meanpart_map, covpart_map)
+    meanpart = rowgram_operator(asoperator(cholesky(PositiveFactorizations.Positive, invσ).L))
+    covpart_op = rowgram_operator(asoperator(cholesky(PositiveFactorizations.Positive, Symmetric(covpart)).L))
+    blockdiag_operator(meanpart, covpart_op)
 end
 
 # Fisher information w.r.t. the variances (flat_params of PDiagMat), not
 # the standard deviations. Elementwise inv keeps this free of scalar
 # branches (compare inv(::Diagonal)), for AD- and tracing-compatibility:
 function fisher_information(dist::MvNormal{<:Real,<:PDiagMat})
-    Σ⁻¹ = Diagonal(inv.(dist.Σ.diag))
-    mean_fisher_map = PDLinMapWithChol(Σ⁻¹)
-    cov_fisher_map = PDLinMapWithChol(Σ⁻¹^2/2)
-    blockdiag(mean_fisher_map, cov_fisher_map)
+    Σ⁻¹_diag = inv.(dist.Σ.diag)
+    blockdiag_operator(_diag_fisher(Σ⁻¹_diag), _diag_fisher(Σ⁻¹_diag .^ 2 ./ 2))
 end
 
 # Fisher information w.r.t. the single variance parameter (flat_params of
@@ -72,41 +77,33 @@ end
 function fisher_information(dist::MvNormal{<:Real,<:ScalMat})
     v = dist.Σ.value
     n = dist.Σ.dim
-    mean_fisher_map = PDLinMapWithChol(Diagonal(Fill(inv(v), n)))
-    cov_fisher_map = PDLinMapWithChol(Diagonal(_svector((n/(2*v^2),))))
-    blockdiag(mean_fisher_map, cov_fisher_map)
+    blockdiag_operator(
+        _diag_fisher(Fill(inv(v), n)),
+        _diag_fisher(_svector((n/(2*v^2),)))
+    )
 end
 
 function fisher_information(dist::Exponential)
     λ = params(dist)[1]
     inv_l = inv(λ)
-    res = _svector((inv_l * inv_l,))
-    PDLinMapWithChol(Diagonal(res))
+    _diag_fisher(_svector((inv_l * inv_l,)))
 end
 
 function fisher_information(dist::Poisson)
     λ = params(dist)[1]
-    res = _svector((inv(λ),))
-    PDLinMapWithChol(Diagonal(res))
+    _diag_fisher(_svector((inv(λ),)))
 end
 
-function fisher_information(dist::Product)
-    dists = dist.v
-    λinformations = fisher_information.(dists)
-    _blockdiag(λinformations)
-end
+# Row-Gram blocks combine into a single row-Gram operator of the
+# block-diagonal of their factors, all-diagonal factors collapse into a
+# single diagonal:
 
-function fisher_information(dist::Distributions.ProductDistribution)
-    dists = vec(dist.dists)
-    λinformations = fisher_information.(dists)
-    _blockdiag(λinformations)
-end
+fisher_information(dist::Product) = blockdiag_operator(fisher_information.(dist.v))
 
-function fisher_information(d::NamedTupleDist)
-    dists = values(d)
-    λinformations = map(fisher_information, dists)
-    _blockdiag(λinformations)
-end
+fisher_information(dist::Distributions.ProductDistribution) =
+    blockdiag_operator(fisher_information.(vec(dist.dists)))
+
+fisher_information(d::NamedTupleDist) = blockdiag_operator(map(fisher_information, values(d))...)
 
 
 """

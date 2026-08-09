@@ -11,23 +11,23 @@ module MGVI
 
 import Adapt
 using AffineMaps: MulAdd
-using AutoDiffOperators: ADSelector, with_jacobian, gradient_func, jvp_func, with_vjp_func
+using AutoDiffOperators: AutoDiffOperators, ADSelector, with_jacobian, gradient_func, with_vjp_func
+using MatrixShapedOperators: MatrixShapedOperators, MatrixShapedOperator,
+    rowgram_operator, rowgram_factor, colgram_operator, asoperator, diagonal_operator,
+    blockdiag_operator, 𝟙, IsHermitian
 import ChainRulesCore
 using LinearAlgebra
 using Random
-using SparseArrays
 using DensityInterface
 using Distributions
 using FillArrays
 using HeterogeneousComputing: GenContext, allocate_array, on_device
 using IrrationalConstants: log2π, sqrt2, invsqrt2
 using LineSearches
-using LinearMaps
 using Parameters
 using PDMats
 using PositiveFactorizations
 import PSIS
-import SparseArrays: blockdiag
 using StaticArrays
 using ValueShapes
 using DocStringExtensions
@@ -47,7 +47,6 @@ const RealLike = Number
 
 include("util.jl")
 include("mgvi_context.jl")
-include("custom_linear_maps.jl")
 include("shapes.jl")
 include("information.jl")
 include("residual_samplers.jl")

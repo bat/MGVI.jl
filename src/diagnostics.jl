@@ -27,7 +27,7 @@ export pareto_diagnostic
     )
 
 PSIS diagnostic of the metric-Gaussian posterior approximation
-`q = N(center, (J'ℐJ + I)⁻¹)` for posterior `samples` (as matrix
+`q = N(center, (J'ℐJ + 𝟙)⁻¹)` for posterior `samples` (as matrix
 columns) drawn around `center`, as returned by [`mgvi_step`](@ref).
 
 The log-density of `q` enters only up to its sample-independent
@@ -53,9 +53,8 @@ end
 # Posterior metric M = J'ℐJ + I at center, as a matrix-free apply function:
 function _posterior_metric_fn(f_model, center::AbstractVector{<:Real}, ad::ADSelector)
     f_flat = flat_params ∘ f_model
-    jvp = jvp_func(f_flat, center, ad)
-    _, vjp = with_vjp_func(f_flat, center, ad)
-    ℐ = _fisher_repr(fisher_information(f_model(center)))
-    apply_M(v::AbstractVector) = vjp(_fisher_apply(ℐ, jvp(v))) .+ v
+    _, J = with_jacobian(f_flat, center, MatrixShapedOperator, ad)
+    ℐ = fisher_information(f_model(center))
+    apply_M(v::AbstractVector) = J' * (ℐ * (J * v)) .+ v
     return apply_M
 end

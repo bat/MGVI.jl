@@ -1,14 +1,6 @@
 # This file is a part of MGVI.jl, licensed under the MIT License (MIT).
 
 
-function _fisher_information_and_jac(fwd_model::Function, ξ::AbstractVector, OP, context::MGVIContext)
-    ℐ_λ = fisher_information(fwd_model(ξ))
-    _, dλ_dξ = with_jacobian(flat_params ∘ fwd_model, ξ, OP, context.ad)
-    ℐ_λ, dλ_dξ
-end
-
-
-
 """
     struct MatrixInversion
 Solve linear systems by direct matrix inversion.
@@ -16,6 +8,35 @@ Solve linear systems by direct matrix inversion.
 Note: Will instantiate implicit matrices/operators in memory explicitly.
 """
 struct MatrixInversion end
+
+# MatrixInversion instantiates the posterior precision explicitly, so
+# for it the Jacobian is computed as an explicit matrix up front - a
+# single batched AD pass that works with forward-mode as well as
+# reverse-mode-only selectors. Iterative solvers use the implicit
+# Jacobian operator and never materialize:
+_jacobian_op_type(::MatrixInversion) = AbstractMatrix
+_jacobian_op_type(::Any) = MatrixShapedOperator
+
+_as_jac_operator(J::MatrixShapedOperator) = J
+_as_jac_operator(J::AbstractMatrix) = asoperator(J)
+
+# fisher_information specializations may return a plain hermitian
+# matrix, which gets wrapped; anything else that is not already a
+# matrix-shaped operator is rejected with a clear error at this
+# boundary instead of a method error deep inside the samplers:
+_as_fisher_operator(ℐ::MatrixShapedOperator) = ℐ
+_as_fisher_operator(ℐ::AbstractMatrix{<:Real}) = asoperator(ℐ, IsHermitian())
+_as_fisher_operator(@nospecialize(ℐ)) = throw(ArgumentError(
+    "fisher_information must return a MatrixShapedOperator that supports rowgram_factor, or a hermitian AbstractMatrix, got a $(nameof(typeof(ℐ)))"
+))
+
+function _fisher_information_and_jac(
+    fwd_model::Function, ξ::AbstractVector, context::MGVIContext, JOP::Type = MatrixShapedOperator
+)
+    ℐ_λ = _as_fisher_operator(fisher_information(fwd_model(ξ)))
+    _, dλ_dξ = with_jacobian(flat_params ∘ fwd_model, ξ, JOP, context.ad)
+    ℐ_λ, _as_jac_operator(dλ_dξ)
+end
 
 
 """
@@ -46,7 +67,7 @@ ResidualSampler(
 Call `MGVI.sample_residuals(s::ResidualSampler[, n::Integer])` to generate a
 single or `n` samples.
 """
-struct ResidualSampler{F,RV<:AbstractVector{<:Real},SLV,SLO<:NamedTuple,OPL<:LinearMap,OPJ<:LinearMap,CTX<:MGVIContext}
+struct ResidualSampler{F,RV<:AbstractVector{<:Real},SLV,SLO<:NamedTuple,OPL<:MatrixShapedOperator,OPJ<:MatrixShapedOperator,CTX<:MGVIContext}
     f_model::F
     center_point::RV
     linear_solver::SLV
@@ -58,16 +79,12 @@ end
 export ResidualSampler
 
 
-@inline _get_operator_type(::MatrixInversion) = DenseMatrix
-@inline _get_operator_type(::Any) = LinearMap
-
 function ResidualSampler(
     f_model::Function, center_point::Vector{<:Real}, linear_solver, context::MGVIContext;
     linear_solver_opts::NamedTuple = (;)
 )
-    OP = _get_operator_type(linear_solver)
-    ℐ_λ, dλ_dξ = _fisher_information_and_jac(f_model, center_point, OP, context)
-    ResidualSampler(f_model, center_point, linear_solver, linear_solver_opts, convert(LinearMap, ℐ_λ), convert(LinearMap, dλ_dξ), context)
+    ℐ_λ, dλ_dξ = _fisher_information_and_jac(f_model, center_point, context, _jacobian_op_type(linear_solver))
+    ResidualSampler(f_model, center_point, linear_solver, linear_solver_opts, ℐ_λ, dλ_dξ, context)
 end
 
 
@@ -76,12 +93,15 @@ function sample_residuals(s::ResidualSampler{<:Any,<:AbstractVector{<:Real},<:An
 
     ℐ_λ = s.λ_information
     dλ_dθ = s.jac_dλ_dθ
-    n_λ, n_θ = size(dλ_dθ)
-    Σ⁻¹_θ_est = dλ_dθ' * ℐ_λ * dλ_dθ + I
+    n_θ = size(dλ_dθ, 2)
+    F_λ = rowgram_factor(ℐ_λ)
+    Σ⁻¹_θ_est = rowgram_operator(dλ_dθ' * F_λ) + 𝟙
 
-    sample_n = randn(genctx, n_λ)
+    # The generalized Cholesky factor of the Fisher information may be
+    # rectangular, the metric noise lives in its column space:
+    sample_n = randn(genctx, size(F_λ, 2))
     sample_eta = randn(genctx, n_θ)
-    Δφ = dλ_dθ' * (cholesky_L(ℐ_λ) * sample_n) + sample_eta
+    Δφ = dλ_dθ' * (F_λ * sample_n) + sample_eta
 
     prob = LinearProblem{false}(Σ⁻¹_θ_est, Δφ)
     # LinearSolve's default maxiters (== n_θ) leaves iterative solvers
@@ -187,13 +207,11 @@ function sample_residuals(
     cg_rtol::Real = sqrt(eps(Float64))
 )
     f_flat = flat_params ∘ f_model
-    jvp = jvp_func(f_flat, center, ad)
-    _, vjp = with_vjp_func(f_flat, center, ad)
-    fi = fisher_information(f_model(center))
-    ℐ_λ = _fisher_repr(fi)
-    L = _fisher_repr(cholesky_L(fi))
-    Δφ = _mapcols(vjp, _fisher_apply(L, sample_n)) .+ sample_η
-    apply_M(P) = _mapcols(vjp, _fisher_apply(ℐ_λ, _mapcols(jvp, P))) .+ P
+    _, J = with_jacobian(f_flat, center, MatrixShapedOperator, ad)
+    ℐ_λ = fisher_information(f_model(center))
+    L = rowgram_factor(ℐ_λ)
+    Δφ = J' * (L * sample_n) .+ sample_η
+    apply_M(P) = J' * (ℐ_λ * (J * P)) .+ P
     return _batched_cg(apply_M, Δφ, cg_max_iterations, cg_rtol)
 end
 
@@ -203,11 +221,11 @@ function residual_pushfwd_operator(s::ResidualSampler{<:Any,<:AbstractVector{<:R
 
     ℐ_λ = s.λ_information
     dλ_dθ = s.jac_dλ_dθ
-    n_λ, n_θ = size(dλ_dθ)
+    n_θ = size(dλ_dθ, 2)
 
-    Σ⁻¹_θ_est = dλ_dθ' * ℐ_λ * dλ_dθ + I
+    Σ⁻¹_θ_est = rowgram_operator(dλ_dθ' * rowgram_factor(ℐ_λ)) + 𝟙
     Σ⁻¹_θ_est_matrix = allocate_array(genctx, (n_θ, n_θ))
-    mul!(Σ⁻¹_θ_est_matrix, Σ⁻¹_θ_est, one(eltype(Σ⁻¹_θ_est_matrix)))
+    copyto!(Σ⁻¹_θ_est_matrix, AbstractMatrix(Σ⁻¹_θ_est))
     Σ_θ_est_matrix = inv(Σ⁻¹_θ_est_matrix)
     Σ_θ_est_chol_l = cholesky(PositiveFactorizations.Positive, Σ_θ_est_matrix).L
 

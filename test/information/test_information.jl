@@ -6,8 +6,8 @@ using Test
 using Distributions
 using LinearAlgebra
 using Random
-using SparseArrays
 using ValueShapes
+import MatrixShapedOperators
 
 Test.@testset "test_fisher_values" begin
 
@@ -74,27 +74,46 @@ end
 Test.@testset "test_fisher_information_combinations" begin
     epsilon = 1E-5
 
+    _dense_blockdiag(As...) = cat(As...; dims = (1, 2))
+
     # test product_distribution(Univariates)
     μ1, σ1 = 0.1, 0.2
     μ2, σ2 = 0.1, 0.3
     dists = [Normal(μ1, σ1), Normal(μ2, σ2)]
     res = MGVI.fisher_information(Distributions.Product{Continuous, Normal{Float64}, Vector{Normal{Float64}}}(dists))
-    truth = blockdiag(MGVI.fisher_information.(dists)...)
-    Test.@test norm(Matrix(res) - Matrix(truth)) < epsilon
+    truth = _dense_blockdiag(Matrix.(MGVI.fisher_information.(dists))...)
+    Test.@test norm(Matrix(res) - truth) < epsilon
+    # all-diagonal factors collapse into a single diagonal factor:
+    Test.@test MatrixShapedOperators.asmatrix(MGVI.rowgram_factor(res)) isa Diagonal
 
     # test product_distribution(Univariates)
     μ1, σ1 = 0.1, 0.2
     μ2, σ2 = 0.1, 0.3
     dists = [Normal(μ1, σ1) Normal(μ2, σ2); Normal(μ1, σ1) Normal(μ2, σ2)]
     res = MGVI.fisher_information(Distributions.Distributions.ProductDistribution(dists))
-    truth = blockdiag(MGVI.fisher_information.(dists)...)
-    Test.@test norm(Matrix(res) - Matrix(truth)) < epsilon
+    truth = _dense_blockdiag(Matrix.(MGVI.fisher_information.(vec(dists)))...)
+    Test.@test norm(Matrix(res) - truth) < epsilon
 
     # test NamedTupleDist
     dists = NamedTupleDist(a=Normal(0.1, 0.2),
                            b=Distributions.Product{Continuous, Normal{Float64}, Vector{Normal{Float64}}}([Normal(0.1, 0.2), Normal(0.3, 0.1)]),
                            c=MvNormal([0.2, 0.3], [2. 0.1; 0.1 4.5]))
     res = MGVI.fisher_information(dists)
-    truth = blockdiag((MGVI.without_chol ∘ MGVI.fisher_information).(values(dists))...)
-    Test.@test norm(Matrix(res) - Matrix(truth)) < epsilon
+    Test.@test res isa MatrixShapedOperators.RowGramOperator
+    truth = _dense_blockdiag(Matrix.(map(MGVI.fisher_information, values(dists)))...)
+    Test.@test norm(Matrix(res) - truth) < epsilon
+end
+
+
+Test.@testset "fisher information boundary" begin
+    # Plain-matrix returns from fisher_information specializations get
+    # wrapped and support rowgram_factor, unsupported return types get
+    # a clear error at the boundary:
+    M = [2.0 0.5; 0.5 1.0]
+    op = MGVI._as_fisher_operator(M)
+    Test.@test op isa MatrixShapedOperators.MatrixShapedOperator
+    F = Matrix(MGVI.rowgram_factor(op))
+    Test.@test F * F' ≈ M
+    Test.@test MGVI._as_fisher_operator(op) === op
+    Test.@test_throws ArgumentError MGVI._as_fisher_operator((1.0, 2.0))
 end

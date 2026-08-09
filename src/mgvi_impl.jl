@@ -169,8 +169,7 @@ function mgvi_step(
     residual_sampler = ResidualSampler(forward_model, center_init, config.linsolver, context; linear_solver_opts = config.linsolver_opts)
     residual_samples = sample_residuals(residual_sampler, n_residuals)
     mnlp = mgvi_kl_target(forward_model, data, residual_samples)
-    OP = _get_operator_type(config.linsolver)
-    Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, OP, context)
+    Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, context, _jacobian_op_type(config.linsolver))
     # average the metric over both members of the antithetic sample pairs,
     # like the KL estimator does:
     Σ̅⁻¹(ξ) = mean(Σ⁻¹.(collect.(vcat(eachcol(ξ .+ residual_samples), eachcol(ξ .- residual_samples)))))
@@ -182,9 +181,11 @@ function mgvi_step(
 end
 export mgvi_step
 
-function _inv_cov_est(fwd_model::Function, ξ::AbstractVector, OP, context::MGVIContext)
-    ℐ_λ, dλ_dξ = _fisher_information_and_jac(fwd_model, ξ, OP, context)
-    dλ_dξ' * ℐ_λ * dλ_dξ + I
+# The posterior-covariance-inverse estimate J'ℐJ + I as a row-Gram
+# operator plus identity, positive definite by construction:
+function _inv_cov_est(fwd_model::Function, ξ::AbstractVector, context::MGVIContext, JOP::Type = MatrixShapedOperator)
+    ℐ_λ, dλ_dξ = _fisher_information_and_jac(fwd_model, ξ, context, JOP)
+    rowgram_operator(dλ_dξ' * rowgram_factor(ℐ_λ)) + 𝟙
 end
 
 function _build_samples(residual_samples::AbstractMatrix{<:Real}, center::AbstractVector{<:Real})

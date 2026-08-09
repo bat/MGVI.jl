@@ -36,7 +36,7 @@ export GeoVIConfig
 Generates zero-centered samples from the geoVI posterior approximation
 around a given expansion point.
 
-geoVI locally isometrizes the Fisher metric `M(ξ) = J'ℐJ + I` via the
+geoVI locally isometrizes the Fisher metric `M(ξ) = J'ℐJ + 𝟙` via the
 embedding `emb(ξ) = (euclidean_coords(model(ξ)), ξ)`: with the embedding
 Jacobian `C = ∂emb₁/∂ξ` frozen at the expansion point `ξ̄`, each sample
 solves the nonlinear least-squares problem
@@ -67,7 +67,7 @@ Call `MGVI.sample_geovi_residuals(s::GeoVISampler, n::Integer)` to generate
 """
 struct GeoVISampler{
     F,RV<:AbstractVector{<:Real},SLV,SLO<:NamedTuple,
-    XV<:AbstractVector{<:Real},OPJ<:LinearMap,CTX<:MGVIContext
+    XV<:AbstractVector{<:Real},OPJ<:MatrixShapedOperator,CTX<:MGVIContext
 }
     f_model::F
     center_point::RV
@@ -87,10 +87,10 @@ function GeoVISampler(
     sampling_optimizer::NewtonCG, context::MGVIContext;
     linear_solver_opts::NamedTuple = (;)
 )
-    x̄, C = with_jacobian(_euclidean_coords_flat(f_model), center_point, LinearMap, context.ad)
+    x̄, C = with_jacobian(_euclidean_coords_flat(f_model), center_point, MatrixShapedOperator, context.ad)
     GeoVISampler(
         f_model, center_point, linear_solver, linear_solver_opts,
-        x̄, convert(LinearMap, C), sampling_optimizer, context
+        x̄, C, sampling_optimizer, context
     )
 end
 
@@ -100,7 +100,7 @@ function _geovi_sample_pair(s::GeoVISampler)
     genctx = s.context.gen
     C = s.jac_dx_dθ
     n_x, n_θ = size(C)
-    M̄ = C' * C + I
+    M̄ = colgram_operator(C) + 𝟙
     t = C' * randn(genctx, n_x) + randn(genctx, n_θ)
     prob = LinearProblem{false}(M̄, t)
     sol = solve(prob, s.linear_solver; maxiters = 4 * n_θ, s.linear_solver_opts...)
@@ -123,16 +123,16 @@ function _geovi_residual(s::GeoVISampler, t::AbstractVector{<:Real}, Δξ_init::
     end
 
     function ∇f(ξ::AbstractVector)
-        x_ξ, J_x = with_jacobian(x_fn, ξ, LinearMap, adsel)
+        x_ξ, J_x = with_jacobian(x_fn, ξ, MatrixShapedOperator, adsel)
         r = (ξ - ξ̄) + C' * (x_ξ - x̄) - t
         r + J_x' * (C * r)
     end
 
     # Gauss-Newton metric G'G with G = ∂g̃/∂ξ = I + C'J_x(ξ):
     function curvature(ξ::AbstractVector)
-        _, J_x = with_jacobian(x_fn, ξ, LinearMap, adsel)
-        G = C' * J_x + I
-        G' * G
+        _, J_x = with_jacobian(x_fn, ξ, MatrixShapedOperator, adsel)
+        G = C' * J_x + 𝟙
+        colgram_operator(G)
     end
 
     ξ_res, _, _ = _newtoncg_optimize(f, ∇f, curvature, ξ̄ + Δξ_init, s.optimizer, (;))
@@ -198,14 +198,16 @@ function geovi_step(
     forward_model, data, n_residuals::Integer, center_init::AbstractVector{<:Real},
     config::GeoVIConfig, context::MGVIContext
 )
+    n_residuals > 0 || throw(ArgumentError(
+        "n_residuals must be positive, got $n_residuals"
+    ))
     smplr = GeoVISampler(
         forward_model, center_init, config.linsolver, config.sampling_optimizer, context;
         linear_solver_opts = config.linsolver_opts
     )
     residual_samples = sample_geovi_residuals(smplr, n_residuals)
     mnlp(params::AbstractVector) = _mean_neg_log_pstr_cols(forward_model, data, residual_samples, params)
-    OP = _get_operator_type(config.linsolver)
-    Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, OP, context)
+    Σ⁻¹(ξ) = _inv_cov_est(forward_model, ξ, context)
     Σ̅⁻¹(ξ) = mean(Σ⁻¹.(collect.(eachcol(ξ .+ residual_samples))))
     center_updated, min_mnlp, optres = _optimize(mnlp, context.ad, Σ̅⁻¹, center_init, config.optimizer, config.optimizer_opts)
     samples = center_updated .+ residual_samples
@@ -231,6 +233,9 @@ function geovi_sample(
     forward_model, data, n_residuals::Integer, center::AbstractVector{<:Real},
     config::GeoVIConfig, context::MGVIContext
 )
+    n_residuals > 0 || throw(ArgumentError(
+        "n_residuals must be positive, got $n_residuals"
+    ))
     smplr = GeoVISampler(
         forward_model, center, config.linsolver, config.sampling_optimizer, context;
         linear_solver_opts = config.linsolver_opts
@@ -241,14 +246,14 @@ end
 export geovi_sample
 
 
-# Like _geovi_residual, but in terms of jvp/vjp functions instead of
-# LinearMap operators, suitable for program tracing:
+# Like _geovi_residual, but as a pure function of its operator and
+# vector arguments, suitable for program tracing:
 function _geovi_residual_pure(
-    x_fn, ξ̄::AbstractVector{<:RealLike}, x̄::AbstractVector{<:RealLike}, jvp_c, vjp_c,
+    x_fn, ξ̄::AbstractVector{<:RealLike}, x̄::AbstractVector{<:RealLike}, C::MatrixShapedOperator,
     t::AbstractVector{<:RealLike}, Δξ_init::AbstractVector{<:RealLike},
     ad::ADSelector, optimizer::NewtonCG
 )
-    g̃_residual(ξ) = (ξ - ξ̄) + vjp_c(x_fn(ξ) - x̄) - t
+    g̃_residual(ξ) = (ξ - ξ̄) + C' * (x_fn(ξ) - x̄) - t
 
     function f(ξ::AbstractVector)
         r = g̃_residual(ξ)
@@ -257,17 +262,16 @@ function _geovi_residual_pure(
 
     function ∇f(ξ::AbstractVector)
         x_ξ, vjp_ξ = with_vjp_func(x_fn, ξ, ad)
-        r = (ξ - ξ̄) + vjp_c(x_ξ - x̄) - t
-        r + vjp_ξ(jvp_c(r))
+        r = (ξ - ξ̄) + C' * (x_ξ - x̄) - t
+        r + vjp_ξ(C * r)
     end
 
     # Gauss-Newton metric G'G with G = ∂g̃/∂ξ = I + C'J_x(ξ):
     function curvature(ξ::AbstractVector)
-        jvp_ξ = jvp_func(x_fn, ξ, ad)
-        _, vjp_ξ = with_vjp_func(x_fn, ξ, ad)
+        _, J_ξ = with_jacobian(x_fn, ξ, MatrixShapedOperator, ad)
         function apply_curvature(v::AbstractVector)
-            Gv = v + vjp_c(jvp_ξ(v))
-            Gv + vjp_ξ(jvp_c(Gv))
+            Gv = v + C' * (J_ξ * v)
+            Gv + J_ξ' * (C * Gv)
         end
         return apply_curvature
     end
@@ -286,10 +290,9 @@ function _geovi_residual_samples(
     ad::ADSelector, optimizer::NewtonCG, cg_max_iterations::Integer, cg_rtol::Real
 )
     x_fn = _euclidean_coords_flat(f_model)
-    x̄, vjp_c = with_vjp_func(x_fn, center, ad)
-    jvp_c = jvp_func(x_fn, center, ad)
-    T = _mapcols(vjp_c, sample_n) .+ sample_η
-    apply_M(P) = _mapcols(vjp_c, _mapcols(jvp_c, P)) .+ P
+    x̄, C = with_jacobian(x_fn, center, MatrixShapedOperator, ad)
+    T = C' * sample_n .+ sample_η
+    apply_M(P) = C' * (C * P) .+ P
     ΔΞ = _batched_cg(apply_M, T, cg_max_iterations, cg_rtol)
     n_smpls = size(T, 2)
     X = zero(hcat(ΔΞ, ΔΞ))
@@ -300,7 +303,7 @@ function _geovi_residual_samples(
         i = (j + 1) ÷ 2
         s = ifelse(isodd(j), 1.0, -1.0)
         r_j = _geovi_residual_pure(
-            x_fn, center, x̄, jvp_c, vjp_c, s .* T[:, i], s .* ΔΞ[:, i], ad, optimizer
+            x_fn, center, x̄, C, s .* T[:, i], s .* ΔΞ[:, i], ad, optimizer
         )
         X[:, j] = r_j
     end
@@ -383,11 +386,8 @@ steps.
 
 If `device` (an `MLDataDevices.AbstractDevice`) is given, the step
 computation is set up on the device via `HeterogeneousComputing.on_device`.
-For a Reactant device it is compiled once and then reused for every
-subsequent step, which requires `config.optimizer` and
-`config.sampling_optimizer` to be [`NewtonCG`](@ref)s with
-[`MGVI.BacktrackingLineSearch`](@ref) linesearchers and an Enzyme-based
-`context.ad`.
+Unlike for [`mgvi_prepare`](@ref), Reactant compilation is not supported
+yet for geoVI steps and is rejected.
 
 The prepared step uses [`MGVI._batched_cg`](@ref) for the linear part of
 the residual sampling instead of `config.linsolver`; `maxiters` and
@@ -398,16 +398,19 @@ function geovi_prepare(
     config::GeoVIConfig, context::MGVIContext;
     device = nothing
 )
+    n_residuals > 0 || throw(ArgumentError(
+        "n_residuals must be positive, got $n_residuals"
+    ))
     optimizer = config.optimizer
     optimizer isa NewtonCG || throw(ArgumentError(
         "geovi_prepare requires config.optimizer to be a MGVI.NewtonCG"
     ))
-    if nameof(typeof(device)) == :ReactantDevice && !(
-        optimizer.linesearcher isa BacktrackingLineSearch &&
-        config.sampling_optimizer.linesearcher isa BacktrackingLineSearch
-    )
+    # The in-trace Jacobian-adjoint applications of the per-sample geoVI
+    # solves currently hit an Enzyme-Reactant autodiff-op limitation
+    # ("Too few arguments to autodiff op" during MLIR compilation):
+    if nameof(typeof(device)) == :ReactantDevice
         throw(ArgumentError(
-            "Reactant-compiled geoVI steps require NewtonCG optimizers with MGVI.BacktrackingLineSearch linesearchers"
+            "Reactant compilation of geoVI steps is not supported yet"
         ))
     end
 

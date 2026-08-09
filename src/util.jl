@@ -19,11 +19,6 @@ function ChainRulesCore.rrule(::typeof(without_chol), A::AbstractMatrix)
 end
 
 
-cholesky_L(A::AbstractMatrix) = cholesky(A).L
-cholesky_L(A::AbstractSparseMatrix) = sparse(cholesky(A).L)
-cholesky_L(A::DiagMatLike) = Diagonal(sqrt.(get_diagonal(A)))
-
-
 
 # Workaround for missing SVector() pullback in Zygote:
 _svector(x::NTuple{N,T}) where {N,T<:Real} = SVector(x)

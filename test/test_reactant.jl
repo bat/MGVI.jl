@@ -24,7 +24,7 @@ function DensityInterface.logdensityof(d::_DiagNormalLike, x)
 end
 MGVI.flat_params(d::_DiagNormalLike) = vcat(d.μ, d.var)
 MGVI.fisher_information(d::_DiagNormalLike) =
-    MGVI.PDLinMapWithChol(Diagonal(vcat(1 ./ d.var, 1 ./ (2 .* d.var .^ 2))))
+    MGVI._diag_fisher(vcat(1 ./ d.var, 1 ./ (2 .* d.var .^ 2)))
 
 const _rct_A = randn(Xoshiro(11), 12, 4)
 _rct_model(ξ) = _DiagNormalLike(_rct_A * ξ, exp.(0.1 .* (_rct_A * ξ)) .+ 0.5)
@@ -58,4 +58,28 @@ Test.@testset "test_reactant" begin
     @test res_d2.mnlp ≈ res_h2.mnlp rtol = 1e-6
     @test center_d1 ≈ center_h1 rtol = 1e-6
     @test center_d2 ≈ center_h2 rtol = 1e-6
+end
+
+
+Test.@testset "test_reactant_geovi" begin
+    # Reactant compilation of geoVI steps is not supported yet: the
+    # in-trace Jacobian-adjoint applications of the per-sample solves
+    # hit an Enzyme-Reactant autodiff-op limitation ("Too few arguments
+    # to autodiff op"). geovi_prepare rejects it up front; remove this
+    # gate (and test the compiled steps against host steps like for
+    # MGVI above) once supported:
+    d_true = _rct_model(randn(Xoshiro(3), 4))
+    data = d_true.μ .+ sqrt.(d_true.var) .* randn(Xoshiro(6), 12)
+    center₀ = 0.1 .* randn(Xoshiro(8), 4)
+
+    newtoncg = MGVI.NewtonCG(
+        steps = 2, cg_maxiter = 4, cg_steps_traced = 4,
+        linesearcher = MGVI.BacktrackingLineSearch(maxsteps = 10)
+    )
+    config = GeoVIConfig(optimizer = newtoncg, sampling_optimizer = newtoncg)
+    ctx = MGVIContext(GenContext(Xoshiro(99)), ADSelector(Enzyme))
+    @test_throws ArgumentError geovi_prepare(
+        _rct_model, data, 3, center₀, config, ctx;
+        device = MLDataDevices.ReactantDevice()
+    )
 end

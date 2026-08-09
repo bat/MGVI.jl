@@ -13,6 +13,7 @@ using PDMats: PDiagMat
 import DistributionsAD  # required for Zygote AD through Distributions
 import ForwardDiff
 import LinearSolve, Zygote
+import MatrixShapedOperators
 
 if :ModelPolyfit ∉ names(Main)
     include("test_models/model_polyfit.jl")
@@ -55,7 +56,7 @@ Test.@testset "test_batched_residual_sampling" begin
 
     fi = MGVI.fisher_information(kmodel(center))
     ℐm = Matrix(fi)
-    Lm = Matrix(MGVI.cholesky_L(fi))
+    Lm = Matrix(MGVI.rowgram_factor(fi))
     J = ForwardDiff.jacobian(p -> MGVI.flat_params(kmodel(p)), center)
     X_ref = (J' * ℐm * J + I) \ (J' * (Lm * sample_n) + sample_η)
 
@@ -69,4 +70,33 @@ Test.@testset "test_batched_residual_sampling" begin
     B = randn(3, 4)
     X = MGVI._batched_cg(P -> M * P, B, 20, sqrt(eps(Float64)))
     Test.@test X ≈ M \ B rtol = 1e-8
+end
+
+
+Test.@testset "rectangular fisher factor" begin
+    # The generalized Cholesky factor of a Fisher information may be
+    # rectangular (ℐ == F F' with F of size n_λ × k); the noise the
+    # sampler draws lives in its column space:
+    context = MGVIContext(ADSelector(ForwardDiff))
+    Random.seed!(157)
+    F = MatrixShapedOperators.asoperator(reshape([1.0, 2.0, 3.0], 3, 1))
+    ℐ = MatrixShapedOperators.rowgram_operator(F)
+    J = MatrixShapedOperators.asoperator(randn(3, 2))
+    s = MGVI.ResidualSampler(identity, zeros(2), LinearSolve.KrylovJL_CG(), (;), ℐ, J, context)
+    Δξ = MGVI.sample_residuals(s)
+    Test.@test Δξ isa AbstractVector{<:Real} && length(Δξ) == 2 && all(isfinite, Δξ)
+end
+
+
+Test.@testset "one-sided AD selector with MatrixInversion" begin
+    # MatrixInversion materializes the Jacobian explicitly, which must
+    # work with a reverse-mode-only selector as well:
+    context = MGVIContext(ADSelector(NoAutoDiff(), Zygote))
+    model = ModelPolyfit.model
+    true_params = ModelPolyfit.true_params
+    Random.seed!(158)
+    rs = MGVI.ResidualSampler(model, true_params, MGVI.MatrixInversion(), context)
+    smpls = MGVI.sample_residuals(rs, 3)
+    Test.@test smpls isa AbstractMatrix{<:Real} && size(smpls) == (length(true_params), 3)
+    Test.@test all(isfinite, smpls)
 end

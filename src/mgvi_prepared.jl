@@ -3,24 +3,23 @@
 
 # Mean posterior-covariance-inverse estimate over the samples (the
 # antithetic pairs for MGVI, the sample columns themselves for geoVI), as
-# a nested function ξ -> (v -> Σ̅⁻¹(ξ) * v). Equivalent to the
-# LinearMap-based curvature used by mgvi_step(::MGVIConfig), but free of
-# LinearMaps machinery, so suitable for program tracing:
+# a nested function ξ -> (v -> Σ̅⁻¹(ξ) * v). Equivalent to the operator
+# curvature used by mgvi_step(::MGVIConfig), expressed via closures so
+# it stays suitable for program tracing:
 function _mean_fisher_curvature(f_model, ad::ADSelector, residual_samples::AbstractMatrix{<:RealLike}, signs::Tuple)
     f_flat = flat_params ∘ f_model
     function curvature(ξ::AbstractVector)
         ops = [
             begin
                 ξᵢ = ξ + s * residual_samples[:, i]
-                jvpᵢ = jvp_func(f_flat, ξᵢ, ad)
-                _, vjpᵢ = with_vjp_func(f_flat, ξᵢ, ad)
-                ℐᵢ = _fisher_repr(fisher_information(f_model(ξᵢ)))
-                (jvpᵢ, vjpᵢ, ℐᵢ)
+                _, Jᵢ = with_jacobian(f_flat, ξᵢ, MatrixShapedOperator, ad)
+                ℐᵢ = fisher_information(f_model(ξᵢ))
+                (Jᵢ, ℐᵢ)
             end
             for i in axes(residual_samples, 2), s in signs
         ]
         function apply_curvature(v::AbstractVector)
-            acc = sum(vjpᵢ(_fisher_apply(ℐᵢ, jvpᵢ(v))) for (jvpᵢ, vjpᵢ, ℐᵢ) in ops)
+            acc = sum(Jᵢ' * (ℐᵢ * (Jᵢ * v)) for (Jᵢ, ℐᵢ) in ops)
             return acc ./ length(ops) .+ v
         end
         return apply_curvature
@@ -72,7 +71,7 @@ Run steps with `mgvi_step(prepared::MGVIPreparedStep, center)`.
 """
 struct MGVIPreparedStep{SF,CTX<:MGVIContext}
     step_fn::SF
-    n_λ::Int
+    n_z::Int
     n_θ::Int
     n_residuals::Int
     context::CTX
@@ -111,6 +110,9 @@ function mgvi_prepare(
     config::MGVIConfig, context::MGVIContext;
     device = nothing
 )
+    n_residuals > 0 || throw(ArgumentError(
+        "n_residuals must be positive, got $n_residuals"
+    ))
     optimizer = config.optimizer
     optimizer isa NewtonCG || throw(ArgumentError(
         "mgvi_prepare requires config.optimizer to be a MGVI.NewtonCG"
@@ -122,7 +124,9 @@ function mgvi_prepare(
     end
 
     n_θ = length(center_proto)
-    n_λ = length(flat_params(forward_model(center_proto)))
+    # The metric noise lives in the column space of the (possibly
+    # rectangular) generalized Cholesky factor of the Fisher information:
+    n_z = size(rowgram_factor(fisher_information(forward_model(center_proto))), 2)
     cg_max_iterations = Int(get(config.linsolver_opts, :maxiters, 4 * n_θ))
     cg_rtol = Float64(get(config.linsolver_opts, :reltol, sqrt(eps(Float64))))
 
@@ -130,11 +134,11 @@ function mgvi_prepare(
 
     genctx = context.gen
     dummy_center = collect(center_proto)
-    dummy_n = randn(genctx, n_λ, n_residuals)
+    dummy_n = randn(genctx, n_z, n_residuals)
     dummy_η = randn(genctx, n_θ, n_residuals)
     prepared_fn = _maybe_on_device(step_fn, device, dummy_center, dummy_n, dummy_η)
 
-    return MGVIPreparedStep(prepared_fn, n_λ, n_θ, Int(n_residuals), context)
+    return MGVIPreparedStep(prepared_fn, n_z, n_θ, Int(n_residuals), context)
 end
 export mgvi_prepare
 
@@ -153,7 +157,7 @@ Returns a tuple `(result::MGVIResult, updated_center)`.
 """
 function mgvi_step(prepared::MGVIPreparedStep, center::AbstractVector{<:Real})
     genctx = prepared.context.gen
-    sample_n = randn(genctx, prepared.n_λ, prepared.n_residuals)
+    sample_n = randn(genctx, prepared.n_z, prepared.n_residuals)
     sample_η = randn(genctx, prepared.n_θ, prepared.n_residuals)
     center_updated, min_mnlp, residual_samples = prepared.step_fn(center, sample_n, sample_η)
     samples = _build_samples(residual_samples, center_updated)
