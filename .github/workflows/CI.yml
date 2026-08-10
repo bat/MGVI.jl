@@ -34,9 +34,14 @@ jobs:
         arch:
           - x64
         include:
-          - version: 1
-            os: ubuntu-latest
-            arch: x86
+          # 32-bit x86 is disabled for now: LinearSolve >= 3.84 has
+          # SparseColumnPivotedQR as a hard dependency, which crashes on
+          # 32-bit platforms during precompilation (with default flags an
+          # @inbounds out-of-bounds write, i.e. silent memory corruption) -
+          # see SciML/SparseColumnPivotedQR.jl#67. Re-enable once fixed:
+          # - version: 1
+          #   os: ubuntu-latest
+          #   arch: x86
           - version: 1
             os: macOS-latest
             arch: arm64
