@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Tutorial · MGVI</title><meta name="title" content="Tutorial · MGVI"/><meta property="og:title" content="Tutorial · MGVI"/><meta property="twitter:title" content="Tutorial · MGVI"/><meta name="description" content="Documentation for MGVI."/><meta property="og:description" content="Documentation for MGVI."/><meta property="twitter:description" content="Documentation for MGVI."/><meta property="og:url" content="https://bat.github.io/MGVI.jl/stable/tutorial/"/><meta property="twitter:url" content="https://bat.github.io/MGVI.jl/stable/tutorial/"/><link rel="canonical" href="https://bat.github.io/MGVI.jl/stable/tutorial/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">MGVI</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li class="is-active"><a class="tocitem" href>Tutorial</a></li><li><a class="tocitem" href="../advanced_tutorial/">Advanced Tutorial</a></li><li><a class="tocitem" href="../api/">API</a></li><li><a class="tocitem" href="../LICENSE/">LICENSE</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Tutorial</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tutorial</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/bat/MGVI.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/bat/MGVI.jl/blob/main/docs/src/tutorial_lit.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Tutorial"><a class="docs-heading-anchor" href="#Tutorial">Tutorial</a><a id="Tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#Tutorial" title="Permalink"></a></h1><p>You can also download this tutorial as a <a href="../mgvi_tutorial.ipynb">Jupyter notebook</a> and a plain <a href="../mgvi_tutorial.jl">Julia source file</a>.</p><pre><code class="language-julia hljs">using MGVI</code></pre><pre><code class="language-julia hljs">using Distributions
+using Random
+using ValueShapes
+using LinearAlgebra
+
+import Zygote
+using AutoDiffOperators
+using LinearSolve: KrylovJL_CG</code></pre><p>We want to fit a 3-degree polynomial using two data sets (<code>a</code> and <code>b</code>). MGVI requires a model expressed as a function of the model parameters and returning an instance of the Distribution. In this example, since we have two sets of independent measurements, we express them as ValueShapes.NamedTupleDist.</p><p>We assume errors are normally distributed with unknown covariance, which has to be learned as well.</p><pre><code class="language-julia hljs">context = MGVIContext(ADSelector(Zygote))
+
+const _x1_grid = [Float64(i)/10 for i in 1:25]
+const _x2_grid = [Float64(i)/10 + 0.1 for i in 1:15]
+const _common_grid = sort(vcat(_x1_grid, _x2_grid))
+
+function _mean(x_grid, p)
+    p[1]*10 .+ p[2]*40 .* x_grid .+ p[3]*600 .* x_grid.^2 .+ p[4]*80 .* x_grid.^3
+end
+
+function model(p)
+    dist1 = product_distribution(Normal.(_mean(_x1_grid, p), p[5]^2*60))
+    dist2 = product_distribution(Normal.(_mean(_x2_grid, p), p[5]^2*60))
+    NamedTupleDist(a=dist1,
+                   b=dist2)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">model (generic function with 1 method)</code></pre><p>Here we define the ground truth of the parameters, as well as an initial guess.</p><pre><code class="language-julia hljs">const true_params =  [
+ -0.3
+ -1.5
+ 0.2
+ -0.5
+ 0.3]
+
+const starting_point = [
+  0.2
+  0.5
+  -0.1
+  0.3
+ -0.6
+];</code></pre><pre><code class="language-julia hljs">function pprintln(obj)
+    show(stdout, &quot;text/plain&quot;, obj)
+    println()
+end;</code></pre><pre><code class="language-julia hljs">using Plots</code></pre><pre><code class="language-julia hljs">rng = MersenneTwister(157);</code></pre><p>We draw data directly from the model, using the true parameter values:</p><pre><code class="language-julia hljs">data = rand(rng, model(true_params), 1)[1];</code></pre><pre><code class="language-julia hljs">function _mean(x::Vector)
+    _mean(_common_grid, x)
+end
+
+init_plots =() -&gt; let
+    truth = _mean(true_params)
+    plot!(_common_grid, truth, markercolor=:blue, linecolor=:blue, label=&quot;truth&quot;)
+    scatter!(_common_grid, _mean(starting_point), markercolor=:orange, markerstrokewidth=0, markersize=3, label=&quot;init&quot;)
+    scatter!(vcat(_x1_grid, _x2_grid), reduce(vcat, data), markercolor=:black, markerstrokewidth=0, markersize=3, label=&quot;data&quot;)
+end;</code></pre><p>Before we start the optimization, let&#39;s have an initial look at the data. It is also interesting to see how our starting guess performs.</p><pre><code class="language-julia hljs">p = plot()
+init_plots()
+savefig(&quot;tutorial-plot1.pdf&quot;)</code></pre><p><a href="../tutorial-plot1.pdf"><img src="../tutorial-plot1.svg" alt="Plot"/></a></p><p>Now we are ready to run one iteration of the MGVI. The output contains an updated parameter estimate (<code>center_point</code>), which we can compare to the true parameters.</p><pre><code class="language-julia hljs">config = MGVIConfig(
+    linsolver = KrylovJL_CG((;itmax=10)),
+    optimizer = MGVI.NewtonCG()
+)
+result, center_point = mgvi_step(model, data, 3, starting_point, config, context)
+@info hcat(center_point, true_params)
+p
+savefig(&quot;tutorial-plot2.pdf&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>[-0.6200594737394717 -0.3; -0.976928601861293 -1.5; 0.15726051019451642 0.2; -0.40783698891746867 -0.5; -0.5722415043469494 0.3]</code></pre><p><a href="../tutorial-plot2.pdf"><img src="../tutorial-plot2.svg" alt="Plot"/></a></p><pre><code class="language-julia hljs">plot_iteration = (result, center_point, label) -&gt; let
+    #error_mat = mgvi_kl_errors(full_model, params)
+    #display(error_mat)
+    #errors = sqrt.(error_mat[diagind(error_mat)])
+    #yerr = abs.(line(common_grid, params+errors) - line(common_grid, params-errors))
+    #scatter!(common_grid, line(common_grid, params), markercolor=:green, label=label, yerr=yerr)
+    for sample in eachcol(result.samples)
+        scatter!(_common_grid, _mean(Vector(sample)), markercolor=:gray, markeralpha=0.3, markersize=2, label=nothing)
+    end
+    scatter!(_common_grid, _mean(center_point), markercolor=:green, label=label)
+end;</code></pre><p>Now let&#39;s also plot the curve corresponding to the new parameters after the first iteration:</p><pre><code class="language-julia hljs">p = plot()
+init_plots()
+plot_iteration(result, center_point, &quot;first&quot;)
+p
+savefig(&quot;tutorial-3.pdf&quot;)</code></pre><p><a href="../tutorial-3.pdf"><img src="../tutorial-3.svg" alt="Plot"/></a></p><pre><code class="language-julia hljs">plot_iteration_light = (center_point, counter) -&gt; let
+    scatter!(_common_grid, _mean(center_point), markercolor=:green, markersize=3, markeralpha=2*atan(counter/18)/π, label=nothing)
+end;</code></pre><p>From the plot above we see that one iteration is not enough. Let&#39;s do 5 more steps and plot the evolution of estimates.</p><pre><code class="language-julia hljs">config = MGVIConfig(
+    linsolver = KrylovJL_CG((;itmax=10)),
+    optimizer = MGVI.NewtonCG()
+)
+
+init_plots()
+plt = scatter()
+for i in 1:5
+    @info result.mnlp
+    @info hcat(center_point, true_params)
+    global result, center_point = mgvi_step(model, data, 10, center_point, config, context)
+    plot_iteration_light(center_point, i)
+end
+@info minimum(result.mnlp)
+@info hcat(center_point, true_params)
+plt
+savefig(&quot;tutorial-plot4.pdf&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>165.5658037383011
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[-0.6200594737394717 -0.3; -0.976928601861293 -1.5; 0.15726051019451642 0.2; -0.40783698891746867 -0.5; -0.5722415043469494 0.3]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>142.3439776076129
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[-0.44553998129399874 -0.3; -1.3672167442786287 -1.5; 0.18688650609807125 0.2; -0.4680054423800599 -0.5; -0.3672418884493384 0.3]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>133.88516642277455
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[-0.45345301321120535 -0.3; -1.3554405390958315 -1.5; 0.18607425278184087 0.2; -0.4663558458323779 -0.5; -0.34171334156558797 0.3]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>130.60909788394108
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[-0.40263794567670597 -0.3; -1.4129078968903028 -1.5; 0.18977876712115607 0.2; -0.47358599627367887 -0.5; -0.3182823593072867 0.3]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>130.3607123504869
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[-0.36764889307677223 -0.3; -1.4499237955339048 -1.5; 0.1920758266790532 0.2; -0.47793307282715985 -0.5; -0.31000621918278615 0.3]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>130.31682518592478
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[-0.35068850203831087 -0.3; -1.4648989550630618 -1.5; 0.19292018119019594 0.2; -0.4794429680152038 -0.5; -0.30522458747891135 0.3]</code></pre><p><a href="../tutorial-plot4.pdf"><img src="../tutorial-plot4.svg" alt="Plot"/></a></p><p>Finally, let&#39;s plot the last estimate and compare it to the truth. Also, notice, that gray dots represent samples from the approximation.</p><pre><code class="language-julia hljs">p = plot()
+init_plots()
+plot_iteration(result, center_point, &quot;last&quot;)
+p
+savefig(&quot;tutorial-5.pdf&quot;)</code></pre><p><a href="../tutorial-5.pdf"><img src="../tutorial-5.svg" alt="Plot"/></a></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../advanced_tutorial/">Advanced Tutorial »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Friday 24 October 2025 11:44">Friday 24 October 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
