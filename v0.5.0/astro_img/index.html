@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Astro Imaging Example · MGVI</title><meta name="title" content="Astro Imaging Example · MGVI"/><meta property="og:title" content="Astro Imaging Example · MGVI"/><meta property="twitter:title" content="Astro Imaging Example · MGVI"/><meta name="description" content="Documentation for MGVI."/><meta property="og:description" content="Documentation for MGVI."/><meta property="twitter:description" content="Documentation for MGVI."/><meta property="og:url" content="https://bat.github.io/MGVI.jl/stable/astro_img/"/><meta property="twitter:url" content="https://bat.github.io/MGVI.jl/stable/astro_img/"/><link rel="canonical" href="https://bat.github.io/MGVI.jl/stable/astro_img/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">MGVI</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../tutorial/">Tutorial</a></li><li><a class="tocitem" href="../advanced_tutorial/">Advanced Tutorial</a></li><li class="is-active"><a class="tocitem" href>Astro Imaging Example</a><ul class="internal"><li><a class="tocitem" href="#Introduction"><span>Introduction</span></a></li><li><a class="tocitem" href="#Prepare-the-environment"><span>Prepare the environment</span></a></li><li><a class="tocitem" href="#The-sky-model"><span>The sky model</span></a></li><li><a class="tocitem" href="#Harmonic-transform"><span>Harmonic transform</span></a></li><li><a class="tocitem" href="#Emission-components"><span>Emission components</span></a></li><li><a class="tocitem" href="#Simulated-data"><span>Simulated data</span></a></li><li><a class="tocitem" href="#Fitting"><span>Fitting</span></a></li><li><a class="tocitem" href="#Results"><span>Results</span></a></li></ul></li><li><a class="tocitem" href="../api/">API</a></li><li><a class="tocitem" href="../LICENSE/">LICENSE</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Astro Imaging Example</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Astro Imaging Example</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/bat/MGVI.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/bat/MGVI.jl/blob/main/docs/src/astro_img_lit.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Astro-Imaging-Example"><a class="docs-heading-anchor" href="#Astro-Imaging-Example">Astro Imaging Example</a><a id="Astro-Imaging-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Astro-Imaging-Example" title="Permalink"></a></h1><p>You can also download this example as a <a href="../mgvi_astro_img.ipynb">Jupyter notebook</a> and a plain <a href="../mgvi_astro_img.jl">Julia source file</a>.</p><h2 id="Introduction"><a class="docs-heading-anchor" href="#Introduction">Introduction</a><a id="Introduction-1"></a><a class="docs-heading-anchor-permalink" href="#Introduction" title="Permalink"></a></h2><p>In this example we reconstruct a simulated astronomical image from photon counts. The sky model has two components: diffuse emission (dust, nebulae) with unknown brightness, contrast and correlation structure, and point-like stars that can outshine the diffuse background in single pixels. Each pixel of the simulated detector records Poisson-distributed counts, and MGVI fits both components jointly.</p><h2 id="Prepare-the-environment"><a class="docs-heading-anchor" href="#Prepare-the-environment">Prepare the environment</a><a id="Prepare-the-environment-1"></a><a class="docs-heading-anchor-permalink" href="#Prepare-the-environment" title="Permalink"></a></h2><pre><code class="language-julia hljs">using MGVI
+
+using Distributions
+using FFTW
+using Random
+using Statistics
+using Plots
+using ForwardDiffPullbacks
+
+import ForwardDiff, Zygote
+import DistributionsAD # provides the AD rules Zygote needs for Distributions
+using AutoDiffOperators
+
+context = MGVIContext(ADSelector(Zygote))
+
+Plots.default(dpi=120, size=(600, 500))</code></pre><pre><code class="language-julia hljs">Random.seed!(122);</code></pre><h2 id="The-sky-model"><a class="docs-heading-anchor" href="#The-sky-model">The sky model</a><a id="The-sky-model-1"></a><a class="docs-heading-anchor-permalink" href="#The-sky-model" title="Permalink"></a></h2><p>The detector image spans <code>data_dim</code> pixels. The diffuse emission is modeled on a <code>pad_factor</code> times larger grid, so that the periodic boundary conditions of its Fourier-space representation cannot fold emission from one image edge into the opposite one. A <code>SkyModel</code> object carries the grid sizes and the harmonic wave numbers <code>k</code> of the modeling grid, everything else is derived from them:</p><pre><code class="language-julia hljs">struct SkyModel &lt;: Function
+    data_dim::NTuple{2,Int}
+    gp_dim::NTuple{2,Int}
+    k::Matrix{Float64}
+    k_ref::Float64
+end
+
+function SkyModel(; data_dim::NTuple{2,&lt;:Integer}, pad_factor::Integer = 2)
+    gp_dim = pad_factor .* data_dim
+    kfreq(n) = [(i &lt;= n ÷ 2 ? i : i - n) / n for i in 0:(n - 1)]
+    k = hypot.(kfreq(gp_dim[1]), permutedims(kfreq(gp_dim[2])))
+    SkyModel(data_dim, gp_dim, k, 1 / maximum(gp_dim))
+end;</code></pre><p>MGVI models map a flat vector <code>p</code> of parameters with standard normal priors to a distribution of the data. The first three entries of <code>p</code> are the hyperparameters of the diffuse emission, followed by one latent parameter per modeling grid cell for the diffuse emission and one parameter per image pixel for the stars:</p><pre><code class="language-julia hljs">hyper_idxs(::SkyModel) = 1:3
+gp_idxs(m::SkyModel) = (1:prod(m.gp_dim)) .+ last(hyper_idxs(m))
+star_idxs(m::SkyModel) = (1:prod(m.data_dim)) .+ last(gp_idxs(m))
+n_params(m::SkyModel) = last(star_idxs(m));</code></pre><p>The image pixels form the central block of the padded modeling grid:</p><pre><code class="language-julia hljs">data_idxs(m::SkyModel) = map((o, n) -&gt; (o + 1):(o + n), (m.gp_dim .- m.data_dim) .÷ 2, m.data_dim);</code></pre><h2 id="Harmonic-transform"><a class="docs-heading-anchor" href="#Harmonic-transform">Harmonic transform</a><a id="Harmonic-transform-1"></a><a class="docs-heading-anchor-permalink" href="#Harmonic-transform" title="Permalink"></a></h2><p>As harmonic transform we choose the discrete Hartley transform (DHT), which maps real-valued functions to real-valued harmonic coefficients and is its own inverse up to a factor of the grid size. We compute it via a complex FFT as <code>real(F) - imag(F)</code>: unlike FFTW&#39;s real-to-real plans, this composes with automatic differentiation and program tracing, and it generalizes correctly to multiple dimensions (the two-dimensional Hartley kernel is not the product of two one-dimensional ones):</p><pre><code class="language-julia hljs">function dht(x::AbstractArray)
+    F = fft(Complex.(x))
+    return real.(F) .- imag.(F)
+end;</code></pre><p>Reverse-mode AD handles <code>dht</code> out of the box. For forward-mode AD (MGVI uses it for Jacobian-vector products) we exploit that the DHT is linear, so it transforms dual values and partial derivatives independently:</p><pre><code class="language-julia hljs">function dht(x::AbstractArray{ForwardDiff.Dual{T,V,N}}) where {T,V,N}
+    val = dht(ForwardDiff.value.(x))
+    parts = ntuple(i -&gt; dht(ForwardDiff.partials.(x, i)), Val(N))
+    return ForwardDiff.Dual{T}.(val, parts...)
+end;</code></pre><h2 id="Emission-components"><a class="docs-heading-anchor" href="#Emission-components">Emission components</a><a id="Emission-components-1"></a><a class="docs-heading-anchor-permalink" href="#Emission-components" title="Permalink"></a></h2><p>The log-brightness of the diffuse emission is a Gaussian random field with a power-law amplitude spectrum <code>A(k) ∝ k^-α</code>. Its three hyperparameters — mean log-brightness <code>offset</code>, contrast <code>fluctuations</code> and spectral slope <code>α</code> — have standard normal priors like all other parameters, so they are rescaled to their intended ranges inside the model. The amplitude spectrum is normalized such that <code>fluctuations</code> directly gives the a priori standard deviation of the log-brightness:</p><pre><code class="language-julia hljs">function diffuse_emission(m::SkyModel, p::AbstractVector)
+    ξ_offset, ξ_fluct, ξ_slope = p[hyper_idxs(m)]
+    offset = log(3.0) + 1.0 * ξ_offset
+    fluctuations = 1.5 * exp(0.3 * ξ_fluct)
+    α = 1.5 + 0.25 * ξ_slope
+    k_safe = ifelse.(m.k .== 0, one.(m.k), m.k)
+    A_raw = ifelse.(m.k .== 0, zero(α), (k_safe ./ m.k_ref) .^ -α)
+    A = fluctuations .* A_raw ./ sqrt(sum(abs2, A_raw) / length(A_raw))
+    ξ_gp = reshape(p[gp_idxs(m)], m.gp_dim)
+    log_brightness = offset .+ dht(A .* ξ_gp) ./ sqrt(prod(m.gp_dim))
+    exp.(log_brightness[data_idxs(m)...])
+end;</code></pre><p>Stars are point-like, so they need no correlation structure: each image pixel gets an independent star brightness with a heavy-tailed log-normal prior. Most pixels stay dark, but dozens of the brightest ones a priori host stars that outshine the diffuse emission:</p><pre><code class="language-julia hljs">function star_emission(m::SkyModel, p::AbstractVector)
+    exp.(-6.5 .+ 3.2 .* reshape(p[star_idxs(m)], m.data_dim))
+end;
+
+total_emission(m::SkyModel, p::AbstractVector) = diffuse_emission(m, p) .+ star_emission(m, p);</code></pre><p>Each pixel records counts drawn from a Poisson distribution with the total emission as rate. Wrapping the <code>Poisson</code> constructor via <code>fwddiff</code> from ForwardDiffPullbacks makes the broadcast efficient for reverse-mode AD:</p><pre><code class="language-julia hljs">function (m::SkyModel)(p::AbstractVector)
+    product_distribution(fwddiff(Poisson).(vec(total_emission(m, p))))
+end;</code></pre><h2 id="Simulated-data"><a class="docs-heading-anchor" href="#Simulated-data">Simulated data</a><a id="Simulated-data-1"></a><a class="docs-heading-anchor-permalink" href="#Simulated-data" title="Permalink"></a></h2><p>We instantiate the sky model and draw the ground truth from the prior:</p><pre><code class="language-julia hljs">sky = SkyModel(data_dim = (96, 96))
+
+true_params = randn(n_params(sky));
+data = rand(sky(true_params));
+
+plot(
+    heatmap(diffuse_emission(sky, true_params), title=&quot;true diffuse emission&quot;),
+    heatmap(star_emission(sky, true_params), title=&quot;true stars&quot;),
+    heatmap(log10.(total_emission(sky, true_params)), title=&quot;true total emission (log10)&quot;),
+    heatmap(log10.(reshape(data, sky.data_dim) .+ 1), title=&quot;observed counts (log10(1+n))&quot;),
+    layout=(2, 2), size=(900, 700)
+)
+savefig(&quot;astro-img-plot1.png&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;/home/runner/work/MGVI.jl/MGVI.jl/docs/build/astro-img-plot1.png&quot;</code></pre><p><a href="../astro-img-plot1.png"><img src="../astro-img-plot1.png" alt="Plot"/></a></p><h2 id="Fitting"><a class="docs-heading-anchor" href="#Fitting">Fitting</a><a id="Fitting-1"></a><a class="docs-heading-anchor-permalink" href="#Fitting" title="Permalink"></a></h2><p>We prepare the MGVI step once for the model, data and parameter size, and then iterate it, starting from the prior mean. Preparation makes repeated steps cheap, and for accelerator devices (via the <code>device</code> keyword of <code>mgvi_prepare</code>) the prepared step can even be compiled into a single device program. Each step draws new residual samples around the current parameter estimate, so the mean negative log-posterior <code>mnlp</code> fluctuates slightly even after convergence:</p><pre><code class="language-julia hljs">config = MGVIConfig(
+    linsolver_opts = (;maxiters = 30),
+    optimizer = MGVI.NewtonCG(steps = 3, cg_maxiter = 20)
+)
+
+center = zeros(n_params(sky))
+prepared = mgvi_prepare(sky, data, 4, center, config, context)
+
+mnlp_series = Float64[]
+result = nothing
+for i in 1:12
+    global result, center = mgvi_step(prepared, center)
+    push!(mnlp_series, result.mnlp)
+end
+
+plot(mnlp_series, yscale=:log10, marker=:circle, label=&quot;mnlp&quot;, xlabel=&quot;iteration&quot;)
+savefig(&quot;astro-img-plot2.pdf&quot;)</code></pre><p><a href="../astro-img-plot2.pdf"><img src="../astro-img-plot2.svg" alt="Plot"/></a></p><h2 id="Results"><a class="docs-heading-anchor" href="#Results">Results</a><a id="Results-1"></a><a class="docs-heading-anchor-permalink" href="#Results" title="Permalink"></a></h2><p>The reconstruction separates the two components: the diffuse emission is recovered as a smooth field, and the bright stars are absorbed by the point-source component instead of leaving imprints in the diffuse map:</p><pre><code class="language-julia hljs">plot(
+    heatmap(diffuse_emission(sky, true_params), title=&quot;true diffuse emission&quot;),
+    heatmap(diffuse_emission(sky, center), title=&quot;reconstructed diffuse emission&quot;),
+    heatmap(star_emission(sky, true_params), title=&quot;true stars&quot;),
+    heatmap(star_emission(sky, center), title=&quot;reconstructed stars&quot;),
+    layout=(2, 2), size=(900, 700)
+)
+savefig(&quot;astro-img-plot3.png&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;/home/runner/work/MGVI.jl/MGVI.jl/docs/build/astro-img-plot3.png&quot;</code></pre><p><a href="../astro-img-plot3.png"><img src="../astro-img-plot3.png" alt="Plot"/></a></p><p>The brightness of the reconstructed stars closely follows the truth for stars that stand out of the diffuse background, while stars fainter than the background are only weakly constrained by the data:</p><pre><code class="language-julia hljs">star_sel = findall(vec(star_emission(sky, true_params)) .&gt; 1);
+
+scatter(
+    vec(star_emission(sky, true_params))[star_sel], vec(star_emission(sky, center))[star_sel],
+    xscale=:log10, yscale=:log10, xlabel=&quot;true star brightness&quot;,
+    ylabel=&quot;reconstructed star brightness&quot;, label=nothing
+)
+plot!(identity, label=&quot;truth&quot;)
+savefig(&quot;astro-img-plot4.pdf&quot;)</code></pre><p><a href="../astro-img-plot4.pdf"><img src="../astro-img-plot4.svg" alt="Plot"/></a></p><p>MGVI approximates the posterior by a Gaussian in the standardized parameters, centered on the final parameter estimate with the inverse Fisher metric as covariance. Samples from this posterior approximation can be drawn at any time via <code>MGVI.sample_residuals</code>, as antithetic pairs <code>center ± residual</code>:</p><pre><code class="language-julia hljs">residuals = MGVI.sample_residuals(
+    sky, center,
+    randn(prod(sky.data_dim), 16), randn(n_params(sky), 16),
+    context.ad
+);
+post_samples = hcat(center .+ residuals, center .- residuals);</code></pre><p>Per-pixel standard deviations of the log-brightness over the posterior samples provide an uncertainty map of the reconstruction: the emission is tightly constrained where it is bright, while for dark pixels the data only provide upper limits on a possible star, so the uncertainty is dominated by the star prior there:</p><pre><code class="language-julia hljs">sample_log_emissions = [log10.(total_emission(sky, Vector(s))) for s in eachcol(post_samples)];
+
+plot(
+    heatmap(log10.(total_emission(sky, center)), title=&quot;reconstructed total emission (log10)&quot;),
+    heatmap(std(sample_log_emissions), title=&quot;posterior uncertainty (dex)&quot;),
+    layout=(1, 2), size=(900, 350)
+)
+savefig(&quot;astro-img-plot5.png&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;/home/runner/work/MGVI.jl/MGVI.jl/docs/build/astro-img-plot5.png&quot;</code></pre><p><a href="../astro-img-plot5.png"><img src="../astro-img-plot5.png" alt="Plot"/></a></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../advanced_tutorial/">« Advanced Tutorial</a><a class="docs-footer-nextpage" href="../api/">API »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 11 July 2026 23:38">Saturday 11 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
